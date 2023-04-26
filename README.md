@@ -2,8 +2,6 @@
 
 I'm working on a 3D engine for Python.
 
-Right now it can handle about 600 triangles at 30 FPS on a 3rd Gen Ryzen 7
-
 # Installation Guide
 
 Simply copy the prez.py file into your script's directory and import it with
