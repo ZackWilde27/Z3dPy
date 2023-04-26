@@ -1,6 +1,7 @@
 # Zack's Python Rasterizer Library
 
-I'm working on a 3D engine for Python.
+I'm working on a 3D engine for Python. <br>
+Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here</a>
 
 # Installation Guide
 
