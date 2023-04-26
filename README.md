@@ -1,6 +1,6 @@
 # Zack's Python Rasterizer
 
-I decided to make my own 3D engine in Python using PyGame.
+An early look at my own 3D engine in Python using PyGame.
 
 At the start you will be given a couple options before the engine starts, allowing you to import your own obj file, and picking the shading method.
 
