@@ -5,7 +5,9 @@ Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki"
 
 # Installation Guide
 
-Simply copy the prez.py file into your script's directory and import it with
+First, install NumPy.
+
+Then, copy the prez.py file into your script's directory and import it with
 ```python
 from prez import *
 ```
