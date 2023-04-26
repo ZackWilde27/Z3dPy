@@ -27,7 +27,7 @@ clock = pygame.time.Clock()
 myMeshList = []
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMeshList.append(LoadMesh("test512.obj", 0, 0, 2))
+myMeshList.append(LoadMesh("example.obj", 0, 0, 2))
 
 # Create our camera (x, y, z, width, height, fov, nearClip, farClip)
 myCamera = Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
