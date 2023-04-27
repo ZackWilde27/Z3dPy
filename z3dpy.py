@@ -1,5 +1,5 @@
-# Python Raster Engine by Zack
-# or prez for short
+# Zack's 3D Python Library
+# or Z3dPy for short
 
 import math
 import numpy as np
