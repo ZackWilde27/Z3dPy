@@ -67,6 +67,8 @@ while not done:
     clock.tick(30)
     screen.fill("black")
     
+    # For this example, it's easier to raster all triangles at once. for a more custom pipeline, see the wiki
+    
     # Pass our list of meshes and camera info to the rasterizer, it'll return a sorted list of triangles to draw on our screen
     for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
         
