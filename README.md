@@ -4,8 +4,6 @@ or Z3DPy for short
 I'm working on a 3D engine for Python. <br>
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here</a>
 
-Very early stages, hopefully one day it'll be viable for game development
-
 # Installation Guide
 
 First, you'll need NumPy, my library requires it.
