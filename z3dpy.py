@@ -254,6 +254,7 @@ intCam = Camera(0, 0, 0, 256, 240, 90, 0.1, 1500)
 # Rastering
 
 def RasterTriangles(meshList, camera):
+    global intCam
     intCam = camera
     # Clear Lists
     TrisToDraw = []
@@ -316,3 +317,56 @@ def RasterTriangles(meshList, camera):
     TrisToDraw.sort(key = triSort)
     return TrisToDraw
         
+def FullTranslateTriangle(tri, camera):
+    global intCam
+    intCam = camera
+
+    # This one we only need to calculate once per frame
+    matTrans = GetTranslationMatrix(camera.loc.x, camera.loc.y, camera.loc.z)
+        
+    matRotX = MatrixMakeRotX(meshes.rot.x)
+    matRotZ = np.matrix([[math.cos(meshes.rot.z), math.sin(meshes.rot.z), 0, 0], [-math.sin(meshes.rot.z), math.cos(meshes.rot.z), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        
+    matWorld = np.matmul(matRotZ, matRotX)
+    matWorld = np.matmul(matWorld, matTrans)
+            
+    triTransformed = Triangle(Vector(t.p1.x, t.p1.y, t.p1.z), Vector(t.p2.x, t.p2.y, t.p2.z), Vector(t.p3.x, t.p3.y, t.p3.z))
+                
+    # Moving Triangle based on Object Rotation (It's also supposed to take camera position into account but apparently not)
+    triTransformed = TriMatrixMul(t, matWorld)
+
+    # Moving Triangle Again Depending on Object Position
+    triTranslated = TriangleAdd(triTransformed, meshes.pos)
+
+    # Moving Triangle Again Again Based on Camera Position, because the first line didn't do that
+    triTranslated = TriMatrixMul(triTranslated, matTrans)
+                
+    # Calculating Normal Vector
+    triTranslated.normal = GetNormal(triTranslated)
+    
+    return triTranslated
+                
+                    
+def FullProjectTriangle(tri, camera)
+    # Projecting 3D into 2D
+    triProjected = ProjectTriangle(triTranslated, camera.a, camera.tan, camera.fc, camera.nc)
+
+    # Scale into view
+    triProjected.p1.x += 1
+    triProjected.p1.y += 1
+    triProjected.p2.x += 1
+    triProjected.p2.y += 1
+    triProjected.p3.x += 1
+    triProjected.p3.y += 1
+
+    triProjected.p1.x *= 0.5 * camera.scrW
+    triProjected.p1.y *= 0.5 * camera.scrH
+    triProjected.p2.x *= 0.5 * camera.scrW
+    triProjected.p2.y *= 0.5 * camera.scrH
+    triProjected.p3.x *= 0.5 * camera.scrW
+    triProjected.p3.y *= 0.5 * camera.scrH
+                    
+    # Normal X and Z are flipped for some reason
+    triProjected.normal = VectorMul(triTranslated.normal, Vector(-1, 1, -1))
+                        
+    return triProjected
