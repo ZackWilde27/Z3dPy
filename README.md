@@ -15,26 +15,38 @@ Then, copy the z3dpy.py file into your script's directory and import it with
 import z3dpy
 ```
 
-# Example Program
+# Getting Started
 We'll import the engine and use PyGame for our screen.
 
 ```python
 import z3dpy
 import pygame
 
-myMeshList = []
-
-# Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMeshList.append(z3dpy.LoadMesh("example.obj", 0, 0, 2))
-
-# Create our camera (x, y, z, width, height, fov, nearClip, farClip)
-myCamera = z3dpy.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
-
 # Just some PyGame stuff
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
+```
 
+Next we create our camera object. width and height should match the output screen
+
+```python
+# Create our camera (x, y, z, width, height, fov, nearClip, farClip)
+myCamera = z3dpy.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
+```
+
+Now we need to define a list of meshes to draw, we could do this manually but there's a function to load a mesh from a file
+```python
+myMeshList = []
+
+# Use the LoadMesh function to load an OBJ file (filename, x, y, z)
+myMesh = z3dpy.LoadMesh("example.obj", 0, 0, 2)
+myMeshList.append(myMesh)
+```
+
+Now all that's left is defining our draw loop
+
+```python
 # Raster Loop
 done = False
 
