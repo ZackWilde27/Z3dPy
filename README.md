@@ -1,4 +1,4 @@
-# Zack's 3D Library for Python
+# Zack's 3D Python Library
 or Z3DPy for short
 
 I'm working on a 3D engine for Python. <br>
