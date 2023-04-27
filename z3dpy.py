@@ -1,10 +1,12 @@
-# Zack's 3D Python Library
-# or Z3dPy for short
+# Zack's 3D Python Engine
+# or ZedPy for short
 
 import math
 import numpy as np
 import time
 import random as rand
+
+print("Z3dPy loaded.")
 
 # Object Objects
 
@@ -50,10 +52,12 @@ class Camera:
         
 # Variables
 
+track = time.time()
+
 # Dimension associated with basic flat shading. 0 is X, 1 is Y, 2 is Z
 colorDir = 2
 
-# Didn't end up using these but they're good to know
+
 #ProjectionMatrix = np.matrix([[CamAspR * CamTan, 0, 0, 0], [0, CamTan, 0, 0], [0, 0, CamFC / (CamFC - CamNC), 1], [0, 0, (-CamFC * CamNC) / (CamFC - CamNC), 0]])
 
 #matRotZ = np.matrix([[1, 0, 0, 0], [0, math.cos((time.time() - track) / 2), math.sin((time.time() - track) / 2), 0], [0, -math.sin((time.time() - track) / 2), math.cos((time.time() - track) / 2), 0], [0, 0, 1, 0]])
@@ -214,7 +218,6 @@ def PointAtMatrix(pos, target, up):
     # Now for the matrix
     return np.matrix([[temp.p3.x, temp.p3.y, temp.p3.z, 0], [temp.p2.x, temp.p2.y, temp.p2.z, 0], [temp.p1.x, temp.p1.y, temp.p1.z, 0], [CamX, CamY, CamZ, 1]])
 
-# LookAtMatrix is not finished, still needs the last row
 def LookAtMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
@@ -247,6 +250,8 @@ def LoadMesh(filename, x, y, z):
             triangles.append(Triangle(verts[int(currentLine[0]) - 1], verts[int(currentLine[1])- 1], verts[int(currentLine[2]) - 1]))
         
     file.close()
+    if triangles == []:
+        print("Error: Model has no triangles or does not exist")
     return Mesh(triangles, x, y, z)
 
 intCam = Camera(0, 0, 0, 256, 240, 90, 0.1, 1500)
@@ -317,14 +322,14 @@ def RasterTriangles(meshList, camera):
     TrisToDraw.sort(key = triSort)
     return TrisToDraw
 
-def TransformTriangles(tris, rot, camera)
+def TransformTriangles(tris, rot, camera):
     global intCam
     intCam = camera
     transformed = []
+    # Matrix Stuff
+    matTrans = GetTranslationMatrix(camera.loc.x, camera.loc.y, camera.loc.z)
     for t in tris:
-        # Matrix Stuff
-        matTrans = GetTranslationMatrix(camera.loc.x, camera.loc.y, camera.loc.z)
-
+        
         matRotX = MatrixMakeRotX(rot.x)
         matRotZ = np.matrix([[math.cos(rot.z), math.sin(rot.z), 0, 0], [-math.sin(rot.z), math.cos(rot.z), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
@@ -333,6 +338,7 @@ def TransformTriangles(tris, rot, camera)
 
         # Moving Triangle based on Object Rotation (It's also supposed to take camera position into account but apparently not)
         t = TriMatrixMul(t, matWorld)
+        transformed.append(t)
         
     return transformed
         
@@ -341,44 +347,48 @@ def TranslateTriangles(tris, pos, camera):
     intCam = camera
     translated = []
     for tri in tris:
-        # This one we only need to calculate once per frame
+        
         matTrans = GetTranslationMatrix(camera.loc.x, camera.loc.y, camera.loc.z)
 
-        # Moving Triangle Again Depending on Object Position
+        # Moving triangle based on object position
         tri = TriangleAdd(tri, pos)
 
-        # Moving Triangle Again Again Based on Camera Position, because the first line didn't do that
+        # Moving triangle based on camera position
         tri = TriMatrixMul(tri, matTrans)
                 
         # Calculating Normal Vector
         tri.normal = GetNormal(tri)
+        
         translated.append(tri)
     
     return translated
                     
-def ProjectTriangles(tris, camera)
+def ProjectTriangles(tris, camera):
+    global intCam
+    intCam = camera
     projected = []
-    for tri in tris
+    for tri in tris:
         # Projecting 3D into 2D
-        triProjected = ProjectTriangle(tri, camera.a, camera.tan, camera.fc, camera.nc)
+        newTri = ProjectTriangle(tri, camera.a, camera.tan, camera.fc, camera.nc)
 
         # Scale into view
-        tri.p1.x += 1
-        tri.p1.y += 1
-        tri.p2.x += 1
-        tri.p2.y += 1
-        tri.p3.x += 1
-        tri.p3.y += 1
+        newTri.p1.x += 1
+        newTri.p1.y += 1
+        newTri.p2.x += 1
+        newTri.p2.y += 1
+        newTri.p3.x += 1
+        newTri.p3.y += 1
 
-        tri.p1.x *= 0.5 * camera.scrW
-        tri.p1.y *= 0.5 * camera.scrH
-        tri.p2.x *= 0.5 * camera.scrW
-        tri.p2.y *= 0.5 * camera.scrH
-        tri.p3.x *= 0.5 * camera.scrW
-        tri.p3.y *= 0.5 * camera.scrH
-                    
-        # Normal X and Z are flipped for some reason
-        tri.normal = VectorMul(tri.normal, Vector(-1, 1, -1))
-        projected.append(tri)
+        newTri.p1.x *= 0.5 * camera.scrW
+        newTri.p1.y *= 0.5 * camera.scrH
+        newTri.p2.x *= 0.5 * camera.scrW
+        newTri.p2.y *= 0.5 * camera.scrH
+        newTri.p3.x *= 0.5 * camera.scrW
+        newTri.p3.y *= 0.5 * camera.scrH
+
+        # Normal Y and Z are flipped for some reason
+        newTri.normal = VectorMul(tri.normal, Vector(1, -1, -1))
+        
+        projected.append(newTri)
                         
     return projected
