@@ -10,12 +10,12 @@ Very early in development, this engine will update with features as time goes on
 
 First, you'll need NumPy, my library requires it.
 
+Next, you'll need some way to display the graphics, I recommend PyGame.
+
 Then, copy the z3dpy.py file into your script's directory and import it with
 ```python
 import z3dpy
 ```
-
-Now you have all the functions and classes required to start
 
 # Example Program
 We'll import the engine and use PyGame for our screen.
@@ -52,7 +52,11 @@ while not done:
     for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
         
         # My library has handy functions for PyGame
+        # This will colour the triangle with it's normal value.
         z3dpy.DrawTriangleRGB(tri, screen, tri.normal, pygame)
+        
+        # If you wanted flat shading instead of normal colouring
+        #z3dpy.DrawTriangleF(tri, screen, tri.normal.z, pygame)
 
     # Update display
     pygame.display.flip()
