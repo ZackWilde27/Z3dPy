@@ -82,7 +82,7 @@ while not done:
     # Update display
     pygame.display.flip()
     
-    # Rotate mesh for maximum screensaver effect
+    # Rotate mesh
     myMeshList[0].rot.x += 0.1
     myMeshList[0].rot.y += 0.14
     myMeshList[0].rot.z += 0.07
