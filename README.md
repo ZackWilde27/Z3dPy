@@ -18,7 +18,7 @@ import z3dpy
 Now you have all the functions and classes required to start
 
 # Example Program
-We'll import the engine and use PyGame as our screen.
+We'll import the engine and use PyGame for our screen.
 
 ```python
 import z3dpy
