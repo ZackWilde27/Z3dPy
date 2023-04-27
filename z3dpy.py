@@ -50,12 +50,10 @@ class Camera:
         
 # Variables
 
-track = time.time()
-
 # Dimension associated with basic flat shading. 0 is X, 1 is Y, 2 is Z
 colorDir = 2
 
-
+# Didn't end up using these but they're good to know
 #ProjectionMatrix = np.matrix([[CamAspR * CamTan, 0, 0, 0], [0, CamTan, 0, 0], [0, 0, CamFC / (CamFC - CamNC), 1], [0, 0, (-CamFC * CamNC) / (CamFC - CamNC), 0]])
 
 #matRotZ = np.matrix([[1, 0, 0, 0], [0, math.cos((time.time() - track) / 2), math.sin((time.time() - track) / 2), 0], [0, -math.sin((time.time() - track) / 2), math.cos((time.time() - track) / 2), 0], [0, 0, 1, 0]])
@@ -201,6 +199,7 @@ def PointAtMatrix(pos, target, up):
     # Now for the matrix
     return np.matrix([[temp.p3.x, temp.p3.y, temp.p3.z, 0], [temp.p2.x, temp.p2.y, temp.p2.z, 0], [temp.p1.x, temp.p1.y, temp.p1.z, 0], [CamX, CamY, CamZ, 1]])
 
+# LookAtMatrix is not finished, still needs the last row
 def LookAtMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
