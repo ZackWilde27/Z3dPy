@@ -164,7 +164,7 @@ def TriangleDivF(t, v):
 
 def TriangleCullTest(t):
     threshold = 0.5
-    return t.p1.z > threshold and t.p1.z > threshold and t.p1.z > threshold
+    return t.p1.z > threshold and t.p2.z > threshold and t.p3.z > threshold
 
 def GetNormal(tri):
     triLine1 = VectorSub(tri.p2, tri.p1)
