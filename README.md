@@ -15,6 +15,15 @@ Then, copy the z3dpy.py file into your script's directory and import it with
 import z3dpy
 ```
 
+# Exporting Mesh
+
+Export your mesh as an OBJ file, with no extra information. Make sure to triangulate.
+<br>
+The forward axis is +Z, and up axis is -Y
+
+![image](https://user-images.githubusercontent.com/115175938/235002154-62bb03ad-13f3-4084-b410-aa0074553865.png)
+
+
 # Getting Started
 We'll import the engine and use PyGame for our screen.
 
