@@ -143,6 +143,21 @@ def VectorToList(v):
 def TriangleAdd(t, v):
     return Triangle(VectorAdd(t.p1, v), VectorAdd(t.p2, v), VectorAdd(t.p3, v))
 
+def TriangleSub(t, v):
+    return Triangle(VectorSub(t.p1, v), VectorSub(t.p2, v), VectorSub(t.p3, v))
+
+def TriangleMul(t, v):
+    return Triangle(VectorMul(t.p1, v), VectorMul(t.p2, v), VectorMul(t.p3, v))
+
+def TriangleMulF(t, f):
+    return Triangle(VectorMulF(t.p1, f), VectorMulF(t.p2, f), VectorMulF(t.p3, f))
+
+def TriangleDiv(t, v):
+    return Triangle(VectorDiv(t.p1, v), VectorDiv(t.p2, v), VectorDiv(t.p3, v))
+
+def TriangleDivF(t, v):
+    return Triangle(VectorDivF(t.p1, f), VectorDivF(t.p2, f), VectorDivF(t.p3, f))
+
 def TriangleCullTest(t):
     threshold = 0.5
     return t.p1.z > threshold and t.p1.z > threshold and t.p1.z > threshold
