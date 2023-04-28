@@ -11,10 +11,12 @@ Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki"
 
 First, you'll need NumPy, my library requires it.
 
-Then, copy the z3dpy.py file into your script's directory and import it with
+Then, download the repo as a zip file, extract it to the same folder as your script, and import it with
 ```python
 import z3dpy
 ```
+
+You only really need the z3dpy.py file, but the engine folder has some built-in meshes to use
 
 # Example Program
 To display the finished results we need a screen. In my experience, PyGame is faster than Tkinter, so I'll use that.
