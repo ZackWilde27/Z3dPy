@@ -1,4 +1,4 @@
-# Zack's 3D Python Library v0.0.1
+# Zack's 3D Python Library v0.0.2
 or ZedPy for short
 
 My hope is that 3D games in Python will be as easy as 2D games
