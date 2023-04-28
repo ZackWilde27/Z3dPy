@@ -1,7 +1,8 @@
 # Zack's 3D Python Library
 or ZedPy for short
 
-I'm working on a 3D engine for Python. <br>
+Takes care of all the matrix math and projection for you
+
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here</a>
 
 # Installation Guide
