@@ -40,7 +40,7 @@ myMeshList = []
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
 myMesh = z3dpy.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
-# z.obj can be downloaded from the repo
+
 myMeshList.append(myMesh)
 
 # Create our camera object (x, y, z, width, height, fov, nearClip, farClip)
@@ -61,6 +61,7 @@ for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
         
     # If you wanted flat shading instead of normal colouring
     #z3dpy.DrawTriangleF(tri, screen, tri.normal.z, pygame)
+    
 # Update Display afterwards
 pygame.display.flip()
 ```
@@ -85,7 +86,6 @@ while not done:
     for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
         z3dpy.DrawTriangleRGB(tri, screen, tri.normal, pygame)
 
-    # Update display
     pygame.display.flip()
     
     # Rotate mesh
