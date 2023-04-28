@@ -39,7 +39,7 @@ Load a mesh with z3dpy.LoadMesh() and then append it to a list.
 myMeshList = []
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMesh = z3dpy.LoadMesh("z.obj", 0, 0, 5)
+myMesh = z3dpy.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 # z.obj can be downloaded from the repo
 myMeshList.append(myMesh)
 
