@@ -54,7 +54,21 @@ myMesh = z3dpy.LoadMesh("example.obj", 0, 0, 2)
 myMeshList.append(myMesh)
 ```
 
-Now all that's left is defining our draw loop
+To draw the meshes to the screen, rasterize them with RasterizeTriangles()
+
+```python
+# Pass our list of meshes and camera object to the rasterizer, it'll return a sorted list of triangles to draw on our screen
+for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
+        
+    # My library has handy functions for PyGame
+    # This will colour the triangle with it's normal value.
+    z3dpy.DrawTriangleRGB(tri, screen, tri.normal, pygame)
+        
+    # If you wanted flat shading instead of normal colouring
+    #z3dpy.DrawTriangleF(tri, screen, tri.normal.z, pygame)
+```
+
+Now all that's left is to chuck it in a loop
 
 ```python
 # Raster Loop
@@ -70,15 +84,9 @@ while not done:
     
     # For this example, it's easier to raster all triangles at once. for a more custom pipeline, see the wiki
     
-    # Pass our list of meshes and camera info to the rasterizer, it'll return a sorted list of triangles to draw on our screen
+    # Render 3D
     for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
-        
-        # My library has handy functions for PyGame
-        # This will colour the triangle with it's normal value.
         z3dpy.DrawTriangleRGB(tri, screen, tri.normal, pygame)
-        
-        # If you wanted flat shading instead of normal colouring
-        #z3dpy.DrawTriangleF(tri, screen, tri.normal.z, pygame)
 
     # Update display
     pygame.display.flip()
