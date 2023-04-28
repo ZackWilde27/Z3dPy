@@ -29,7 +29,7 @@ SpawnPipePair(-1)
 
 
 # Create our camera (x, y, z, width, height, fov, nearClip, farClip)
-myCamera = z3dpy.Camera(0, 0, 3, 1280, 720, 90, 0.1, 1500)
+myCamera = z3dpy.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
 
 # Raster Loops
 done = False
@@ -45,20 +45,16 @@ while not done:
 
     # Input
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_w]:
-        myCamera.loc.z -= 1
-    if keys[pygame.K_s]:
-        myCamera.loc.z += 1
 
     if keys[pygame.K_e]:
         birdVelocity = -0.5
 
     # Locking Camera to Bird kinda
-    if -myCamera.loc.y > myMeshList[0].pos.y:
-        myCamera.loc.y += 0.25
+    if myCamera.y > myMeshList[0].pos.y:
+        myCamera.y -= 0.25
     else:
-        myCamera.loc.y = -myMeshList[0].pos.y
-    myCamera.loc.x = myMeshList[0].pos.x
+        myCamera.y = myMeshList[0].pos.y
+    myCamera.x = myMeshList[0].pos.x
 
     # Gravity
     if birdVelocity < 1:
@@ -78,25 +74,8 @@ while not done:
     else:
         myMeshList[0].pos.y = myMeshList[1].pos.y - 1
     
-    transformed = []
-    translated = []
-    toProject = []
-    projected = []
-    for mesh in myMeshList:
-
-        transformed = z3dpy.TransformTriangles(mesh.tris, mesh.rot, myCamera)
-
-        for r in z3dpy.TranslateTriangles(transformed, mesh.pos, myCamera):
-            if z3dpy.VectorDoP(r.normal, z3dpy.Vector(0, 0, 1)) <= 0.3:
-                translated.append(r)
-
-        projected = z3dpy.ProjectTriangles(translated, myCamera)
-        projected.sort(key = z3dpy.triSort)
-        
-        for i in projected:
-            if z3dpy.TriangleCullTest(i):
-                # Draw the projected triangle to the screen, using the Z as our light direction
-                z3dpy.DrawTriangleF(i, screen, max((i.normal.z + i.normal.y) / 2, 0), pygame)
+    for tris in z3dpy.RasterTriangles(myMeshList, myCamera):
+        z3dpy.DrawTriangleF(tris, screen, max((tris.normal.z + -tris.normal.y )/ 2, 0), pygame)
 
     # Update display
     pygame.display.flip()
