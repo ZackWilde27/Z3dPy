@@ -300,8 +300,6 @@ def RasterTriangles(meshList, camera):
 
         targetVector = VectorAdd(camera.GetVector(), quickVectors.gz)
 
-        matCamera = PointAtMatrix(camera.GetVector(), targetVector, upVector, camera)
-
         matView = LookAtMatrix(camera.GetVector(), targetVector, upVector, camera)
         
         for t in meshes.tris:
@@ -381,9 +379,6 @@ def TranslateTriangles(tris, pos, camera):
 
         # Moving triangle based on object position
         tri = TriangleAdd(tri, pos)
-
-        # Moving triangle based on camera position
-        tri = TriMatrixMul(tri, matTrans)
                 
         # Calculating Normal Vector
         tri.normal = GetNormal(tri)
@@ -391,6 +386,19 @@ def TranslateTriangles(tris, pos, camera):
         translated.append(tri)
     
     return translated
+
+def ViewTriangles(tris, camera):
+    newTris = []
+    matCameraRot = MatrixMakeRotX(camera.yaw)
+    upVector = MatrixMul(quickVectors.gy, matCameraRot)
+    targetVector = VectorAdd(camera.GetVector(), quickVectors.gz)
+
+    matView = LookAtMatrix(camera.GetVector(), targetVector, upVector, camera)
+    for tries in tris:
+        
+        # Converting World Space to View Space
+        newTris.append(TriMatrixMul(tries, matView))
+    return newTris
                     
 def ProjectTriangles(tris, camera):
     global intCam
