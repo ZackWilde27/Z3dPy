@@ -1,9 +1,9 @@
 # Zack's 3D Python Library
 or ZedPy for short
 
-Takes care of all the matrix math and projection for you
+My hope is that 3D games in Python will be as easy as 2D games
 
-Written entirely in Python, no OpenGL or anything
+Written entirely in Python
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here</a>
 
@@ -11,24 +11,13 @@ Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki"
 
 First, you'll need NumPy, my library requires it.
 
-Next, you'll need some way to display the graphics, I recommend PyGame.
-
 Then, copy the z3dpy.py file into your script's directory and import it with
 ```python
 import z3dpy
 ```
 
-# Exporting Mesh
-
-Export your mesh as an OBJ file, with no extra information. Make sure to triangulate.
-<br>
-Up axis is -Y, and Forward axis is -Z. In this case I wanted the mesh to face the camera
-
-![image](https://user-images.githubusercontent.com/115175938/235002154-62bb03ad-13f3-4084-b410-aa0074553865.png)
-
-
 # Example Program
-We'll import the engine and use PyGame for our screen.
+To display the finished results we need a screen. In my experience, PyGame is faster than Tkinter, so I'll use that.
 
 ```python
 import z3dpy
@@ -40,20 +29,21 @@ screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 ```
 
-Next we create our camera object. width and height should match the output screen
+In order to render objects to the screen, we need both a list of meshes to draw, and the camera that we are viewing from.
+<br>
+Load a mesh with z3dpy.LoadMesh() and then append it to a list.
 
-```python
-# Create our camera (x, y, z, width, height, fov, nearClip, farClip)
-myCamera = z3dpy.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
-```
-
-Now we need to define a list of meshes to draw, we could do this manually but there's a function to load a mesh from a file
 ```python
 myMeshList = []
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMesh = z3dpy.LoadMesh("example.obj", 0, 0, 2)
+myMesh = z3dpy.LoadMesh("z.obj", 0, 0, 5)
 myMeshList.append(myMesh)
+
+# Create our camera object (x, y, z, width, height, fov, nearClip, farClip)
+myCamera = z3dpy.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
+# The Components you'd probably be interested in modifying later: x, y, z, roll, pitch, yaw
+
 ```
 
 To draw the meshes to the screen, rasterize them with RasterizeTriangles()
@@ -68,6 +58,8 @@ for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
         
     # If you wanted flat shading instead of normal colouring
     #z3dpy.DrawTriangleF(tri, screen, tri.normal.z, pygame)
+# Update Display afterwards
+pygame.display.flip()
 ```
 
 Now all that's left is to chuck it in a loop
@@ -94,7 +86,16 @@ while not done:
     pygame.display.flip()
     
     # Rotate mesh
-    myMeshList[0].rot.x += 0.1
-    myMeshList[0].rot.y += 0.14
-    myMeshList[0].rot.z += 0.07
+    myMeshList[0].rot.x += 2
+    myMeshList[0].rot.y += 5
+    myMeshList[0].rot.z += 1
 ```
+
+
+# Exporting Mesh
+
+Export your mesh as an OBJ file, with no extra information. Make sure to triangulate.
+<br>
+Up axis is -Y, and Forward axis is -Z. In this case I wanted the mesh to face the camera
+
+![image](https://user-images.githubusercontent.com/115175938/235002154-62bb03ad-13f3-4084-b410-aa0074553865.png)
