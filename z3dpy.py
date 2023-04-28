@@ -6,6 +6,8 @@ import numpy as np
 import time
 import random as rand
 
+print("Z3dPy v0.0.1")
+
 # Object Objects
 
 class Vector:
@@ -241,10 +243,18 @@ def LookAtMatrix(pos, target, up, cam):
     # Now for the matrix
     return np.matrix([[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(cam.GetVector(), temp.p3)), -(VectorDoP(cam.GetVector(), temp.p2)), -(VectorDoP(cam.GetVector(), temp.p1)), 1]])
 
-def MatrixMakeRotX(Ang):
-    return np.matrix([[1, 0, 0, 0], [0, math.cos(Ang / 2), math.sin(Ang / 2), 0], [0, -math.sin(Ang / 2), math.cos(Ang / 2), 0], [0, 0, 1, 0]])
 
+def MatrixMakeRotX(deg):
+    rad = deg * 0.0174533
+    return np.matrix([[1, 0, 0, 0], [0, math.cos(rad / 2), math.sin(rad / 2), 0], [0, -math.sin(rad / 2), math.cos(rad / 2), 0], [0, 0, 1, 0]])
 
+def MatrixMakeRotY(deg):
+    rad = deg * 0.0174533
+    return np.matrix([[math.cos(rad), 0, math.sin(rad), 0], [1, 0, 0, 0], [-math.sin(rad), 0, 1, 0], [0, 0, 0, 1]])
+
+def MatrixMakeRotZ(deg):
+    rad = deg * 0.0174533
+    return np.matrix([[math.cos(rad), math.sin(rad), 0, 0], [-math.sin(rad), math.cos(rad), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
 # Load OBJ File
 def LoadMesh(filename, x, y, z):
@@ -278,29 +288,32 @@ intCam = Camera(0, 0, 0, 256, 240, 90, 0.1, 1500)
 
 def RasterTriangles(meshList, camera):
     global intCam
+    # Some functions assume there's a global camera from testing, making sure nothing breaks.
     intCam = camera
     # Clear Lists
     TrisToDraw = []
 
     # This one we only need to calculate once per frame
     matTrans = GetTranslationMatrix(camera.x, camera.y, camera.z)
+
+    matCameraRot = MatrixMakeRotX(camera.yaw)
+
+    upVector = MatrixMul(quickVectors.gy, matCameraRot)
+
+    targetVector = VectorAdd(camera.GetVector(), quickVectors.gz)
+
+    matView = LookAtMatrix(camera.GetVector(), targetVector, upVector, camera)
     
     # Gather Triangles
     for meshes in meshList:
         
         matRotX = MatrixMakeRotX(meshes.rot.x)
-        matRotZ = np.matrix([[math.cos(meshes.rot.z), math.sin(meshes.rot.z), 0, 0], [-math.sin(meshes.rot.z), math.cos(meshes.rot.z), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        matRotZ = MatrixMakeRotZ(meshes.rot.z)
+        matRotY = MatrixMakeRotY(meshes.rot.y)
         
         matWorld = np.matmul(matRotZ, matRotX)
+        #matWorld = np.matmul(matWorld, matRotY)
         matWorld = np.matmul(matWorld, matTrans)
-
-        matCameraRot = MatrixMakeRotX(camera.yaw)
-
-        upVector = MatrixMul(quickVectors.gy, matCameraRot)
-
-        targetVector = VectorAdd(camera.GetVector(), quickVectors.gz)
-
-        matView = LookAtMatrix(camera.GetVector(), targetVector, upVector, camera)
         
         for t in meshes.tris:
             
@@ -316,7 +329,7 @@ def RasterTriangles(meshList, camera):
                 triTranslated.normal = GetNormal(triTranslated)
                 
                 # Culling triangles we can't see and ones that go behind the camera especially
-                if VectorDoP(triTranslated.normal, Vector(0,0,1)) <= 0.3:
+                if VectorDoP(triTranslated.normal, Vector(0, 0, 1)) <= 0.3:
 
                     # Converting World Space to View Space
                     triView = TriMatrixMul(triTranslated, matView)
@@ -354,7 +367,7 @@ def TransformTriangles(tris, rot, camera):
     intCam = camera
     transformed = []
     # Matrix Stuff
-    matTrans = GetTranslationMatrix(camera.loc.x, camera.loc.y, camera.loc.z)
+    matTrans = GetTranslationMatrix(camera.x, camera.y, camera.z)
     for t in tris:
         
         matRotX = MatrixMakeRotX(rot.x)
@@ -375,7 +388,7 @@ def TranslateTriangles(tris, pos, camera):
     translated = []
     for tri in tris:
         
-        matTrans = GetTranslationMatrix(camera.loc.x, camera.loc.y, camera.loc.z)
+        matTrans = GetTranslationMatrix(camera.x, camera.y, camera.z)
 
         # Moving triangle based on object position
         tri = TriangleAdd(tri, pos)
