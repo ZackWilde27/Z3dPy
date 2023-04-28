@@ -38,6 +38,7 @@ myMeshList = []
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
 myMesh = z3dpy.LoadMesh("z.obj", 0, 0, 5)
+# z.obj can be downloaded from the repo
 myMeshList.append(myMesh)
 
 # Create our camera object (x, y, z, width, height, fov, nearClip, farClip)
