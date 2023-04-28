@@ -3,7 +3,7 @@ or ZedPy for short
 
 My hope is that 3D games in Python will be as easy as 2D games
 
-Written entirely in Python. Renders 700 triangles at 60 FPS on my 3rd Gen Ryzen 7
+Written entirely in Python. Renders 700 triangles at 30 FPS on my 3rd Gen Ryzen 7
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here</a>
 
