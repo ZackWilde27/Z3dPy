@@ -3,7 +3,7 @@ or ZedPy for short
 
 Takes care of all the matrix math and projection for you
 
-Written entirely in Python
+Written entirely in Python, no OpenGL or anything
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here</a>
 
