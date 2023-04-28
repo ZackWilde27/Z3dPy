@@ -6,8 +6,6 @@ import numpy as np
 import time
 import random as rand
 
-print("Z3dPy loaded.")
-
 # Object Objects
 
 class Vector:
@@ -39,7 +37,12 @@ class Mesh:
 
 class Camera:
     def __init__(self, x, y, z, sW, sH, fov, near, far):
-        self.loc = Vector(x, y, z)
+        self.x = x
+        self.y = y
+        self.z = z
+        self.roll = 0
+        self.pitch = 0
+        self.yaw = 0
         self.fov = fov
         self.scrH = sH
         self.scrW = sW
@@ -49,6 +52,16 @@ class Camera:
         self.tan = (1 / math.tan(self.theta))
         self.a = self.scrH / self.scrW
 
+    def GetVector(self):
+            return Vector(self.x, self.y, self.z)
+        
+
+class basicVectors:
+    def __init__(self):
+        self.gx = Vector(1, 0, 0)
+        self.gy = Vector(0, 1, 0)
+        self.gz = Vector(0, 0, 1)
+
         
 # Variables
 
@@ -56,6 +69,10 @@ track = time.time()
 
 # Dimension associated with basic flat shading. 0 is X, 1 is Y, 2 is Z
 colorDir = 2
+
+
+
+quickVectors = basicVectors()
 
 
 #ProjectionMatrix = np.matrix([[CamAspR * CamTan, 0, 0, 0], [0, CamTan, 0, 0], [0, 0, CamFC / (CamFC - CamNC), 1], [0, 0, (-CamFC * CamNC) / (CamFC - CamNC), 0]])
@@ -115,7 +132,9 @@ def DistanceToPoints(x, y, x2, y2):
 
 def VectorNormalize(v):
     l = VectorGetLength(v)
-    return Vector(v.x / l, v.y / l, v.z / l)
+    if l != 0:
+        return Vector(v.x / l, v.y / l, v.z / l)
+    return v
 
 def VectorAdd(v1, v2):
     return Vector(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z)
@@ -125,6 +144,9 @@ def VectorSub(v1, v2):
 
 def VectorMul(v1, v2):
     return Vector(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
+
+def VectorMulF(v1, f):
+    return Vector(v1.x * f, v1.y * f, v1.z * f)
 
 def VectorCrP(v1, v2):
     return Vector(v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z, v1.x * v2.y - v1.y * v2.x)
@@ -156,15 +178,11 @@ def TriangleMul(t, v):
 def TriangleMulF(t, f):
     return Triangle(VectorMulF(t.p1, f), VectorMulF(t.p2, f), VectorMulF(t.p3, f))
 
-def TriangleDiv(t, v):
-    return Triangle(VectorDiv(t.p1, v), VectorDiv(t.p2, v), VectorDiv(t.p3, v))
-
-def TriangleDivF(t, v):
+def TriangleDivF(t, f):
     return Triangle(VectorDivF(t.p1, f), VectorDivF(t.p2, f), VectorDivF(t.p3, f))
 
-def TriangleCullTest(t):
-    threshold = 0.5
-    return t.p1.z > threshold and t.p2.z > threshold and t.p3.z > threshold
+def TriangleCullTest(t, thr):
+    return t.p1.z > thr and t.p2.z > thr and t.p3.z > thr
 
 def GetNormal(tri):
     triLine1 = VectorSub(tri.p2, tri.p1)
@@ -181,7 +199,7 @@ def DrawTriangleF(tri, surface, f, pyg):
 
 # Sort Triangles based on their distance from the camera
 def triSort(n):
-    return intCam.fc - abs(((n.p1.z + n.p2.z + n.p3.z) / 3) - intCam.loc.z)
+    return intCam.fc - abs(((n.p1.z + n.p2.z + n.p3.z) / 3) - intCam.z)
 
 
 # Matrix Functions
@@ -202,10 +220,10 @@ def MatrixMult(v, m):
 
 # Stuff for the PointAt and LookAt Matrix
 def MatrixStuff(pos, target, up):
-    newForward = VectorSub(target, pos);
+    newForward = VectorSub(target, pos)
     newForward = VectorNormalize(newForward)
 
-    a = VectorMul(newForward, VectorDoP(up, newForward))
+    a = VectorMulF(newForward, VectorDoP(up, newForward))
     newUp = VectorSub(up, a)
     newUp = VectorNormalize(newUp)
 
@@ -213,15 +231,15 @@ def MatrixStuff(pos, target, up):
 
     return Triangle(newForward, newUp, newRight)
 
-def PointAtMatrix(pos, target, up):
+def PointAtMatrix(pos, target, up, cam):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
-    return np.matrix([[temp.p3.x, temp.p3.y, temp.p3.z, 0], [temp.p2.x, temp.p2.y, temp.p2.z, 0], [temp.p1.x, temp.p1.y, temp.p1.z, 0], [CamX, CamY, CamZ, 1]])
+    return np.matrix([[temp.p3.x, temp.p3.y, temp.p3.z, 0], [temp.p2.x, temp.p2.y, temp.p2.z, 0], [temp.p1.x, temp.p1.y, temp.p1.z, 0], [cam.x, cam.y, cam.z, 1]])
 
-def LookAtMatrix(pos, target, up):
+def LookAtMatrix(pos, target, up, cam):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
-    return np.matrix([[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], []])
+    return np.matrix([[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(cam.GetVector(), temp.p3)), -(VectorDoP(cam.GetVector(), temp.p2)), -(VectorDoP(cam.GetVector(), temp.p1)), 1]])
 
 def MatrixMakeRotX(Ang):
     return np.matrix([[1, 0, 0, 0], [0, math.cos(Ang / 2), math.sin(Ang / 2), 0], [0, -math.sin(Ang / 2), math.cos(Ang / 2), 0], [0, 0, 1, 0]])
@@ -251,7 +269,7 @@ def LoadMesh(filename, x, y, z):
         
     file.close()
     if triangles == []:
-        print("Error: Model has no triangles or does not exist")
+        print("LoadMesh Error: Model has no triangles or does not exist")
     return Mesh(triangles, x, y, z)
 
 intCam = Camera(0, 0, 0, 256, 240, 90, 0.1, 1500)
@@ -265,7 +283,7 @@ def RasterTriangles(meshList, camera):
     TrisToDraw = []
 
     # This one we only need to calculate once per frame
-    matTrans = GetTranslationMatrix(camera.loc.x, camera.loc.y, camera.loc.z)
+    matTrans = GetTranslationMatrix(camera.x, camera.y, camera.z)
     
     # Gather Triangles
     for meshes in meshList:
@@ -275,6 +293,16 @@ def RasterTriangles(meshList, camera):
         
         matWorld = np.matmul(matRotZ, matRotX)
         matWorld = np.matmul(matWorld, matTrans)
+
+        matCameraRot = MatrixMakeRotX(camera.yaw)
+
+        upVector = MatrixMul(quickVectors.gy, matCameraRot)
+
+        targetVector = VectorAdd(camera.GetVector(), quickVectors.gz)
+
+        matCamera = PointAtMatrix(camera.GetVector(), targetVector, upVector, camera)
+
+        matView = LookAtMatrix(camera.GetVector(), targetVector, upVector, camera)
         
         for t in meshes.tris:
             
@@ -285,38 +313,39 @@ def RasterTriangles(meshList, camera):
 
                 # Moving Triangle Again Depending on Object Position
                 triTranslated = TriangleAdd(triTransformed, meshes.pos)
-
-                # Moving Triangle Again Again Based on Camera Position, because the first line didn't do that
-                triTranslated = TriMatrixMul(triTranslated, matTrans)
                 
                 # Calculating Normal Vector
                 triTranslated.normal = GetNormal(triTranslated)
                 
                 # Culling triangles we can't see and ones that go behind the camera especially
-                if VectorDoP(triTranslated.normal, Vector(0,0,1)) <= 0.3 and TriangleCullTest(triTranslated):
+                if VectorDoP(triTranslated.normal, Vector(0,0,1)) <= 0.3:
+
+                    # Converting World Space to View Space
+                    triView = TriMatrixMul(triTranslated, matView)
                     
                     # Projecting 3D into 2D
-                    triProjected = ProjectTriangle(triTranslated, camera.a, camera.tan, camera.fc, camera.nc)
+                    triProjected = ProjectTriangle(triView, camera.a, camera.tan, camera.fc, camera.nc)
 
-                    # Scale into view
-                    triProjected.p1.x += 1
-                    triProjected.p1.y += 1
-                    triProjected.p2.x += 1
-                    triProjected.p2.y += 1
-                    triProjected.p3.x += 1
-                    triProjected.p3.y += 1
+                    if TriangleCullTest(triProjected, 0):
+                        # Scale into view
+                        triProjected.p1.x += 1
+                        triProjected.p1.y += 1
+                        triProjected.p2.x += 1
+                        triProjected.p2.y += 1
+                        triProjected.p3.x += 1
+                        triProjected.p3.y += 1
 
-                    triProjected.p1.x *= 0.5 * camera.scrW
-                    triProjected.p1.y *= 0.5 * camera.scrH
-                    triProjected.p2.x *= 0.5 * camera.scrW
-                    triProjected.p2.y *= 0.5 * camera.scrH
-                    triProjected.p3.x *= 0.5 * camera.scrW
-                    triProjected.p3.y *= 0.5 * camera.scrH
-                    
-                    # Normal X and Z are flipped for some reason
-                    triProjected.normal = VectorMul(triTranslated.normal, Vector(-1, 1, -1))
+                        triProjected.p1.x *= 0.5 * camera.scrW
+                        triProjected.p1.y *= 0.5 * camera.scrH
+                        triProjected.p2.x *= 0.5 * camera.scrW
+                        triProjected.p2.y *= 0.5 * camera.scrH
+                        triProjected.p3.x *= 0.5 * camera.scrW
+                        triProjected.p3.y *= 0.5 * camera.scrH
                         
-                    TrisToDraw.append(triProjected)
+                        # Normal X and Z are flipped for some reason
+                        triProjected.normal = VectorMul(triTranslated.normal, Vector(-1, 1, -1))
+                            
+                        TrisToDraw.append(triProjected)
 
     #Sorting Triangles
     TrisToDraw.sort(key = triSort)
