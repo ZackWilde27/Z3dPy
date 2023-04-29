@@ -6,7 +6,7 @@ import numpy as np
 import time
 import random as rand
 
-print("Z3dPy v0.0.2")
+print("Z3dPy v0.0.3")
 
 # Object Objects
 
@@ -48,8 +48,12 @@ class Camera:
         self.fov = fov
         self.scrH = sH
         self.scrW = sW
+        self.scrHh = sH / 2
+        self.scrWh = sW / 2
         self.nc = near
         self.fc = far
+        self.target = Vector(0, 0, 1)
+        self.up = Vector(0, 1, 0)
         self.theta = fov / 2
         self.tan = (1 / math.tan(self.theta))
         self.a = self.scrH / self.scrW
@@ -186,6 +190,9 @@ def TriangleDivF(t, f):
 def TriangleCullTest(t, thr):
     return t.p1.z > thr and t.p2.z > thr and t.p3.z > thr
 
+def TriangleCullTestXY(t):
+    return t.p1.x > -5 and t.p2.x > -5 and t.p3.x > -5 and t.p1.y > -5 and t.p2.y > -5 and t.p3.y > -5 and t.p1.z > 1 and t.p2.z > 1 and t.p3.z > 1
+
 def GetNormal(tri):
     triLine1 = VectorSub(tri.p2, tri.p1)
     triLine2 = VectorSub(tri.p3, tri.p1)
@@ -197,11 +204,21 @@ def DrawTriangleRGB(tri, surface, colour, pyg):
     pyg.draw.polygon(surface, (max(colour.x, 0) * 255, max(colour.y, 0) * 255, max(colour.z, 0) * 255), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
 
 def DrawTriangleF(tri, surface, f, pyg):
-    pyg.draw.polygon(surface, (f * 255, f * 255, f * 255), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
+    f = max(min(f, 1), 0) * 255
+    pyg.draw.polygon(surface, (f, f, f), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
 
 # Sort Triangles based on their distance from the camera
 def triSort(n):
     return intCam.fc - abs(((n.p1.z + n.p2.z + n.p3.z) / 3) - intCam.z)
+
+def RotateVectorX(v, deg):
+    return MatrixMul(v, MatrixMakeRotX(deg))
+
+def RotateVectorY(v, deg):
+    return MatrixMul(v, MatrixMakeRotY(deg))
+
+def RotateVectorZ(v, deg):
+    return MatrixMul(v, MatrixMakeRotZ(deg))
 
 
 # Matrix Functions
@@ -289,7 +306,7 @@ intCam = Camera(0, 0, 0, 256, 240, 90, 0.1, 1500)
 # Still keeping this here for future reference
 def OldRasterTriangles(meshList, camera):
     # Setting Internal Camera
-    SetInternalCamera(camera)
+    SetInternalCamera(camera, camera.target, camera.up)
     
     # Clear Lists
     TrisToDraw = []
@@ -361,11 +378,14 @@ def RasterTriangles(meshList, camera):
         for t in TranslateTriangles(TransformTriangles(m.tris, m.rot), m.pos):
             if VectorDoP(t.normal, Vector(0, 0, 1)) <= 0.1:
                 translated.append(t)
-        for r in ViewTriangles(translated):
-            if TriangleCullTest(r, 0):
-                viewed.append(r)
-    projected = ProjectTriangles(viewed)
-    projected.sort(key = triSort)
+        
+        viewed = ViewTriangles(translated)
+        viewed.sort(key = triSort)
+
+        for i in ProjectTriangles(viewed):
+            if TriangleCullTestXY(i):
+                projected.append(i)
+            
     return projected
 
 def SetInternalCamera(camera):
@@ -374,16 +394,15 @@ def SetInternalCamera(camera):
     global intMatCR
     global intMatV
     global intVecU
-    global intVecF
     global intVecT
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intCam = camera
     intMatT = GetTranslationMatrix(camera.x, camera.y, camera.z)
-    intMatCR = MatrixMakeRotZ(camera.yaw)
-    intMatCR = np.matmul(intMatCR, MatrixMakeRotX(camera.pitch))
-    intMatCR = np.matmul(intMatCR, MatrixMakeRotY(camera.roll))
-    intVecU = quickVectors.gy
-    intVecT = MatrixMul(VectorAdd(camera.GetVector(), quickVectors.gz), intMatCR)
+    intMatRZ = MatrixMakeRotZ(camera.roll)
+    intMatRY = MatrixMakeRotY(camera.yaw)
+    intMatRX = MatrixMakeRotX(camera.pitch)
+    intVecU = camera.up
+    intVecT = camera.target
     intMatV = LookAtMatrix(camera.GetVector(), intVecT, intVecU, camera)
     
 
@@ -391,7 +410,8 @@ def TransformTriangles(tris, rot):
     transformed = []
     # Matrix Stuff
     matRotX = MatrixMakeRotX(rot.x)
-    matRotZ = np.matrix([[math.cos(rot.z), math.sin(rot.z), 0, 0], [-math.sin(rot.z), math.cos(rot.z), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    #matRotZ = np.matrix([[math.cos(rot.z), math.sin(rot.z), 0, 0], [-math.sin(rot.z), math.cos(rot.z), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    matRotZ = MatrixMakeRotZ(rot.z)
 
     matWorld = np.matmul(matRotZ, matRotX)
     matWorld = np.matmul(matWorld, intMatT)
@@ -427,25 +447,18 @@ def ProjectTriangles(tris):
     projected = []
     for tri in tris:
         # Projecting 3D into 2D
-        newTri = ProjectTriangle(tri, intCam.a, intCam.tan, intCam.fc, intCam.nc)
+        newTri = TriangleAdd(ProjectTriangle(tri, intCam.a, intCam.tan, intCam.fc, intCam.nc), Vector(1, 1, 0))
 
-        # Scale into view
-        newTri.p1.x += 1
-        newTri.p1.y += 1
-        newTri.p2.x += 1
-        newTri.p2.y += 1
-        newTri.p3.x += 1
-        newTri.p3.y += 1
+        newTri.p1.x *= intCam.scrWh
+        newTri.p1.y *= intCam.scrHh
+        newTri.p2.x *= intCam.scrWh
+        newTri.p2.y *= intCam.scrHh
+        newTri.p3.x *= intCam.scrWh
+        newTri.p3.y *= intCam.scrHh
 
-        newTri.p1.x *= 0.5 * intCam.scrW
-        newTri.p1.y *= 0.5 * intCam.scrH
-        newTri.p2.x *= 0.5 * intCam.scrW
-        newTri.p2.y *= 0.5 * intCam.scrH
-        newTri.p3.x *= 0.5 * intCam.scrW
-        newTri.p3.y *= 0.5 * intCam.scrH
-
-        # Normal Y and Z are flipped for some reason
-        newTri.normal = VectorMul(tri.normal, Vector(1, -1, -1))
+        # Z should be flipped towards the camera
+        newTri.normal = tri.normal
+        newTri.normal.z *= -1
         
         projected.append(newTri)
                         
