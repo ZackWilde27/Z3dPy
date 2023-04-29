@@ -1,4 +1,4 @@
-# Zack's 3D Python Library v0.0.2
+# Zack's 3D Python Library v0.0.3
 or ZedPy for short
 
 My hope is that 3D games in Python will be as easy as 2D games
@@ -35,6 +35,7 @@ clock = pygame.time.Clock()
 
 In order to render objects to the screen, we need both a list of meshes to draw, and the camera that we are viewing from.
 <br>
+
 Load a mesh with z3dpy.LoadMesh() and then append it to a list.
 
 ```python
@@ -44,10 +45,15 @@ myMeshList = []
 myMesh = z3dpy.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 
 myMeshList.append(myMesh)
+```
+
+Next, create a camera with all the required info
+
+```python
 
 # Create our camera object (x, y, z, width, height, fov, nearClip, farClip)
 myCamera = z3dpy.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
-# The Components you'd probably be interested in modifying later: x, y, z, roll, pitch, yaw
+# The Components you'd probably be interested in modifying later: x, y, z
 
 ```
 
@@ -68,7 +74,7 @@ for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
 pygame.display.flip()
 ```
 
-Now all that's left is to chuck it in a loop
+Now all that's left is to chuck it in a loop.
 
 ```python
 # Raster Loop
