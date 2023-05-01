@@ -56,7 +56,6 @@ myCamera = z3dpy.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
 Pass the RasterTriangles() function your list of meshes to draw and camera to view from, and it'll return a list of triangles to draw on the screen.
 
 ```python
-# Pass our list of meshes and camera object to the rasterizer, it'll return a sorted list of triangles to draw on our screen
 for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
         
     # My library has handy functions for PyGame
