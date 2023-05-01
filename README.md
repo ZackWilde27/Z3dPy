@@ -9,9 +9,7 @@ Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki"
 
 # Installation Guide
 
-First, you'll need NumPy, my library requires it.
-
-Then, download the repo as a zip file, extract it to the same folder as your script, and import it with
+Download the repo as a zip file, extract it to the same folder as your script, and import it with
 ```python
 import z3dpy
 ```
@@ -55,7 +53,7 @@ myCamera = z3dpy.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
 
 ```
 
-I've made a function that does everything for the most simplicity, so we just need to put RasterTriangles() in a for loop
+Pass the RasterTriangles() function your list of meshes to draw and camera to view from, and it'll return a list of triangles to draw on the screen.
 
 ```python
 # Pass our list of meshes and camera object to the rasterizer, it'll return a sorted list of triangles to draw on our screen
