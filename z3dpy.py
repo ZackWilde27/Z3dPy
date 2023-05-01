@@ -2,7 +2,6 @@
 # or ZedPy for short
 
 import math
-import numpy as np
 import time
 import random as rand
 
@@ -39,6 +38,8 @@ class Triangle:
         self.pos = TriangleAverage(self)
         self.id = 0
 
+
+
 class Mesh:
     def __init__(self, triangles, x, y, z):
         self.tris = triangles
@@ -46,6 +47,8 @@ class Mesh:
         self.rot = Vector(0, 0, 0)
         self.colour = Vector(255, 255, 255)
         self.id = 0
+        self.bbH = 1
+        self.bbW = 1
 
     def SetColour(self, c):
         self.colour = c
@@ -93,6 +96,16 @@ class basicVectors:
         self.gx = Vector(1, 0, 0)
         self.gy = Vector(0, 1, 0)
         self.gz = Vector(0, 0, 1)
+
+
+# Textures are a matrix, so you can specify an X and Y number with myTexture[x][y]
+def Texture(w, h):
+    pixels = []
+    for x in range (0, w):
+        pixels.append([])
+        for y in range(0, h):
+            pixels[x].append(Vector(255, 255, 255))
+    return pixels
 
         
 # Variables
@@ -204,19 +217,19 @@ def DirectionBetweenVectors(v1, v2):
 # Triangle Functions
 
 def TriangleAdd(t, v):
-    return Triangle(VectorAdd(t.p1, v), VectorAdd(t.p2, v), VectorAdd(t.p3, v))
+    return CreateTriangleComplex(VectorAdd(t.p1, v), VectorAdd(t.p2, v), VectorAdd(t.p3, v), t.normal, t.lighting, t.colour, t.worldP1, t.worldP2, t.worldP3, t.id)
 
 def TriangleSub(t, v):
-    return Triangle(VectorSub(t.p1, v), VectorSub(t.p2, v), VectorSub(t.p3, v))
+    return CreateTriangleComplex(VectorSub(t.p1, v), VectorSub(t.p2, v), VectorSub(t.p3, v), t.normal, t.lighting, t.colour, t.worldP1, t.worldP2, t.worldP3, t.id)
 
 def TriangleMul(t, v):
-    return Triangle(VectorMul(t.p1, v), VectorMul(t.p2, v), VectorMul(t.p3, v))
+    return CreateTriangleComplex(VectorMul(t.p1, v), VectorMul(t.p2, v), VectorMul(t.p3, v), t.normal, t.lighting, t.colour, t.worldP1, t.worldP2, t.worldP3, t.id)
 
 def TriangleMulF(t, f):
-    return Triangle(VectorMulF(t.p1, f), VectorMulF(t.p2, f), VectorMulF(t.p3, f))
+    return CreateTriangleComplex(VectorMulF(t.p1, f), VectorMulF(t.p2, f), VectorMulF(t.p3, f), t.normal, t.lighting, t.colour, t.worldP1, t.worldP2, t.worldP3, t.id)
 
 def TriangleDivF(t, f):
-    return Triangle(VectorDivF(t.p1, f), VectorDivF(t.p2, f), VectorDivF(t.p3, f))
+    return CreateTriangleComplex(VectorDivF(t.p1, f), VectorDivF(t.p2, f), VectorDivF(t.p3, f), t.normal, t.lighting, t.colour, t.worldP1, t.worldP2, t.worldP3, t.id)
 
 def TriangleCullTestZ(t):
     return t.p1.z > 0.1 and t.p2.z > 0.1 and t.p3.z > 0.1
@@ -279,6 +292,17 @@ def TriangleClipAgainstPlane(pPos, pNrm, tri):
         outT1.pos = tri.pos
         outT2.pos = tri.pos
         return [outT1, outT2]
+    
+def CreateTriangleComplex(p1, p2, p3, nrm, l, c, wp1, wp2, wp3, id):
+    newTri = Triangle(p1, p2, p3)
+    newTri.normal = nrm
+    newTri.lighting = l
+    newTri.colour = c
+    newTri.worldP1 = wp1
+    newTri.worldP2 = wp2
+    newTri.worldP3 = wp3
+    newTri.id = id
+    return newTri
 
     
 def GetNormal(tri):
@@ -339,18 +363,20 @@ def MeshRotateZ(msh, deg):
 # Matrix Functions
 
 def GetTranslationMatrix(x, y, z):
-    return np.matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [x, y, z, 1]])
-
-def MatrixMul(vector, matrix):
-    output = np.matmul(np.array([[vector.x, vector.y, vector.z, 1]]), matrix)
-    return Vector(output[0,0], output[0,1], output[0,2])
+    return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [x, y, z, 1]]
 
 def TriMatrixMul(t, m):
     return Triangle(MatrixMul(t.p1, m), MatrixMul(t.p2, m), MatrixMul(t.p3, m))
 
-# After having some issues I thought numpy was the problem, so I made my own Matrix Multiply function
-def MatrixMult(v, m):
-    return Vector4(v.x * m[0,0] + v.y * m[1,0] + v.z * m[2,0] + m[3,0], v.x * m[0,1] + v.y * m[1,1] + v.z * m[2,1] + m[3,1], v.x * m[0,2] + v.y * m[1,2] + v.z * m[2,2] + m[3,2], v.x * m[0,3] + v.y * m[1,3] + v.z * m[2,3] + m[3,3])
+def MatrixMul(v, m):
+    return Vector4(v.x * m[0][0] + v.y * m[1][0] + v.z * m[2][0] + m[3][0], v.x * m[0][1] + v.y * m[1][1] + v.z * m[2][1] + m[3][1], v.x * m[0][2] + v.y * m[1][2] + v.z * m[2][2] + m[3][2], v.x * m[0][3] + v.y * m[1][3] + v.z * m[2][3] + m[3][3])
+
+def MatrixMatrixMul(m1, m2):
+    output = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+    for c in range(0, 3):
+        for r in range(0, 3):
+            output[r][c] = m1[r][0] * m2[0][c] + m1[r][1] * m2[1][c] + m1[r][2] * m2[2][c] + m1[r][3] * m2[3][c]
+    return output
 
 # Stuff for the PointAt and LookAt Matrix
 def MatrixStuff(pos, target, up):
@@ -368,25 +394,25 @@ def MatrixStuff(pos, target, up):
 def PointAtMatrix(pos, target, up, cam):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
-    return np.matrix([[temp.p3.x, temp.p3.y, temp.p3.z, 0], [temp.p2.x, temp.p2.y, temp.p2.z, 0], [temp.p1.x, temp.p1.y, temp.p1.z, 0], [cam.x, cam.y, cam.z, 1]])
+    return [[temp.p3.x, temp.p3.y, temp.p3.z, 0], [temp.p2.x, temp.p2.y, temp.p2.z, 0], [temp.p1.x, temp.p1.y, temp.p1.z, 0], [cam.x, cam.y, cam.z, 1]]
 
 def LookAtMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
-    return np.matrix([[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(intCam.GetVector(), temp.p3)), -(VectorDoP(intCam.GetVector(), temp.p2)), -(VectorDoP(intCam.GetVector(), temp.p1)), 1]])
+    return [[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(intCam.GetVector(), temp.p3)), -(VectorDoP(intCam.GetVector(), temp.p2)), -(VectorDoP(intCam.GetVector(), temp.p1)), 1]]
 
 
 def MatrixMakeRotX(deg):
     rad = deg * 0.0174533
-    return np.matrix([[1, 0, 0, 0], [0, math.cos(rad / 2), math.sin(rad / 2), 0], [0, -math.sin(rad / 2), math.cos(rad / 2), 0], [0, 0, 0, 1]])
+    return [[1, 0, 0, 0], [0, math.cos(rad / 2), math.sin(rad / 2), 0], [0, -math.sin(rad / 2), math.cos(rad / 2), 0], [0, 0, 0, 1]]
 
 def MatrixMakeRotY(deg):
     rad = deg * 0.0174533
-    return np.matrix([[math.cos(rad), 0, math.sin(rad), 0], [0, 1, 0, 0], [-math.sin(rad), 0, math.cos(rad), 0], [0, 0, 0, 1]])
+    return [[math.cos(rad), 0, math.sin(rad), 0], [0, 1, 0, 0], [-math.sin(rad), 0, math.cos(rad), 0], [0, 0, 0, 1]]
 
 def MatrixMakeRotZ(deg):
     rad = deg * 0.0174533
-    return np.matrix([[math.cos(rad), math.sin(rad), 0, 0], [-math.sin(rad), math.cos(rad), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    return [[math.cos(rad), math.sin(rad), 0, 0], [-math.sin(rad), math.cos(rad), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
 # Load OBJ File
 def LoadMesh(filename, x, y, z):
@@ -433,8 +459,9 @@ def RasterTriangles(meshList, camera):
         translated = []
         viewed = []
         for c in ViewTriangles(TranslateTriangles(TransformTriangles(m, m.rot), m.pos)):
-            for r in TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), c):
-                translated.append(r)
+            if VectorDoP(c.normal, camera.forward) < 0.1:
+                for r in TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), c):
+                    translated.append(r)
 
         for i in ProjectTriangles(translated):
             for p in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(0, 1, 0), i):
@@ -458,9 +485,8 @@ def SetInternalCamera(camera):
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intCam = camera
     intMatT = GetTranslationMatrix(camera.x, camera.y, camera.z)
-    camera.forward = VectorRotateY(Vector(0, 0, 1), camera.yaw)
+    camera.forward = VectorRotateY(camera.target, camera.yaw)
     intVecT = VectorAdd(camera.GetVector(), camera.forward)
-    intVecT.y = camera.y
     intMatV = LookAtMatrix(camera.GetVector(), intVecT, intVecU)
     
     
@@ -472,8 +498,8 @@ def TransformTriangles(mesh, rot):
     matRotX = MatrixMakeRotX(rot.x)
     matRotZ = MatrixMakeRotZ(rot.z)
 
-    matWorld = np.matmul(matRotZ, matRotY)
-    matWorld = np.matmul(matWorld, matRotX)
+    matWorld = MatrixMatrixMul(matRotZ, matRotY)
+    matWorld = MatrixMatrixMul(matWorld, matRotX)
     #matWorld = np.matmul(matWorld, intMatT)
     for t in mesh.tris:
         # Moving Triangle based on Object Rotation (It's also supposed to take camera position into account but apparently not)
@@ -481,6 +507,7 @@ def TransformTriangles(mesh, rot):
         nt = TriMatrixMul(nt, matRotX)
         nt = TriMatrixMul(nt, matRotZ)
         nt.pos = t.pos
+        nt.normal = GetNormal(nt)
         transformed.append(nt)
         
     return transformed
@@ -494,6 +521,7 @@ def TranslateTriangles(tris, pos):
         tri.worldP3 = tri.p3
         tri = TriangleAdd(tri, pos)
         tri.pos = tri.pos
+        tri.normal = tri.normal
         
         translated.append(tri)
     
@@ -536,3 +564,6 @@ def ProjectTriangles(tris):
         projected.append(newTri)
                         
     return projected
+
+def CollisionCheck(msh1, msh2):
+    return False
