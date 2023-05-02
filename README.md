@@ -1,23 +1,27 @@
-# Zack's 3D Python Library v0.0.4
-or ZedPy for short
+# Zack's 3D Engine v0.0.4
+or Z3dPy for short
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
 
-Written entirely in Python. Renders 900 flat-shaded triangles at 30 FPS
+Written entirely in Python.
 
-Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here</a>
+Renders 900 triangles at 30 fps.
+
+Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
 # Installation Guide
 
-Download the repo as a zip file, extract it to the same folder as your script, and import it with
+Download the repo as a zip file, extract it to the same folder as your script, and import it with:
 ```python
 import z3dpy
 ```
 
-You only really need the z3dpy.py file, but the engine folder has some built-in meshes to use
+You only really need the z3dpy.py file, but the engine folder has some built-in meshes to use.
+
+My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster.
 
 # Example Program
-To display the finished results we need a screen. In my experience, PyGame is faster than Tkinter, so I'll use that.
+Like I said in the installation guide, we'll need some kind of display to draw on, and I'll be using PyGame for this.
 
 ```python
 import z3dpy
@@ -55,7 +59,7 @@ myCamera = z3dpy.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
 
 Pass the RasterTriangles() function your list of meshes to draw and camera to view from, and it'll return a list of triangles to draw on the screen.
 
-I've made a convenient function for PyGame, but if you are using something else, ignore the z and just use the x and y points.
+I made convenient drawing functions for PyGame, but if you are using something else, ignore the z and just use the x and y points.
 
 ```python
 for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
