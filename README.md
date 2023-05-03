@@ -15,7 +15,6 @@ Download the z3dpy.py file and engine folder, and put them in the same folder as
 ```python
 import z3dpy as z
 ```
-For the sake of speed, I didn't use objects, so I'd suggest importing my library as z, as you'll need quite a lot of it's functions
 
 My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster.
 
@@ -46,7 +45,7 @@ myMesh = z.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 myMeshList.append(myMesh)
 ```
 
-Next, create a camera with all the required info
+Next, create a camera with it's location, screen width, and screen height. Make sure it matches the output display
 
 ```python
 
