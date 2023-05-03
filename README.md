@@ -1,11 +1,11 @@
-# Zack's 3D Engine v0.0.5
+# Zack's 3D Engine v0.0.6
 or Z3dPy for short
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
 
 Written entirely in Python.
 
-Renders 900 triangles at 30 fps.
+Renders 1400 triangles at 30 fps.
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
@@ -64,10 +64,11 @@ for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
         
     # My library has handy functions for PyGame
     # This will colour the triangle with it's normal value.
-    z3dpy.DrawTriangleRGB(tri, screen, tri.normal, pygame)
+    z3dpy.DrawTriangleRGB(tri, screen, z.TriangleGetNormal(tri), pygame)
         
     # If you wanted flat shading instead of normal colouring
-    #z3dpy.DrawTriangleF(tri, screen, tri.normal.z, pygame)
+    # [0] is x, [1] is y, [2] is z
+    #z3dpy.DrawTriangleF(tri, screen, z.TriangleGetNormal(tri)[2], pygame)
     
 # Update Display afterwards
 pygame.display.flip()
@@ -96,9 +97,7 @@ while not done:
     pygame.display.flip()
     
     # Rotate mesh
-    myMeshList[0].rot.x += 2
-    myMeshList[0].rot.y += 5
-    myMeshList[0].rot.z += 1
+    z.MeshAddRot(myMesh, [2, 5, 1])
 ```
 
 
