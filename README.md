@@ -35,7 +35,7 @@ In order to render objects to the screen, we need both a list of objects to draw
 
 For games, it's recommended to create your objects as Things, since they can hold multiple meshes among other benefits, but for this example we only need one mesh
 
-Load a mesh with z3dpy.LoadMesh()
+Load a mesh with LoadMesh()
 
 ```python
 
