@@ -189,8 +189,8 @@ def ThingGetId(thing):
 # [7] is near clip, [8] is far clip, [9] is target, [10] is forward, [11] is up, [12] is theta, [13] is tan,
 # and [14] is a
 
-def Camera(x, y, z, scrW, scrH, fov, near, far):
-    return [[x, y, z], [0, 0, 0], fov, scrH, scrW, scrH / 2, scrW / 2, near, far, [0, 0, 1], [0, 0, 1], [0, 1, 0], fov / 2, (1 / math.tan(fov / 2)), scrH / scrW]
+def Camera(x, y, z, scrW, scrH):
+    return [[x, y, z], [0, 0, 0], 90, scrH, scrW, scrH / 2, scrW / 2, 0.1, 1500, [0, 0, 1], [0, 0, 1], [0, 1, 0], 45, (1 / math.tan(45)), scrH / scrW]
 
 
 def CameraSetPos(cam, x, y, z):
@@ -289,8 +289,8 @@ def CameraDivRotF(cam, v):
 def CameraGetRot(cam):
     return cam[1]
 
-def CameraSetFOV(cam, fov):
-    cam[2] = fov
+def CameraSetFOV(cam, deg):
+    cam[2] = deg * 0.0174533
 
 def CameraGetFOV(cam):
     return cam[2]
