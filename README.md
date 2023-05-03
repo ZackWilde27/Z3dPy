@@ -31,18 +31,19 @@ screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 ```
 
-In order to render objects to the screen, we need both a list of meshes to draw, and the camera that we are viewing from.
+In order to render objects to the screen, we need both a list of objects to draw, and the camera that we are viewing from.
+
+For games, it's recommended to create your objects as Things, since they can hold multiple meshes among other benefits, but for this example we only need one mesh
+
 <br>
 
 Load a mesh with z3dpy.LoadMesh() and then append it to a list.
 
 ```python
-myMeshList = []
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
 myMesh = z.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 
-myMeshList.append(myMesh)
 ```
 
 Next, create a camera with it's location, screen width, and screen height. Make sure it matches the output display
@@ -59,7 +60,7 @@ Pass the RasterTriangles() function your list of meshes to draw and camera to vi
 I made convenient drawing functions for PyGame, but if you are using something else, ignore the z and just use the x and y points.
 
 ```python
-for tri in z.RasterTriangles(myMeshList, myCamera):
+for tri in z.RasterMesh(myMesh, myCamera):
         
     # My library has handy functions for PyGame
     # This will colour the triangle with it's normal value.
@@ -87,10 +88,8 @@ while not done:
     clock.tick(30)
     screen.fill("black")
     
-    # For this example, it's easier to raster all triangles at once. for a more custom pipeline, see the wiki
-    
     # Render 3D
-    for tri in z.RasterTriangles(myMeshList, myCamera):
+    for tri in z.RasterMesh(myMesh, myCamera):
         z.DrawTriangleRGB(tri, screen, z.TriangleGetNormal(tri), pygame)
 
     pygame.display.flip()
@@ -98,7 +97,7 @@ while not done:
     # Rotate mesh
     z.MeshAddRot(myMesh, [2, 5, 1])
 ```
-
+There's more ways to raster triangles depending on how custom of a pipeline you need, all of which can be found on the wiki
 
 # Exporting Mesh
 
