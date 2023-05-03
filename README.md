@@ -22,7 +22,7 @@ My library does not come with a display, you'll need some other library, like Tk
 Like I said in the installation guide, we'll need some kind of display to draw on, and I'll be using PyGame for this.
 
 ```python
-import z3dpy
+import z3dpy as z
 import pygame
 
 # Just some PyGame stuff
