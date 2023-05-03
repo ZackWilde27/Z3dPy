@@ -50,9 +50,8 @@ Next, create a camera with all the required info
 
 ```python
 
-# Create our camera object (x, y, z, width, height, fov, nearClip, farClip)
-myCamera = z.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
-# The Components you'd probably be interested in modifying later: x, y, z
+# Create our camera object (x, y, z, width, height)
+myCamera = z.Camera(0, 0, 0, 1280, 720)
 
 ```
 
