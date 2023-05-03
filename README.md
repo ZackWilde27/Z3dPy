@@ -5,7 +5,7 @@ Zack's Python 3D Engine
 
 Written entirely in Python, no graphics libraries. 
 
-Renders 1400 flat-shaded triangles at 30 fps *(on a 3rd gen Ryzen 7)*
+Renders 1400 triangles at 30 fps *(on a 3rd gen Ryzen 7)*
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
