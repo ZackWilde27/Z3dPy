@@ -1,11 +1,11 @@
-# Zack's 3D Engine v0.0.6
-or Z3dPy for short
+# Z3dPy v0.0.6
+Zack's Python 3D Engine
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
 
-Written entirely in Python.
+Written entirely in Python, no graphics libraries. 
 
-Renders 1400 triangles at 30 fps.
+Renders 1400 flat-shaded triangles at 30 fps *(on a 3rd gen Ryzen 7)*
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
@@ -35,9 +35,7 @@ In order to render objects to the screen, we need both a list of objects to draw
 
 For games, it's recommended to create your objects as Things, since they can hold multiple meshes among other benefits, but for this example we only need one mesh
 
-<br>
-
-Load a mesh with z3dpy.LoadMesh() and then append it to a list.
+Load a mesh with z3dpy.LoadMesh()
 
 ```python
 
