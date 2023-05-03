@@ -1,12 +1,13 @@
 # Zack's 3D Engine
 # or ZedPy for short
-# Not-Object-Oriented Edition
 
 # 0.0.6 Changes
 #
-# - No more Object-Oriented programming. While OOP is great, speed is the priority
+# - No more Object-Oriented programming, speed is the priority
 #
-# - Because of the lack of OOP, everything is a list now. I've created functions to manipulate these lists with human-friendly names, like MeshSetPos() and ThingGetPos()
+# - I've created functions to manipulate these new "objects" with human-friendly names, 
+# like MeshSetPos() and ThingGetPos(), instead of mesh[1] and thing[1]
+#
 
 import math
 
@@ -15,7 +16,6 @@ print("Z3dPy v0.0.6")
 #================
 #
 # Object Functions
-# everything is a list now
 #
 #================
 
@@ -50,6 +50,7 @@ def TriangleGetId(tri):
 
 # Meshes:
 # [0] is the list of triangles, [1] is the position, [2] is the rotation, [3] is the colour, and [4] is the id
+# If you are using Things, the id is not used.
 
 def Mesh(tris, x, y, z):
     return [tris, [x, y, z], [0, 0, 0], [255, 255, 255], 0]
