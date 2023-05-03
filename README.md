@@ -13,8 +13,9 @@ Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki"
 
 Download the z3dpy.py file and engine folder, and put them in the same folder as your script, then import it with
 ```python
-import z3dpy
+import z3dpy as z
 ```
+For the sake of speed, I didn't use objects, so I'd suggest importing my library as z, as you'll need quite a lot of it's functions
 
 My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster.
 
@@ -40,7 +41,7 @@ Load a mesh with z3dpy.LoadMesh() and then append it to a list.
 myMeshList = []
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMesh = z3dpy.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
+myMesh = z.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 
 myMeshList.append(myMesh)
 ```
@@ -50,7 +51,7 @@ Next, create a camera with all the required info
 ```python
 
 # Create our camera object (x, y, z, width, height, fov, nearClip, farClip)
-myCamera = z3dpy.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
+myCamera = z.Camera(0, 0, 0, 1280, 720, 90, 0.1, 1500)
 # The Components you'd probably be interested in modifying later: x, y, z
 
 ```
@@ -60,15 +61,15 @@ Pass the RasterTriangles() function your list of meshes to draw and camera to vi
 I made convenient drawing functions for PyGame, but if you are using something else, ignore the z and just use the x and y points.
 
 ```python
-for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
+for tri in z.RasterTriangles(myMeshList, myCamera):
         
     # My library has handy functions for PyGame
     # This will colour the triangle with it's normal value.
-    z3dpy.DrawTriangleRGB(tri, screen, z.TriangleGetNormal(tri), pygame)
+    z.DrawTriangleRGB(tri, screen, z.TriangleGetNormal(tri), pygame)
         
     # If you wanted flat shading instead of normal colouring
     # [0] is x, [1] is y, [2] is z
-    #z3dpy.DrawTriangleF(tri, screen, z.TriangleGetNormal(tri)[2], pygame)
+    #z.DrawTriangleF(tri, screen, z.TriangleGetNormal(tri)[2], pygame)
     
 # Update Display afterwards
 pygame.display.flip()
@@ -91,8 +92,8 @@ while not done:
     # For this example, it's easier to raster all triangles at once. for a more custom pipeline, see the wiki
     
     # Render 3D
-    for tri in z3dpy.RasterTriangles(myMeshList, myCamera):
-        z3dpy.DrawTriangleRGB(tri, screen, tri.normal, pygame)
+    for tri in z.RasterTriangles(myMeshList, myCamera):
+        z.DrawTriangleRGB(tri, screen, z.TriangleGetNormal(tri), pygame)
 
     pygame.display.flip()
     
