@@ -1,146 +1,346 @@
 # Zack's 3D Engine
 # or ZedPy for short
+# Not-Object-Oriented Edition
 
-# 0.0.5 Changes
-# - Added Thing object, which stores multiple meshes, and collision data. Meshes still have a location and rotation,
-# so think of it like the Thing is the global transform, and the meshes can each have a relative transform
+# 0.0.6 Changes
 #
-# - Along with the thing objects I've added RasterThings(), which takes a list of things and returns a list of triangles to draw to the screen.
+# - No more Object-Oriented programming. While OOP is great, speed is the priority
 #
-# - Added basic collision loop. You'll have to call it yourself with CollisionLoop() during your loop, and it'll return a list of lists,
-# containing the two objects that are colliding.
-#
-# - For the collision loop, each Thing has a 1x1x1 collision box by default, but you can change the shape or size with the SetCollisionParams() function.
-#
+# - Because of the lack of OOP, everything is a list now. I've created functions to manipulate these lists with human-friendly names, like MeshSetPos() and ThingGetPos()
 
 import math
 
-print("Z3dPy v0.0.5")
+print("Z3dPy v0.0.6")
 
 #================
 #
-# Object Objects
+# Object Functions
+# everything is a list now
 #
 #================
 
-class Vector:
-    def __init__(self, x, y, z):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.u = 0
-        self.v = 0
+# Vector:
+# [0] - [2] are the x y and z, [3] is the w
 
-class Vector4:
-    def __init__(self, x, y, z, w):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.w = w
+def Vector(x, y, z):
+    return [x, y, z]
 
-class Triangle:
-    def __init__(self, loc1, loc2, loc3):
-        self.p1 = loc1
-        self.p2 = loc2
-        self.p3 = loc3
-        self.normal = GetNormal(self)
-        self.lighting = 0
-        self.colour = Vector(255, 255, 255)
-        self.wpos = TriangleAverage(self)
-        self.id = 0
+def Vector4(x, y, z, w):
+    return [x, y, z, w]
+
+# Triangles:
+#[0] - [2] are the 3 points, [3] is the normal, [4] is a user variable, [5] is colour, [6] is world position,
+# and [7] is Id
+
+def Triangle(v1, v2, v3):
+    return [v1, v2, v3, GetNormal([v1, v2, v3]), 0, [255, 255, 255], TriangleAverage([v1, v2, v3]), 0]
 
 
+def TriangleGetNormal(tri):
+    return tri[3]
 
-class Mesh:
-    def __init__(self, triangles, x, y, z):
-        self.tris = triangles
-        self.pos = Vector(x, y, z)
-        self.rot = Vector(0, 0, 0)
-        self.colour = Vector(255, 255, 255)
-        self.id = 0
+def TriangleGetColour(tri):
+    return tri[5]
 
-    def SetColour(self, r, g, b):
-        self.colour = Vector(r, g, b)
-    
-    def SetId(self, id):
-        self.id = id
+def TriangleGetWPos(tri):
+    return tri[6]
+
+def TriangleGetId(tri):
+    return tri[7]
+
+# Meshes:
+# [0] is the list of triangles, [1] is the position, [2] is the rotation, [3] is the colour, and [4] is the id
+
+def Mesh(tris, x, y, z):
+    return [tris, [x, y, z], [0, 0, 0], [255, 255, 255], 0]
 
 
-# Thing Object:
+
+def MeshSetPos(mesh, x, y, z):
+    mesh[1] = [x, y, z]
+
+def MeshSetPosV(mesh, v):
+    mesh[1] = v
+
+def MeshGetPos(mesh):
+    return mesh[1]
+
+def MeshSetRot(mesh, x, y, z):
+    mesh[2] = [x, y, z]
+
+def MeshAddRot(mesh, x, y, z):
+    mesh[2] = [mesh[2][0] + x, mesh[2][1] + y, mesh[2][2] + z]
+
+def MeshSubRot(mesh, x, y, z):
+    mesh[2] = [(mesh[2][0] - x) % 360, (mesh[2][1] - y) % 360, (mesh[2][2] - z) % 360]
+
+def MeshMulRot(mesh, x, y, z):
+    mesh[2] = [(mesh[2][0] * x) % 360, (mesh[2][1] * y) % 360, (mesh[2][2] * z) % 360]
+
+def MeshDivRot(mesh, x, y, z):
+    mesh[2] = [(mesh[2][0] / x) % 360, (mesh[2][1] / y) % 360, (mesh[2][2] / z) % 360]
+
+def MeshGetRot(mesh):
+    return mesh[2]
+
+def MeshSetColour(mesh, r, g, b):
+    mesh[3] = [r, g, b]
+
+def MeshGetColour(mesh):
+    return mesh[3]
+
+def MeshSetId(mesh, id):
+    mesh[4] = id
+
+def MeshGetId(mesh):
+    return mesh[4]
+
+
+# Things:
 #
 # The Thing is what you would typically refer to as an object, it has a collection of meshes, and collision data.
 #
-# SetCollisionParams(id, radius, height) will set the collision data and update the hitbox, for drawing to the screen.
-# Id: 0 = Sphere, 1 = Cylinder, 2 = Cube
+#
+# [0] is the list of meshes, [1] is position, [2] is rotation, [3] is object id, [4] is hitbox mesh, [5] is hitbox radius,
+# [6] is hitbox height, [7] is collision id and [8] is collision type.
+
+def Thing(meshList, x, y, z):
+    return [meshList, [x, y, z], [0, 0, 0], 0, LoadMesh("engine/mesh/cube.obj", x, y, z), 1, 1, 0, 2]
+
+
+# SetCollisionParams(type, radius, height, id) will set the collision data and update the hitbox, for drawing to the screen.
+# Type: 0 = Sphere, 1 = Cylinder, 2 = Cube
 # Radius: radius of the hitbox
 # Height: height of the cylinder, if it's a cylinder.
+# Id: Objects with the same ID will check for collisions. Everything is 0 by default, so if unsure, use that.
 
-class Thing:
-    def __init__(self, meshList, x, y, z):
-        self.meshes = meshList
-        self.pos = Vector(x, y, z)
-        self.rot = Vector(0, 0, 0)
-        self.id = 0
-        self.hitbox = LoadMesh("engine/mesh/cube.obj", x, y, z)
-        # Collision Data
-        self.bbR = 1
-        self.bbH = 1
-        self.collisionId = 0
-        self.collisionType = 2
+def ThingSetCollisionParams(thing, type, radius, height, id):
+    thing[8] = type
+    thing[5] = radius
+    thing[6] = height
+    thing[7] = id
+    match type:
+        case 0:
+            thing[4] = LoadMeshScl("engine/mesh/sphere.obj", thing[1][0], thing[1][1], thing[1][2], radius, radius, radius)
+        case 1:
+            thing[4] = LoadMeshScl("engine/mesh/cylinder.obj", thing[1][0], thing[1][1], thing[1][2], radius, height, radius)
+        case 2:
+            thing[4] = LoadMeshScl("engine/mesh/cube.obj", thing[1][0], thing[1][1], thing[1][2], radius, radius, radius)
 
-    def SetCollisionParams(self, id, radius, height):
-        self.bbR = radius
-        self.bbH = height
-        self.collisionId = id
-        match id:
-            case 0:
-                self.hitbox = LoadMeshScl("engine/mesh/sphere.obj", self.x, self.y, self.z, self.bbR, self.bbR, self.bbR)
-            case 1:
-                self.hitbox = LoadMeshScl("engine/mesh/cylinder.obj", self.x, self.y, self.z, self.bbR, self.bbH, self.bbR)
-            case 2:
-                self.hitbox = LoadMeshScl("engine/mesh/cube.obj", self.x, self.y, self.z, self.bbR, self.bbR, self.bbR)
 
-# Camera Object:
+
+def ThingSetPos(thing, x, y, z):
+    thing[1] = [x, y, z]
+
+def ThingSetPosV(thing, v):
+    thing[1] = v
+
+def ThingGetPos(thing):
+    return thing[1]
+
+def ThingSetRot(thing, x, y, z):
+    thing[2] = [x, y, z]
+
+def ThingSetPitch(thing, deg):
+    thing[2][0] = deg
+
+def ThingSetRoll(thing, deg):
+    thing[2][1] = deg
+
+def ThingSetYaw(thing, deg):
+    thing[2][2] = deg
+
+def ThingSetRotV(thing, v):
+    thing[2] = v
+
+def ThingGetRot(thing):
+    return thing[2]
+
+def ThingGetPitch(thing):
+    return thing[2][0]
+
+def ThingGetRoll(thing):
+    return thing[2][2]
+
+def ThingGetYaw(thing):
+    return thing[2][1]
+
+# Object Id is meant for the draw loop, so you can check a triangle's id to see what mesh it came from.
+
+def ThingSetId(thing, id):
+    thing[3] = id
+
+def ThingGetId(thing):
+    return thing[3]
+
+
+
+# Cameras:
 #
 # In order to render the triangles, we need information about the camera, like it's position, and fov.
 # Camera rotation is determined by it's target and up vector. By default, the up vector is +Y direction and target is simply the Z direction.
-# For the uninitiated, "direction" in this case simply refers to a vector between 0 and 1, like +Z direction is 0, 0, 1, and -Z direction is 0, 0, -1
+# For the uninitiated, "direction" in this case simply refers to a vector between -1 and 1, like +Z direction is 0, 0, 1, and -Z direction is 0, 0, -1
 #
 # For a third person camera, set the target to a location
 # For a first person camera, set the target to a direction + the camera's location
 #
-# GetVector() will simply return the x, y, and z as a vector
-# SetVector() sets the x, y, and z to the vector given. It's a shortcut instead of setting them individually.
 
-class Camera:
-    def __init__(self, x, y, z, sW, sH, fov, near, far):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.roll = 0
-        self.pitch = 0
-        self.yaw = 0
-        self.fov = fov
-        self.scrH = sH
-        self.scrW = sW
-        self.scrHh = sH / 2
-        self.scrWh = sW / 2
-        self.nc = near
-        self.fc = far
-        self.target = Vector(0, 0, 1)
-        self.forward = Vector(0, 0, 1)
-        self.up = Vector(0, 1, 0)
-        self.theta = fov / 2
-        self.tan = (1 / math.tan(self.theta))
-        self.a = self.scrH / self.scrW
+# [0] is position, [1] is rotation, [2] is fov, [3] is screenHeight, [4] is screenWidth, [5] and [6] are half.
+# [7] is near clip, [8] is far clip, [9] is target, [10] is forward, [11] is up, [12] is theta, [13] is tan,
+# and [14] is a
 
-    def GetVector(self):
-        return Vector(self.x, self.y, self.z)
+def Camera(x, y, z, scrW, scrH, fov, near, far):
+    return [[x, y, z], [0, 0, 0], fov, scrH, scrW, scrH / 2, scrW / 2, near, far, [0, 0, 1], [0, 0, 1], [0, 1, 0], fov / 2, (1 / math.tan(fov / 2)), scrH / scrW]
 
-    def SetVector(self, vector):
-        self.x = vector.x
-        self.y = vector.y
-        self.z = vector.z
+
+def CameraSetPos(cam, x, y, z):
+    cam[0] = [x, y, z]
+
+def CameraSetPosX(cam, x):
+    cam[0] = [x, cam[0][1], cam[0][2]]
+
+def CameraSetPosY(cam, y):
+    cam[0] = [cam[0][0], y, cam[0][2]]
+
+def CameraSetPosZ(cam, z):
+    cam[0] = [cam[0][0], cam[0][1], z]
+
+def CameraSetPosV(cam, v):
+    cam[0] = v
+
+def CameraAddPos(cam, x, y, z):
+    cam[0] = [cam[0][0] + x, cam[0][1] + y, cam[0][2] + z]
+
+def CameraAddPosV(cam, v):
+    cam[0] = VectorAdd(cam[0], v)
+
+def CameraSubPos(cam, x, y, z):
+    cam[0] = [cam[0][0] - x, cam[0][1] - y, cam[0][2] - z]
+
+def CameraSubPosV(cam, v):
+    cam[0] = VectorSub(cam[0], v)
+
+def CameraMulPos(cam, x, y, z):
+    cam[0] = [cam[0][0] * x, cam[0][1] * y, cam[0][2] * z]
+
+def CameraMulPosV(cam, v):
+    cam[0] = VectorMul(cam[0], v)
+
+def CameraDivPos(cam, x, y, z):
+    cam[0] = [cam[0][0] / x, cam[0][1] / y, cam[0][2] / z]
+
+def CameraDivPosF(cam, f):
+    cam[0] = VectorDivF(cam[0], f)
+
+def CameraModPos(cam, x, y, z):
+    cam[0] = [cam[0][0] % x, cam[0][1] % y, cam[0][2] % z]
+
+def CameraGetPos(cam):
+    return cam[0]
+
+def CameraGetPitch(cam):
+    return cam[1][0]
+
+def CameraGetRoll(cam):
+    return cam[1][2]
+
+def CameraGetYaw(cam):
+    return cam[1][1]
+
+def CameraSetPitch(cam, deg):
+    cam[1][0] = deg
+
+def CameraSetRoll(cam, deg):
+    cam[1][2] = deg
+
+def CameraSetYaw(cam, deg):
+    cam[1][1] = deg
+
+def CameraSetRot(cam, x, y, z):
+    cam[1] = [x % 360, y % 360, z % 360]
+
+def CameraSetRotV(cam, v):
+    cam[1] = v
+
+def CameraAddRot(cam, x, y, z):
+    cam[1] = [(cam[1][0] + x) % 360, (cam[1][1] + y) % 360, (cam[1][2] + z) % 360]
+
+def CameraAddRotV(cam, v):
+    cam[1] = VectorAdd(cam[1], v)
+
+def CameraSubRot(cam, x, y, z):
+    cam[1] = [cam[1][0] - x, cam[1][1] - y, cam[1][2] - z]
+
+def CameraSubRotV(cam, v):
+    cam[1] = VectorSub(cam[1], v)
+
+def CameraMulRot(cam, x, y, z):
+    cam[1] = [cam[1][0] * x, cam[1][1] * y, cam[1][2] * z]
+
+def CameraMulRotV(cam, v):
+    cam[1] = VectorMul(cam[1], v)
+
+def CameraDivRot(cam, x, y, z):
+    cam[1] = [cam[1][0] / x, cam[1][1] / y, cam[1][2] / z]
+
+def CameraDivRotF(cam, v):
+    cam[1] = VectorDivF(cam[1], v)
+
+def CameraGetRot(cam):
+    return cam[1]
+
+def CameraSetFOV(cam, fov):
+    cam[2] = fov
+
+def CameraGetFOV(cam):
+    return cam[2]
+
+def CameraSetScH(cam, h):
+    cam[3] = h
+    cam[5] = h / 2
+
+def CameraGetScH(cam):
+    return cam[3]
+
+def CameraSetScW(cam, w):
+    cam[4] = w
+    cam[6] = w / 2
+
+def CameraGetScW(cam):
+    return cam[4]
+
+def CameraSetNCl(cam, nc):
+    cam[7] = nc
+
+def CameraGetNCl(cam):
+    return cam[7]
+
+def CameraSetFCl(cam, fc):
+    cam[8] = fc
+
+def CameraGetFCl(cam):
+    return cam[8]
+
+def CameraGetForward(cam):
+    return cam[10]
+
+def CameraSetTarget(cam, x, y, z):
+    cam[9] = [x, y, z]
+
+def CameraSetTargetV(cam, v):
+    cam[9] = v
+
+def CameraGetTarget(cam):
+    return cam[9]
+
+def CameraSetUp(cam, x, y, z):
+    cam[11] = [x, y, z]
+
+def CameraSetUpV(cam, v):
+    cam[11] = v
+
+def CameraGetUp(cam):
+    return cam[11]
 
 # Unfinished, but right now it's much easier to make a third person game, so I'm planning
 # a first person camera object that makes it easier.
@@ -151,6 +351,7 @@ class FirstPersonCamera:
 
 
 # Textures are a matrix, so you can specify an X and Y number with myTexture[x][y]
+# Unfinished
 def Texture(w, h):
     pixels = []
     for x in range (0, w):
@@ -166,9 +367,9 @@ def Texture(w, h):
 #
 #================
 
-globalX = Vector(1, 0, 0)
-globalY = Vector(0, 1, 0)
-globalZ = Vector(0, 0, 1)
+globalX = [1, 0, 0]
+globalY = [0, 1, 0]
+globalZ = [0, 0, 1]
 
 #ProjectionMatrix = np.matrix([[CamAspR * CamTan, 0, 0, 0], [0, CamTan, 0, 0], [0, 0, CamFC / (CamFC - CamNC), 1], [0, 0, (-CamFC * CamNC) / (CamFC - CamNC), 0]])
 
@@ -207,16 +408,13 @@ def Projection(vector, a, f, fc, nc):
     #a = CamAspR
     #f = 1 / math.tan(CamTheta)
     q = fc / (fc - nc)
-    if vector.z != 0:
-        return Vector((a * f * vector.x) / vector.z, (f * vector.y) / vector.z, (q * vector.z) - (q * nc))
+    if vector[2] != 0:
+        return [(a * f * vector[0]) / vector[2], (f * vector[1]) / vector[2], (q * vector[2]) - (q * nc)]
     else:
-        return Vector(0, 0, 0)
+        return vector
 
 def ProjectTriangle(t, a, f, fc, nc):
-    return Triangle(Projection(t.p1, a, f, fc, nc), Projection(t.p2, a, f, fc, nc), Projection(t.p3, a, f, fc, nc))
-
-def DistanceToPoints(x, y, x2, y2):
-    return math.sqrt(((x - x2) * (x - x2)) + ((y - y2) * (y - y2)))
+    return [Projection(t[0], a, f, fc, nc), Projection(t[1], a, f, fc, nc), Projection(t[2], a, f, fc, nc), t[3], t[4], t[5], t[6], t[7]]
 
 
 # Vector Functions
@@ -224,41 +422,38 @@ def DistanceToPoints(x, y, x2, y2):
 def VectorNormalize(v):
     l = VectorGetLength(v)
     if l != 0:
-        return Vector(v.x / l, v.y / l, v.z / l)
+        return [v[0] / l, v[1] / l, v[2] / l]
     return v
 
 def VectorAdd(v1, v2):
-    return Vector(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z)
+    return [v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2]]
 
 def VectorSub(v1, v2):
-    return Vector(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z)
+    return [v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2]]
 
 def VectorMul(v1, v2):
-    return Vector(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
+    return [v1[0] * v2[0], v1[1] * v2[1], v1[2] * v2[2]]
 
 def VectorMulF(v1, f):
-    return Vector(v1.x * f, v1.y * f, v1.z * f)
+    return [v1[0] * f, v1[1] * f, v1[2] * f]
 
 def VectorCrP(v1, v2):
-    return Vector(v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z, v1.x * v2.y - v1.y * v2.x)
+    return [v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2], v1[0] * v2[1] - v1[1] * v2[0]]
 
 def VectorDivF(v, f):
-    return Vector(v.x / f, v.y / f, v.z / f)
+    return [v[0] / f, v[1] / f, v[2] / f]
 
 def VectorGetLength(v):
-    return math.sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z))
+    return math.sqrt((v[0] * v[0]) + (v[1] * v[1]) + (v[2] * v[2]))
 
 def VectorDoP(v1, v2):
-    return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z)
-
-def VectorToList(v):
-    return [v.x, v.y, v.z]
+    return (v1[0] * v2[0]) + (v1[1] * v2[1]) + (v1[2] * v2[2])
 
 def VectorEqual(v1, v2):
-    return v1.x == v2.x and v1.y == v2.y and v1.z == v2.z
+    return v1[0] == v2[0] and v1[1] == v2[1] and v1[2] == v2[2]
 
 def DistanceBetweenVectors(v1, v2):
-    return math.sqrt(((v2.x - v1.x) ** 2) + ((v2.y - v1.y) ** 2) + ((v2.z - v1.z) ** 2))
+    return math.sqrt(((v2[0] - v1[0]) ** 2) + ((v2[1] - v1[1]) ** 2) + ((v2[2] - v1[2]) ** 2))
 
 # Returns the direction from the first vector towards the second
 def DirectionBetweenVectors(v1, v2):
@@ -268,25 +463,25 @@ def DirectionBetweenVectors(v1, v2):
 # Triangle Functions
 
 def TriangleAdd(t, v):
-    return CreateTriangleComplex(VectorAdd(t.p1, v), VectorAdd(t.p2, v), VectorAdd(t.p3, v), t.normal, t.lighting, t.colour, t.wpos, t.id)
+    return [VectorAdd(t[0], v), VectorAdd(t[1], v), VectorAdd(t[2], v), t[3], t[4], t[5], t[6], t[7]]
 
 def TriangleSub(t, v):
-    return CreateTriangleComplex(VectorSub(t.p1, v), VectorSub(t.p2, v), VectorSub(t.p3, v), t.normal, t.lighting, t.colour, t.wpos, t.id)
+    return [VectorSub(t[0], v), VectorSub(t[1], v), VectorSub(t[2], v), t[3], t[4], t[5], t[6], t[7]]
 
 def TriangleMul(t, v):
-    return CreateTriangleComplex(VectorMul(t.p1, v), VectorMul(t.p2, v), VectorMul(t.p3, v), t.normal, t.lighting, t.colour, t.wpos, t.id)
+    return [VectorMul(t[0], v), VectorMul(t[1], v), VectorMul(t[2], v), t[3], t[4], t[5], t[6], t[7]]
 
 def TriangleMulF(t, f):
-    return CreateTriangleComplex(VectorMulF(t.p1, f), VectorMulF(t.p2, f), VectorMulF(t.p3, f), t.normal, t.lighting, t.colour, t.wpos, t.id)
+    return [VectorMulF(t[0], f), VectorMulF(t[1], f), VectorMulF(t[2], f), t[3], t[4], t[5], t[6], t[7]]
 
 def TriangleDivF(t, f):
-    return CreateTriangleComplex(VectorDivF(t.p1, f), VectorDivF(t.p2, f), VectorDivF(t.p3, f), t.normal, t.lighting, t.colour, t.wpos, t.id)
+    return [VectorDivF(t[0], f), VectorDivF(t[1], f), VectorDivF(t[2], f), t[3], t[4], t[5], t[6], t[7]]
 
 def TriangleCullTestZ(t):
-    return t.p1.z > 0.1 and t.p2.z > 0.1 and t.p3.z > 0.1
+    return t[0][2] > 0.1 and t[0][2] > 0.1 and t[0][2] > 0.1
 
 def TriangleCullTestXY(t):
-    return t.p1.x > -5 and t.p2.x > -5 and t.p3.x > -5 and t.p1.y > -5 and t.p2.y > -5 and t.p3.y > -5
+    return t[0][0] > -5 and t[1][0] > -5 and t[2][0] > -5 and t[0][1] > -5 and t[1][1] > -5 and t[2][1] > -5
 
 def VectorIntersectPlane(pPos, pNrm, lSta, lEnd):
     pNrm = VectorNormalize(pNrm)
@@ -306,21 +501,21 @@ def TriangleClipAgainstPlane(pPos, pNrm, tri):
     pNrm = VectorNormalize(pNrm)
     insideP = []
     outsideP = []
-    d1 = ShortestPointToPlane(tri.p1, pNrm, pPos)
-    d2 = ShortestPointToPlane(tri.p2, pNrm, pPos)
-    d3 = ShortestPointToPlane(tri.p3, pNrm, pPos)
+    d1 = ShortestPointToPlane(tri[0], pNrm, pPos)
+    d2 = ShortestPointToPlane(tri[1], pNrm, pPos)
+    d3 = ShortestPointToPlane(tri[2], pNrm, pPos)
     if d1 >= 0:
-        insideP.append(tri.p1)
+        insideP.append(tri[0])
     else:
-        outsideP.append(tri.p1)
+        outsideP.append(tri[0])
     if d2 >= 0:
-        insideP.append(tri.p2)
+        insideP.append(tri[1])
     else:
-        outsideP.append(tri.p2)
+        outsideP.append(tri[1])
     if d3 >= 0:
-        insideP.append(tri.p3)
+        insideP.append(tri[2])
     else:
-        outsideP.append(tri.p3)
+        outsideP.append(tri[2])
 
     if len(insideP) == 0:
         return []
@@ -328,62 +523,49 @@ def TriangleClipAgainstPlane(pPos, pNrm, tri):
     if len(insideP) == 3:
         return [tri]
     
+    #[0] - [2] are the 3 points, [3] is the normal, [4] is a user variable, [5] is colour, [6] is world position,
+    # and [7] is Id
+    
     if len(insideP) == 1 and len(outsideP) == 2:
-        outT = CreateTriangleComplex(insideP[0], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[1]), VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0]), tri.normal, tri.lighting, tri.colour, tri.wpos, tri.id)
+        outT = [insideP[0], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[1]), VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0]), tri[3], tri[4], tri[5], tri[6], tri[7]]
         return [outT]
     
 
     if len(insideP) == 2 and len(outsideP) == 1:
-        outT1 = CreateTriangleComplex(insideP[0],insideP[1], VectorIntersectPlane(pPos, pNrm, insideP[1], outsideP[0]), tri.normal, tri.lighting, tri.colour, tri.wpos, tri.id)
-        outT2 = CreateTriangleComplex(insideP[0], outT1.p3, VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0]), tri.normal, tri.lighting, tri.colour, tri.wpos, tri.id)
+        outT1 = [insideP[0],insideP[1], VectorIntersectPlane(pPos, pNrm, insideP[1], outsideP[0]), tri[3], tri[4], tri[5], tri[6], tri[7]]
+        outT2 = [insideP[0], outT1[2], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0]), tri[3], tri[4], tri[5], tri[6], tri[7]]
         return [outT1, outT2]
-    
-# Creates a triangle, but you can set every variable on creation.
-def CreateTriangleComplex(p1, p2, p3, nrm, light, c, wpos, id):
-    newTri = Triangle(p1, p2, p3)
-    newTri.normal = nrm
-    newTri.lighting = light
-    newTri.colour = c
-    newTri.wpos = wpos
-    newTri.id = id
-    return newTri
 
 # Returns the direction a triangle is facing
 def GetNormal(tri):
-    triLine1 = VectorSub(tri.p2, tri.p1)
-    triLine2 = VectorSub(tri.p3, tri.p1)
+    triLine1 = VectorSub(tri[1], tri[0])
+    triLine2 = VectorSub(tri[2], tri[0])
     normal = VectorCrP(triLine1, triLine2)
     # Y and Z are flipped
+    normal = VectorMul(normal, [1, -1, -1])
     return VectorNormalize(normal)
 
 
 # Shortcuts for drawing to a PyGame screen.
 def DrawTriangleRGB(tri, surface, colour, pyg):
-    pyg.draw.polygon(surface, (max(colour.x, 0), max(colour.y, 0), max(colour.z, 0)), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
+    pyg.draw.polygon(surface, (max(colour[0], 0), max(colour[1], 0), max(colour[2], 0)), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
 def DrawTriangleF(tri, surface, f, pyg):
     f = max(f, 0) * 255
-    pyg.draw.polygon(surface, (f, f, f), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
+    pyg.draw.polygon(surface, (f, f, f), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
 def DrawTriangleS(tri, surface, f, pyg):
     f = max(f, 0)
-    pyg.draw.polygon(surface, (tri.colour.x * f, tri.colour.y * f, tri.colour.z * f), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
+    pyg.draw.polygon(surface, (tri[5][0] * f, tri[5][1] * f, tri[5][2] * f), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
 # Averages all points together to get the center point.
 def TriangleAverage(tri):
-    return Vector((tri.p1.x + tri.p2.x + tri.p3.x) / 3, (tri.p1.y + tri.p2.y + tri.p3.y) / 3, (tri.p1.z + tri.p2.z + tri.p3.z) / 3)
+    return [(tri[0][0] + tri[1][0] + tri[2][0]) / 3, (tri[0][1] + tri[1][1] + tri[2][1]) / 3, (tri[0][1] + tri[1][1] + tri[2][1]) / 3]
 
-def TriangleCopyUV(inTri, outTri):
-    outTri.p1.u = inTri.p1.u
-    outTri.p2.u = inTri.p2.u
-    outTri.p3.u = inTri.p3.u
-    outTri.p1.v = inTri.p1.v
-    outTri.p2.v = inTri.p2.v
-    outTri.p3.v = inTri.p3.v
 
 # Sort Triangles based on their distance from the camera
 def triSort(n):
-    return (intCam.fc + intCam.nc) - ((n.p1.z + n.p2.z + n.p3.z) / 3)
+    return (intCam[8] + intCam[7]) - ((n[0][2] + n[1][2] + n[2][2]) / 3)
 
 def VectorRotateX(vec, deg):
     return MatrixMul(vec, MatrixMakeRotX(deg))
@@ -413,10 +595,10 @@ def GetTranslationMatrix(x, y, z):
     return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [x, y, z, 1]]
 
 def TriMatrixMul(t, m):
-    return Triangle(MatrixMul(t.p1, m), MatrixMul(t.p2, m), MatrixMul(t.p3, m))
+    return [MatrixMul(t[0], m), MatrixMul(t[1], m), MatrixMul(t[2], m), t[3], t[4], t[5], t[6], t[7]]
 
 def MatrixMul(v, m):
-    return Vector4(v.x * m[0][0] + v.y * m[1][0] + v.z * m[2][0] + m[3][0], v.x * m[0][1] + v.y * m[1][1] + v.z * m[2][1] + m[3][1], v.x * m[0][2] + v.y * m[1][2] + v.z * m[2][2] + m[3][2], v.x * m[0][3] + v.y * m[1][3] + v.z * m[2][3] + m[3][3])
+    return [v[0] * m[0][0] + v[1] * m[1][0] + v[2] * m[2][0] + m[3][0], v[0] * m[0][1] + v[1] * m[1][1] + v[2] * m[2][1] + m[3][1], v[0] * m[0][2] + v[1] * m[1][2] + v[2] * m[2][2] + m[3][2], v[0] * m[0][3] + v[1] * m[1][3] + v[2] * m[2][3] + m[3][3]]
 
 def MatrixMatrixMul(m1, m2):
     output = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
@@ -436,18 +618,18 @@ def MatrixStuff(pos, target, up):
 
     newRight = VectorCrP(newUp, newForward)
 
-    return Triangle(newForward, newUp, newRight)
+    return [newForward, newUp, newRight]
 
 
 def PointAtMatrix(pos, target, up, cam):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
-    return [[temp.p3.x, temp.p3.y, temp.p3.z, 0], [temp.p2.x, temp.p2.y, temp.p2.z, 0], [temp.p1.x, temp.p1.y, temp.p1.z, 0], [cam.x, cam.y, cam.z, 1]]
+    return [[temp[2][0], temp[2][1], temp[2][2], 0], [temp[1][0], temp[1][1], temp[1][2], 0], [temp[0][0], temp[0][1], temp[0][2], 0], [cam[0][0], cam[0][1], cam[0][2], 1]]
 
 def LookAtMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
-    return [[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(intCam.GetVector(), temp.p3)), -(VectorDoP(intCam.GetVector(), temp.p2)), -(VectorDoP(intCam.GetVector(), temp.p1)), 1]]
+    return [[temp[2][0], temp[1][0], temp[0][0], 0], [temp[2][1], temp[1][1], temp[0][1], 0], [temp[2][2], temp[1][2], temp[0][2], 0], [-(VectorDoP(intCam[0], temp[2])), -(VectorDoP(intCam[0], temp[1])), -(VectorDoP(intCam[0], temp[0])), 1]]
 
 
 def MatrixMakeRotX(deg):
@@ -485,7 +667,7 @@ def LoadMeshScl(filename, x, y, z, sclX, sclY, sclZ):
             else:
                 currentLine = currentLine[2:]
                 currentLine = currentLine.split(" ")
-                verts.append(Vector(float(currentLine[0]) * sclX, float(currentLine[1]) * sclY, float(currentLine[2]) * sclZ))
+                verts.append([float(currentLine[0]) * sclX, float(currentLine[1]) * sclY, float(currentLine[2]) * sclZ])
             
         if currentLine[0] == 'f':
             currentLine = currentLine[2:]
@@ -577,6 +759,7 @@ def CollisionLoop(meshList):
     return results
 
 
+
 # Rastering
 
 def RasterThings(thingList, camera):
@@ -601,43 +784,47 @@ def RasterTriangles(meshList, camera):
 def RasterMesh(msh, camera):
     projected = []
     translated = []
-    for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh.tris, msh.rot), msh.pos)):
-        if VectorDoP(c.normal, camera.forward) < 0.1:
-            for r in TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), c):
+    for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh[0], msh[2]), msh[1])):
+        if VectorDoP(c[3], camera[10]) > -0.1:
+            for r in TriangleClipAgainstPlane([0, 0, camera[7]], [0, 0, 1], c):
                 translated.append(r)
 
         
     for i in ProjectTriangles(translated):
-        for p in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(0, 1, 0), i):
-            for s in TriangleClipAgainstPlane(Vector(0, intCam.scrH - 1, 0), Vector(0, -1, 0), p):
-                for z in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(1, 0, 0), s):
-                    for y in TriangleClipAgainstPlane(Vector(intCam.scrW - 1, 0, 0), Vector(-1, 0, 0), z):
-                        y.colour = msh.colour
-                        y.id = msh.id
+        for p in TriangleClipAgainstPlane([0, 0, 0], [0, 1, 0], i):
+            for s in TriangleClipAgainstPlane([0, intCam[3] - 1, 0], [0, -1, 0], p):
+                for z in TriangleClipAgainstPlane([0, 0, 0], [1, 0, 0], s):
+                    for y in TriangleClipAgainstPlane([intCam[4] - 1, 0, 0], [-1, 0, 0], z):
+                        y[5] = msh[3]
+                        y[7] = msh[4]
                         projected.append(y)
     return projected
+
+# [0] is position, [1] is rotation, [2] is fov, [3] is screenHeight, [4] is screenWidth, [5] and [6] are half.
+# [7] is near clip, [8] is far clip, [9] is target, [10] is forward, [11] is up, [12] is theta, [13] is tan,
+# and [14] is a
 
 def RasterThing(thing, camera):
     projected = []
 
-    for msh in thing.meshes:
+    for msh in thing[0]:
         translated = []
-        for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh.tris, VectorAdd(msh.rot, thing.rot)), VectorAdd(msh.pos, thing.pos))):
-            if VectorDoP(c.normal, camera.forward) < 0.1:
-                for r in TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), c):
+        for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh[0], VectorAdd(msh[2], thing[2])), VectorAdd(msh[1], thing[1]))):
+            if VectorDoP(c[3], camera[10]) > -0.1:
+                for r in TriangleClipAgainstPlane([0, 0, camera[7]], [0, 0, 1], c):
                     translated.append(r)
 
         for i in ProjectTriangles(translated):
-            for p in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(0, 1, 0), i):
-                for s in TriangleClipAgainstPlane(Vector(0, intCam.scrH - 1, 0), Vector(0, -1, 0), p):
-                    for z in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(1, 0, 0), s):
-                        for y in TriangleClipAgainstPlane(Vector(intCam.scrW - 1, 0, 0), Vector(-1, 0, 0), z):
-                            y.colour = msh.colour
-                            y.id = msh.id
+            for p in TriangleClipAgainstPlane([0, 0, 0], [0, 1, 0], i):
+                for s in TriangleClipAgainstPlane([0, intCam[3] - 1, 0], [0, -1, 0], p):
+                    for z in TriangleClipAgainstPlane([0, 0, 0], [1, 0, 0], s):
+                        for y in TriangleClipAgainstPlane([intCam[4] - 1, 0, 0], [-1, 0, 0], z):
+                            y[5] = msh[3]
+                            y[7] = msh[4]
                             projected.append(y)
     return projected
 
-intVecU = Vector(0, 1, 0)
+intVecU = [0, 1, 0]
 
 def SetInternalCamera(camera):
     global intCam
@@ -646,19 +833,20 @@ def SetInternalCamera(camera):
     global intVecT
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intCam = camera
-    intMatT = GetTranslationMatrix(camera.x, camera.y, camera.z)
-    camera.forward = VectorRotateY(camera.target, camera.yaw)
-    intVecT = VectorAdd(camera.GetVector(), camera.forward)
-    intMatV = LookAtMatrix(camera.GetVector(), intVecT, intVecU)
-    
-    
+    intMatT = GetTranslationMatrix(camera[0][0], camera[0][1], camera[0][2])
+    camera[10] = VectorRotateY(camera[9], camera[1][1])
+    intVecT = VectorAdd(camera[0], camera[10])
+    intMatV = LookAtMatrix(camera[0], intVecT, intVecU)
+
+
+
 
 def TransformTriangles(tris, rot):
     transformed = []
     # Matrix Stuff
-    matRotY = MatrixMakeRotY(rot.y)
-    matRotX = MatrixMakeRotX(rot.x)
-    matRotZ = MatrixMakeRotZ(rot.z)
+    matRotY = MatrixMakeRotY(rot[1])
+    matRotX = MatrixMakeRotX(rot[0])
+    matRotZ = MatrixMakeRotZ(rot[2])
 
     matWorld = MatrixMatrixMul(matRotZ, matRotY)
     matWorld = MatrixMatrixMul(matWorld, matRotX)
@@ -667,8 +855,7 @@ def TransformTriangles(tris, rot):
         nt = TriMatrixMul(t, matRotY)
         nt = TriMatrixMul(nt, matRotX)
         nt = TriMatrixMul(nt, matRotZ)
-        nt.pos = t.wpos
-        nt.normal = GetNormal(nt)
+        nt[3] = GetNormal(nt)
         transformed.append(nt)
         
     return transformed
@@ -677,11 +864,8 @@ def TranslateTriangles(tris, pos):
     translated = []
     for tri in tris:
         # Moving triangle based on object position
-        tri.worldP1 = tri.p1
-        tri.worldP2 = tri.p2
-        tri.worldP3 = tri.p3
+        tri[6] = TriangleAverage(tri)
         tri = TriangleAdd(tri, pos)
-        tri.normal = tri.normal
         
         translated.append(tri)
     
@@ -691,8 +875,8 @@ def ViewTriangles(tris):
     newTris = []
     for tries in tris:
         newTri = TriMatrixMul(tries, intMatV)
-        newTri.normal = tries.normal
-        newTri.wpos = tries.wpos
+        newTri[3] = tries[3]
+        newTri[6] = tries[6]
         # Converting World Space to View Space
         newTris.append(newTri)
     return newTris
@@ -701,19 +885,18 @@ def ProjectTriangles(tris):
     projected = []
     for tri in tris:
         # Projecting 3D into 2D
-        newTri = TriangleAdd(ProjectTriangle(tri, intCam.a, intCam.tan, intCam.fc, intCam.nc), Vector(1, 1, 0))
+        newTri = TriangleAdd(ProjectTriangle(tri, intCam[14], intCam[13], intCam[8], intCam[7]), [1, 1, 0])
 
-        newTri.p1.x *= intCam.scrWh
-        newTri.p1.y *= intCam.scrHh
-        newTri.p2.x *= intCam.scrWh
-        newTri.p2.y *= intCam.scrHh
-        newTri.p3.x *= intCam.scrWh
-        newTri.p3.y *= intCam.scrHh
+        newTri[0][0] *= intCam[6]
+        newTri[0][1] *= intCam[5]
+        newTri[1][0] *= intCam[6]
+        newTri[1][1] *= intCam[5]
+        newTri[2][0] *= intCam[6]
+        newTri[2][1] *= intCam[5]
 
         # Z should be flipped towards the camera
-        newTri.normal = tri.normal
-        newTri.wpos = tri.wpos
-        #newTri.normal.z *= -1
+        newTri[3] = tri[3]
+        newTri[6] = tri[6]
         
         projected.append(newTri)
                         
