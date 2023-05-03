@@ -58,7 +58,8 @@ Pass the RasterTriangles() function your list of meshes to draw and camera to vi
 I made convenient drawing functions for PyGame, but if you are using something else, ignore the z and just use the x and y points.
 
 ```python
-for tri in z.RasterMesh(myMesh, myCamera):
+
+for tri in z.RasterMeshList([myMesh], myCamera):
         
     # My library has handy functions for PyGame
     # This will colour the triangle with it's normal value.
@@ -87,7 +88,7 @@ while not done:
     screen.fill("black")
     
     # Render 3D
-    for tri in z.RasterMesh(myMesh, myCamera):
+    for tri in z.RasterMeshList([myMesh], myCamera):
         z.DrawTriangleRGB(tri, screen, z.TriangleGetNormal(tri), pygame)
 
     pygame.display.flip()
