@@ -3,9 +3,9 @@
 
 # 0.0.6 Changes
 #
-# - No more Object-Oriented programming. While OOP is great, speed is the priority
+# - New Function version. Everything is a list now, which is faster than object-oriented programming, but more difficult to work with.
+# To help with this, I've added functions that start with the object name, like MeshGetPos() and ThingSetPosY() as shortcuts.
 #
-# - I've created functions to manipulate these new lists with human-friendly names, like MeshSetPos() and ThingGetPos()
 
 import math
 
