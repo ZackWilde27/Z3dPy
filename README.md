@@ -11,6 +11,8 @@ This engine is still very early on, I'm planning many more updates with features
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
+FAQ can be found at the bottom
+
 # Installation Guide
 
 Download the z3dpy.py file and engine folder, and put them in the same folder as your script, then import it with
