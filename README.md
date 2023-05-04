@@ -121,3 +121,16 @@ Export your mesh as an OBJ file, with no extra information. Make sure to triangu
 Up axis is -Y, and Forward axis is -Z. In this case I wanted the mesh to face the camera
 
 ![image](https://user-images.githubusercontent.com/115175938/235002154-62bb03ad-13f3-4084-b410-aa0074553865.png)
+
+# FAQ
+
+I don't get asked questions, but I've compiled a list of mistakes that I've made before
+
+### return [v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2]] TypeError: can only concatenate list (not "int") to list
+
+
+When drawing a thing with one mesh, this usually means forgetting to put the meshes in a list: z3dpy.Thing([myMesh], x, y, z)
+
+### There aren't any errors, but it's a black screen
+
+If you are drawing the screen using DrawTriangleRGB, keep in mind that it's expecting 0-255, so a normalized vector (0-1) will remain black. Use DrawTriangleRGBF() instead, or use a VectorMulF() and multiply it by 255
