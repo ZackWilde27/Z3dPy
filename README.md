@@ -21,7 +21,7 @@ import z3dpy as z
 My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster.
 
 # Example Program
-Like I said in the installation guide, we'll need some kind of display to draw on, and I'll be using PyGame for this.
+I'll be using PyGame for my display to draw on.
 
 ```python
 import z3dpy as z
