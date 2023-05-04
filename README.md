@@ -106,7 +106,7 @@ while not done:
     
     # Render 3D
     for tri in z.RasterMesh(myMesh, myCamera):
-        z.DrawTriangleRGB(tri, screen, z.TriangleGetNormal(tri), pygame)
+        z.DrawTriangleRGB(tri, screen, z.VectorMulF(z.TriangleGetNormal(tri), 255), pygame)
 
     pygame.display.flip()
     
