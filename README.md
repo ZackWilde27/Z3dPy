@@ -55,7 +55,9 @@ myCamera = z.Camera(0, 0, 0, 1280, 720)
 
 ```
 
-Pass the RasterTriangles() function your list of meshes to draw and camera to view from, and it'll return a list of triangles to draw on the screen.
+For individual objects, we'll need to set the internal camera before we render, this is done automatically with RasterThings() or RasterMeshList()
+
+Pass the RasterMesh() function your mesh to draw and camera to view from, and it'll return a list of triangles to draw on the screen.
 
 I made convenient drawing functions for PyGame, but if you are using something else, ignore the z and just use the x and y points.
 
@@ -100,7 +102,7 @@ while not done:
     pygame.display.flip()
     
     # Rotate mesh
-    z.MeshAddRot(myMesh, [2, 5, 1])
+    z.MeshAddRot(myMesh, 2, 5, 1)
 ```
 There's more ways to raster triangles depending on how custom of a pipeline you need, all of which can be found on the wiki
 
