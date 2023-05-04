@@ -10,8 +10,8 @@ clock = pygame.time.Clock()
 myList = []
 
 # Use the LoadMesh function to load an OBJ file
-birdBody = z.LoadMesh("bird.obj", 0, 0, 0)
-birdBeak = z.LoadMesh("beak.obj", 0, 0, 0)
+birdBody = z.LoadMesh("mesh/bird.obj", 0, 0, 0)
+birdBeak = z.LoadMesh("mesh/beak.obj", 0, 0, 0)
 
 z.MeshSetColour(birdBody, 255, 214, 91)
 z.MeshSetColour(birdBeak, 255, 52, 38)
@@ -20,7 +20,7 @@ z.MeshSetColour(birdBeak, 255, 52, 38)
 bird = z.Thing([birdBody, birdBeak], 0, 0, 5)
 myList.append(bird)
 
-planeMesh = z.LoadMesh("plane.obj", 0, 0, 0)
+planeMesh = z.LoadMesh("mesh/plane.obj", 0, 0, 0)
 
 z.MeshSetColour(planeMesh, 119, 255, 102)
 
@@ -30,9 +30,9 @@ myList.append(plane)
 # This one is going to be replaced by the pipes
 myList.append(z.Thing([planeMesh], 0, 5, 0))
 
-pipeMesh = z.LoadMesh("pipe.obj", 0, 0, 0)
+pipeMesh = z.LoadMesh("mesh/pipe.obj", 0, 0, 0)
 # Offset the second pipe upwards
-otherPipeMesh = z.LoadMesh("pipe.obj", 0, -11, 0)
+otherPipeMesh = z.LoadMesh("mesh/pipe.obj", 0, -11, 0)
 z.MeshSetRot(otherPipeMesh, 0, 0, 180)
 # Setting the colour to green
 z.MeshSetColour(pipeMesh, 0, 255, 0)
@@ -77,6 +77,8 @@ while not done:
         z.CameraSetPosY(myCamera, z.ThingGetPosY(bird))
     z.CameraSetPosX(myCamera, z.ThingGetPosX(bird))
 
+    z.CameraSetTargetV(myCamera, z.VectorAdd(z.CameraGetPos(myCamera), [0, 0, 1]))
+
     # Gravity
     if birdVelocity < 1:
         birdVelocity += 0.04
@@ -98,7 +100,7 @@ while not done:
 
     for tri in z.RasterThings(myList, myCamera):
         normal = z.TriangleGetNormal(tri)
-        z.DrawTriangleS(tri, screen, max((normal[2] + normal[1]) / 2, 0), pygame)
+        z.DrawTriangleS(tri, screen, max((-normal[2] + -normal[1]) / 2, 0), pygame)
 
     # Update display
     pygame.display.flip()
