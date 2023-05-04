@@ -3,12 +3,12 @@
 
 # 0.0.6 Changes
 #
-# New lighting system. Create a Light Object and use the DrawTriangleRGB() with FlatShading() as the colour.
+# - Well, 0.0.6 was going to be switching to the function version, but I'm keeping this one too.
 #
 
 import math
 
-print("Z3dPy v0.0.5")
+print("Z3dPy v0.0.6")
 
 #================
 #
