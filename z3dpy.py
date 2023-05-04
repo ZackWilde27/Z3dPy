@@ -35,7 +35,6 @@ def Triangle(v1, v2, v3):
 
 
 def TriangleGetNormal(tri):
-    # My engine has flipped normals, so flipping it back
     return VectorMulF(tri[3], -1)
 
 def TriangleGetColour(tri):
