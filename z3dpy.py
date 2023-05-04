@@ -37,7 +37,7 @@ def Triangle(v1, v2, v3):
 
 
 def TriangleGetNormal(tri):
-    return tri[3]
+    return VectorMulF(tri[3], -1)
 
 def TriangleGetColour(tri):
     return tri[5]
@@ -114,6 +114,7 @@ def Thing(meshList, x, y, z):
     return [meshList, [x, y, z], [0, 0, 0], 0, LoadMesh("engine/mesh/cube.obj", x, y, z), 1, 1, 0, 2]
 
 
+
 # SetCollisionParams(type, radius, height, id) will set the collision data and update the hitbox, for drawing to the screen.
 # Type: 0 = Sphere, 1 = Cylinder, 2 = Cube
 # Radius: radius of the hitbox
@@ -140,6 +141,12 @@ def ThingSetPos(thing, x, y, z):
 
 def ThingSetPosV(thing, v):
     thing[1] = v
+
+def ThingAddPos(thing, x, y, z):
+    thing[1] = [thing[1][0] + x, thing[1][1] + y, thing[1][2] + z]
+
+def ThingSubPos(thing, x, y, z):
+    thing[1] = [thing[1][0] - x, thing[1][1] - y, thing[1][2] - z]
 
 def ThingSetPosX(thing, x):
     thing[1] = [x, thing[1][1], thing[1][2]]
@@ -400,6 +407,8 @@ globalZ = [0, 0, 1]
 #matRotZ = np.matrix([[1, 0, 0, 0], [0, math.cos((time.time() - track) / 2), math.sin((time.time() - track) / 2), 0], [0, -math.sin((time.time() - track) / 2), math.cos((time.time() - track) / 2), 0], [0, 0, 1, 0]])
 
 showCollisions = True
+
+debugThings = []
         
 
 # Functions
@@ -785,23 +794,24 @@ def CollisionLoop(meshList):
 def RasterThings(thingList, camera):
     SetInternalCamera(camera)
     projected = []
-    translated = []
     for t in thingList:
         for msh in t[0]:
-            
+            translated = []
             for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh[0], VectorAdd(msh[2], t[2])), VectorAdd(msh[1], t[1]))):
                 if VectorDoP(c[3], camera[10]) < 0.1:
                     for r in TriangleClipAgainstPlane([0, 0, camera[7]], [0, 0, 1], c):
                         translated.append(r)
-    translated.sort(key = triSort)
-    for i in ProjectTriangles(translated):
-        for p in TriangleClipAgainstPlane([0, 0, 0], [0, 1, 0], i):
-            for s in TriangleClipAgainstPlane([0, intCam[3] - 1, 0], [0, -1, 0], p):
-                for z in TriangleClipAgainstPlane([0, 0, 0], [1, 0, 0], s):
-                    for y in TriangleClipAgainstPlane([intCam[4] - 1, 0, 0], [-1, 0, 0], z):
-                        y[5] = msh[3]
-                        y[7] = msh[4]
-                        projected.append(y)
+            
+            for i in ProjectTriangles(translated):
+                for p in TriangleClipAgainstPlane([0, 0, 0], [0, 1, 0], i):
+                    for s in TriangleClipAgainstPlane([0, intCam[3] - 1, 0], [0, -1, 0], p):
+                        for z in TriangleClipAgainstPlane([0, 0, 0], [1, 0, 0], s):
+                            for y in TriangleClipAgainstPlane([intCam[4] - 1, 0, 0], [-1, 0, 0], z):
+                                y[5] = msh[3]
+                                y[7] = msh[4]
+                                projected.append(y)
+
+    projected.sort(key = triSort)
     return projected
 
 def RasterMeshList(meshList, camera):
