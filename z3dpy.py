@@ -1,12 +1,11 @@
 # Zack's 3D Engine
 # or ZedPy for short
-# Not-Object-Oriented Edition
 
 # 0.0.6 Changes
 #
 # - No more Object-Oriented programming. While OOP is great, speed is the priority
 #
-# - Because of the lack of OOP, everything is a list now. I've created functions to manipulate these lists with human-friendly names, like MeshSetPos() and ThingGetPos()
+# - I've created functions to manipulate these new lists with human-friendly names, like MeshSetPos() and ThingGetPos()
 
 import math
 
@@ -15,7 +14,6 @@ print("Z3dPy v0.0.6")
 #================
 #
 # Object Functions
-# everything is a list now
 #
 #================
 
