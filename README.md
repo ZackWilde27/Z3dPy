@@ -18,7 +18,7 @@ Download the z3dpy.py file and engine folder, and put them in the same folder as
 import z3dpy as z
 ```
 
-There are two versions of Z3dpy. The list version is used by default, which is faster. If you want to sacrifice some speed for ease of programming, you can instead import the object-oriented version
+There are two versions of Z3dpy. The function version is used by default, which is faster. If you want to sacrifice some speed for ease of programming, you can instead import the object-oriented version.
 
 ```python
 import z3dpyOOP as z
@@ -27,8 +27,10 @@ import z3dpyOOP as z
 My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster.
 
 # Example Program
-I'll be using PyGame for my display to draw on.
 
+Basically the 'Hello World' of z3dpy. I'll be showing you the function version. The OOP version can be found in the wiki.
+
+I'll be using PyGame for my display to draw on.
 ```python
 import z3dpy as z
 import pygame
