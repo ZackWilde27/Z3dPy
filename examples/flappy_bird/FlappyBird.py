@@ -1,4 +1,4 @@
-import z3dpy
+import z3dpy as z
 import pygame
 import random as rand
 import time
@@ -9,34 +9,47 @@ clock = pygame.time.Clock()
 
 myList = []
 
-birdVelocity = 0
-
 # Use the LoadMesh function to load an OBJ file
-bird = z3dpy.Thing([z3dpy.LoadMesh("bird.obj", 0, 0, 0)], 0, 0, 5)
+birdBody = z.LoadMesh("bird.obj", 0, 0, 0)
+birdBeak = z.LoadMesh("beak.obj", 0, 0, 0)
+
+z.MeshSetColour(birdBody, 255, 214, 91)
+z.MeshSetColour(birdBeak, 255, 52, 38)
+
+# We can group two meshes with different colours into one Thing
+bird = z.Thing([birdBody, birdBeak], 0, 0, 5)
 myList.append(bird)
 
-plane = z3dpy.Thing([z3dpy.LoadMesh("plane.obj", 0, 0, 0)], 0, 5, 0)
+planeMesh = z.LoadMesh("plane.obj", 0, 0, 0)
 
-myList.append(plane)
-myList.append(plane)
+z.MeshSetColour(planeMesh, 119, 255, 102)
+
+plane = z.Thing([planeMesh], 0, 5, 0)
 myList.append(plane)
 
+# This one is going to be replaced by the pipes
+myList.append(z.Thing([planeMesh], 0, 5, 0))
+
+pipeMesh = z.LoadMesh("pipe.obj", 0, 0, 0)
+# Offset the second pipe upwards
+otherPipeMesh = z.LoadMesh("pipe.obj", 0, -11, 0)
+z.MeshSetRot(otherPipeMesh, 0, 0, 180)
+# Setting the colour to green
+z.MeshSetColour(pipeMesh, 0, 255, 0)
+z.MeshSetColour(otherPipeMesh, 0, 255, 0)
 
 # Pipe Pair
-
-def SpawnPipePair(z):
+def SpawnPipePair(h):
     myList.pop()
-    myList.pop()
-    myList.append(z3dpy.Thing([z3dpy.LoadMesh("pipe.obj", 0, 0, 0)], 10, z, 5))
-    myList.append(z3dpy.Thing([z3dpy.LoadMesh("pipe.obj", 0, 0, 0)], 10, z - 10, 5))
-    myList[3].rot.z = 180
+    myList.append(z.Thing([pipeMesh, otherPipeMesh], 10, h, 5))
 
 SpawnPipePair(-1)
 
 
-
 # Create our camera (x, y, z, width, height, fov, nearClip, farClip)
-myCamera = z3dpy.Camera(0, 0, -3, 1280, 720, 90, 0.1, 1500)
+myCamera = z.Camera(0, 0, -3, 1280, 720)
+
+birdVelocity = 0
 
 
 # Raster Loops
@@ -49,7 +62,7 @@ while not done:
             done = True
             
     clock.tick(30)
-    screen.fill("black")
+    screen.fill("#88E5FF")
 
     # Input
     keys = pygame.key.get_pressed()
@@ -58,34 +71,34 @@ while not done:
         birdVelocity = -0.5
 
     # Locking Camera to Bird kinda
-    if myCamera.y > bird.pos.y:
-        myCamera.y -= 0.25
+    if z.CameraGetPos(myCamera)[1] > z.ThingGetPos(bird)[1]:
+        z.CameraSubPos(myCamera, 0, 0.25, 0)
     else:
-        myCamera.y = bird.pos.y
-    myCamera.x = bird.pos.x
+        z.CameraSetPosY(myCamera, z.ThingGetPosY(bird))
+    z.CameraSetPosX(myCamera, z.ThingGetPosX(bird))
 
     # Gravity
     if birdVelocity < 1:
         birdVelocity += 0.04
 
     # Tilting Bird
-    bird.rot.z = birdVelocity * 50
+    z.ThingSetRot(bird, 0, 0, birdVelocity * 50)
 
     # Moving Pipe Pairs
-    myList[2].pos.x -= 0.2
-    myList[3].pos.x -=  0.2
-    if myList[2].pos.x <= -8:
+    z.ThingSubPos(myList[2], 0.2, 0, 0)
+    if z.ThingGetPosX(myList[2]) <= -8:
         SpawnPipePair(rand.random() * 3 + 1)
     
-    if bird.pos.y < myList[1].pos.y - 1 or birdVelocity < 0:
-        bird.pos.y += birdVelocity
+    # Moving the bird by it's velocity, if we're not on the ground
+    if z.ThingGetPos(bird)[1] < z.ThingGetPos(plane)[1] - 1 or birdVelocity < 0:
+        z.ThingAddPos(bird, 0, birdVelocity, 0)
     else:
-        bird.pos.y = plane.pos.y - 1
+        z.ThingSetPosY(bird, z.ThingGetPosY(plane) - 1)
 
 
-    for tri in z3dpy.RasterThings(myList, myCamera):
-
-        z3dpy.DrawTriangleS(tri, screen, max((-tri.normal.z + -tri.normal.y) / 2, 0), pygame)
+    for tri in z.RasterThings(myList, myCamera):
+        normal = z.TriangleGetNormal(tri)
+        z.DrawTriangleS(tri, screen, max((normal[2] + normal[1]) / 2, 0), pygame)
 
     # Update display
     pygame.display.flip()
