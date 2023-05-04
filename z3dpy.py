@@ -682,7 +682,7 @@ def LoadMeshScl(filename, x, y, z, sclX, sclY, sclZ):
 def LoadMesh(filename, x, y, z):
     return LoadMeshScl(filename, x, y, z, 1, 1, 1)
 
-intCam = Camera(0, 0, 0, 256, 240, 90, 0.1, 1500)
+intCam = Camera(0, 0, 0, 256, 240)
 
 def CollisionLoop(meshList):
     results = []
