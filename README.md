@@ -77,7 +77,8 @@ for tri in z.RasterMesh(myMesh, myCamera):
         
     # My library has handy functions for PyGame
     # This will colour the triangle with it's normal value.
-    z.DrawTriangleRGB(tri, screen, z.TriangleGetNormal(tri), pygame)
+    # We need to multiply the normal vector by 255 to get a colour value
+    z.DrawTriangleRGBF(tri, screen, z.VectorMulF(z.TriangleGetNormal(tri), 255), pygame)
         
     # If you wanted flat shading instead of normal colouring
     # [0] is x, [1] is y, [2] is z
