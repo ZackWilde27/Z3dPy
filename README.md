@@ -5,7 +5,7 @@ Zack's Python 3D Engine
 
 Written entirely in Python, no graphics libraries. 
 
-Renders 1400 triangles at 30 fps *(on a 3rd gen Ryzen 7)*
+L version 1400 triangles at 30 fps *(on a 3rd gen Ryzen 7)*
 
 This engine is still very early on, I'm planning many more updates with features.
 
@@ -16,6 +16,12 @@ Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki"
 Download the z3dpy.py file and engine folder, and put them in the same folder as your script, then import it with
 ```python
 import z3dpy as z
+```
+
+There are two versions of Z3dpy. The list version is used by default, which is faster. If you want to sacrifice some speed for ease of programming, you can instead import the object-oriented version
+
+```python
+import z3dpyOOP as z
 ```
 
 My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster.
