@@ -1,13 +1,12 @@
 # Zack's 3D Engine
 # or ZedPy for short
+# Not-Object-Oriented Edition
 
 # 0.0.6 Changes
 #
-# - No more Object-Oriented programming, speed is the priority
+# - No more Object-Oriented programming. While OOP is great, speed is the priority
 #
-# - I've created functions to manipulate these new "objects" with human-friendly names, 
-# like MeshSetPos() and ThingGetPos(), instead of mesh[1] and thing[1]
-#
+# - Because of the lack of OOP, everything is a list now. I've created functions to manipulate these lists with human-friendly names, like MeshSetPos() and ThingGetPos()
 
 import math
 
@@ -16,6 +15,7 @@ print("Z3dPy v0.0.6")
 #================
 #
 # Object Functions
+# everything is a list now
 #
 #================
 
@@ -50,12 +50,17 @@ def TriangleGetId(tri):
 
 # Meshes:
 # [0] is the list of triangles, [1] is the position, [2] is the rotation, [3] is the colour, and [4] is the id
-# If you are using Things, the id is not used.
 
 def Mesh(tris, x, y, z):
     return [tris, [x, y, z], [0, 0, 0], [255, 255, 255], 0]
 
 
+
+def MeshSetTris(mesh, tris):
+    mesh[0] = tris
+
+def MeshGetTris(mesh):
+    return mesh[0]
 
 def MeshSetPos(mesh, x, y, z):
     mesh[1] = [x, y, z]
@@ -136,8 +141,26 @@ def ThingSetPos(thing, x, y, z):
 def ThingSetPosV(thing, v):
     thing[1] = v
 
+def ThingSetPosX(thing, x):
+    thing[1] = [x, thing[1][1], thing[1][2]]
+
+def ThingSetPosY(thing, y):
+    thing[1] = [thing[1][0], y, thing[1][2]]
+
+def ThingSetPosZ(thing, z):
+    thing[1] = [thing[1][0], thing[1][1], z]
+
 def ThingGetPos(thing):
     return thing[1]
+
+def ThingGetPosX(thing):
+    return thing[1][0]
+
+def ThingGetPosY(thing):
+    return thing[1][1]
+
+def ThingGetPosZ(thing):
+    return thing[1][2]
 
 def ThingSetRot(thing, x, y, z):
     thing[2] = [x, y, z]
@@ -524,9 +547,6 @@ def TriangleClipAgainstPlane(pPos, pNrm, tri):
     if len(insideP) == 3:
         return [tri]
     
-    #[0] - [2] are the 3 points, [3] is the normal, [4] is a user variable, [5] is colour, [6] is world position,
-    # and [7] is Id
-    
     if len(insideP) == 1 and len(outsideP) == 2:
         outT = [insideP[0], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[1]), VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0]), tri[3], tri[4], tri[5], tri[6], tri[7]]
         return [outT]
@@ -543,7 +563,6 @@ def GetNormal(tri):
     triLine2 = VectorSub(tri[2], tri[0])
     normal = VectorCrP(triLine1, triLine2)
     # Y and Z are flipped
-    normal = VectorMul(normal, [1, -1, -1])
     return VectorNormalize(normal)
 
 
@@ -765,11 +784,25 @@ def CollisionLoop(meshList):
 
 def RasterThings(thingList, camera):
     SetInternalCamera(camera)
-    finished = []
+    projected = []
+    translated = []
     for t in thingList:
-        finished += RasterThing(t, camera)
-    finished.sort(key = triSort)
-    return finished
+        for msh in t[0]:
+            
+            for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh[0], VectorAdd(msh[2], t[2])), VectorAdd(msh[1], t[1]))):
+                if VectorDoP(c[3], camera[10]) < 0.1:
+                    for r in TriangleClipAgainstPlane([0, 0, camera[7]], [0, 0, 1], c):
+                        translated.append(r)
+    translated.sort(key = triSort)
+    for i in ProjectTriangles(translated):
+        for p in TriangleClipAgainstPlane([0, 0, 0], [0, 1, 0], i):
+            for s in TriangleClipAgainstPlane([0, intCam[3] - 1, 0], [0, -1, 0], p):
+                for z in TriangleClipAgainstPlane([0, 0, 0], [1, 0, 0], s):
+                    for y in TriangleClipAgainstPlane([intCam[4] - 1, 0, 0], [-1, 0, 0], z):
+                        y[5] = msh[3]
+                        y[7] = msh[4]
+                        projected.append(y)
+    return projected
 
 def RasterMeshList(meshList, camera):
     SetInternalCamera(camera)
@@ -786,7 +819,7 @@ def RasterMesh(msh, camera):
     projected = []
     translated = []
     for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh[0], msh[2]), msh[1])):
-        if VectorDoP(c[3], camera[10]) > -0.1:
+        if VectorDoP(c[3], intCam[10]) > -0.1:
             for r in TriangleClipAgainstPlane([0, 0, camera[7]], [0, 0, 1], c):
                 translated.append(r)
 
@@ -811,7 +844,7 @@ def RasterThing(thing, camera):
     for msh in thing[0]:
         translated = []
         for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh[0], VectorAdd(msh[2], thing[2])), VectorAdd(msh[1], thing[1]))):
-            if VectorDoP(c[3], camera[10]) > -0.1:
+            if VectorDoP(c[3], camera[10]) < 0.1:
                 for r in TriangleClipAgainstPlane([0, 0, camera[7]], [0, 0, 1], c):
                     translated.append(r)
 
@@ -836,6 +869,7 @@ def SetInternalCamera(camera):
     intCam = camera
     intMatT = GetTranslationMatrix(camera[0][0], camera[0][1], camera[0][2])
     camera[10] = VectorRotateY(camera[9], camera[1][1])
+    intCam[10] = camera[10]
     intVecT = VectorAdd(camera[0], camera[10])
     intMatV = LookAtMatrix(camera[0], intVecT, intVecU)
 
