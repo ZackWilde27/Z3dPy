@@ -1,14 +1,21 @@
 # Zack's 3D Engine
 # or ZedPy for short
+# Object-Oriented Edition
 
-# 0.0.6 Changes
+# 0.0.7 Changes
 #
-# - Well, 0.0.6 was going to be switching to the function version, but I'm keeping this one too.
+# - Z3dPy has been split off into the OOP version, and regular Function version
+#
+# - Added a toggle between FirstPerson and ThirdPerson when setting the camera
+#
+# - Added DrawTriangleRGBF() because I now realize the problem with giving a normalized vector when it expects 0-255
+#
+# - Removed Camera's forward vector, it was basically a bodge in order to get first person working, but I would instead use RotateVectorY() or something to get a new target vector.
 #
 
 import math
 
-print("Z3dPy v0.0.6")
+print("Z3dPy v0.0.7")
 
 #================
 #
@@ -93,11 +100,11 @@ class Thing:
             case 2:
                 self.hitbox = LoadMeshScl("engine/mesh/cube.obj", self.x, self.y, self.z, self.bbR, self.bbR, self.bbR)
 
-# Camera Object:
+# Cameras:
 #
 # In order to render the triangles, we need information about the camera, like it's position, and fov.
 # Camera rotation is determined by it's target and up vector. By default, the up vector is +Y direction and target is simply the Z direction.
-# For the uninitiated, "direction" in this case simply refers to a vector between 0 and 1, like +Z direction is 0, 0, 1, and -Z direction is 0, 0, -1
+# For the uninitiated, "direction" in this case simply refers to a vector between -1 and 1, like +Z direction is 0, 0, 1, and -Z direction is 0, 0, -1
 #
 # For a third person camera, set the target to a location
 # For a first person camera, set the target to a direction + the camera's location
@@ -106,34 +113,40 @@ class Thing:
 # SetVector() sets the x, y, and z to the vector given. It's a shortcut instead of setting them individually.
 
 class Camera:
-    def __init__(self, x, y, z, sW, sH, fov, near, far):
+    def __init__(self, x, y, z, sW, sH):
         self.x = x
         self.y = y
         self.z = z
         self.roll = 0
         self.pitch = 0
         self.yaw = 0
-        self.fov = fov
+        self.fov = 90
         self.scrH = sH
         self.scrW = sW
         self.scrHh = sH / 2
         self.scrWh = sW / 2
-        self.nc = near
-        self.fc = far
+        self.nc = 0.1
+        self.fc = 1500
         self.target = Vector(0, 0, 1)
-        self.forward = Vector(0, 0, 1)
         self.up = Vector(0, 1, 0)
-        self.theta = fov / 2
+        self.theta = 90 / 2
         self.tan = (1 / math.tan(self.theta))
         self.a = self.scrH / self.scrW
 
-    def GetVector(self):
+    def GetPos(self):
         return Vector(self.x, self.y, self.z)
+    
+    def SetPos(self, x, y, z):
+        self.x = x
+        self.y = y
+        self.z = z
 
-    def SetVector(self, vector):
+    def SetPosV(self, vector):
         self.x = vector.x
         self.y = vector.y
         self.z = vector.z
+
+#
 
 class Light:
     def __init__(self, x, y, z, colour, strength, radius):
@@ -152,6 +165,7 @@ class FirstPersonCamera:
 
 
 # Textures are a matrix, so you can specify an X and Y number with myTexture[x][y]
+# There's no built-in support yet.
 def Texture(w, h):
     pixels = []
     for x in range (0, w):
@@ -632,7 +646,6 @@ def RasterMesh(msh, camera):
         if VectorDoP(c.normal, camera.forward) < 0.1:
             for r in TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), c):
                 translated.append(r)
-
         
     for i in ProjectTriangles(translated):
         for p in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(0, 1, 0), i):
@@ -666,7 +679,7 @@ def RasterThing(thing, camera):
 
 intVecU = Vector(0, 1, 0)
 
-def SetInternalCamera(camera):
+def SetInternalCamera(camera, isFP):
     global intCam
     global intMatT
     global intMatV
@@ -674,8 +687,7 @@ def SetInternalCamera(camera):
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intCam = camera
     intMatT = GetTranslationMatrix(camera.x, camera.y, camera.z)
-    camera.forward = VectorRotateY(camera.target, camera.yaw)
-    intVecT = VectorAdd(camera.GetVector(), camera.forward)
+    intVecT = camera.forward
     intMatV = LookAtMatrix(camera.GetVector(), intVecT, intVecU)
     
     
