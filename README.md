@@ -94,7 +94,7 @@ while not done:
     z.SetInternalCamera(myCamera)
     
     # Render 3D
-    for tri in z.RasterMeshList([myMesh], myCamera):
+    for tri in z.RasterMesh(myMesh, myCamera):
         z.DrawTriangleRGB(tri, screen, z.TriangleGetNormal(tri), pygame)
 
     pygame.display.flip()
