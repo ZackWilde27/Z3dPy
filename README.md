@@ -35,7 +35,7 @@ clock = pygame.time.Clock()
 
 In order to render objects to the screen, we need both a list of objects to draw, and the camera that we are viewing from.
 
-For games, it's recommended to create your objects as Things, since they can hold multiple meshes among other benefits, but for this example we only need one mesh
+For games, it's recommended to create your objects as Things, since they can hold multiple meshes among other benefits, but for this example we're only using one mesh
 
 Load a mesh with LoadMesh()
 
@@ -60,8 +60,10 @@ Pass the RasterTriangles() function your list of meshes to draw and camera to vi
 I made convenient drawing functions for PyGame, but if you are using something else, ignore the z and just use the x and y points.
 
 ```python
+# This is done automatically for RasterThings() and RasterMeshList(), but not for individual items
+z.SetInternalCamera(myCamera)
 
-for tri in z.RasterMeshList([myMesh], myCamera):
+for tri in z.RasterMesh(myMesh, myCamera):
         
     # My library has handy functions for PyGame
     # This will colour the triangle with it's normal value.
@@ -88,6 +90,8 @@ while not done:
             done = True    
     clock.tick(30)
     screen.fill("black")
+    
+    z.SetInternalCamera(myCamera)
     
     # Render 3D
     for tri in z.RasterMeshList([myMesh], myCamera):
