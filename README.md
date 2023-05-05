@@ -28,7 +28,7 @@ import z3dpyOOP as z
 
 <br>
 
-My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster.
+My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster, so I built my library around it, but it's certainly possible to use other things.
 
 # Example Program
 
@@ -41,24 +41,12 @@ import pygame
 
 # Just some PyGame stuff
 pygame.init()
+# We'll need to use the width and height for our camera later
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 ```
 
-In order to render objects to the screen, we need both a list of objects to draw, and the camera that we are viewing from.
-
-For games, it's recommended to create your objects as Things, since they can hold multiple meshes among other benefits, but for this example we're only using one mesh
-
-Load a mesh with LoadMesh()
-
-```python
-
-# Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMesh = z.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
-
-```
-
-Next, create a camera with it's location, screen width, and screen height. Make sure it matches the output display
+First, create a camera with it's location, screen width, and screen height. Make sure it matches the output display.
 
 ```python
 
@@ -67,28 +55,43 @@ myCamera = z.Camera(0, 0, 0, 1280, 720)
 
 ```
 
+By default, cameras are set with an FOV of 90, and the target is pointed along the z axis. These can be changed with functions, like CameraSetFOV(), and CameraSetTarget()
+
+<br>
+
+For games, it's recommended to create your objects as Things, since they can hold multiple meshes among other benefits, but for this example we're only using one mesh
+
+Load a mesh with LoadMesh()
+
+```python
+
+# Use the LoadMesh function to load an OBJ file (filename, x, y, z)
+# z of 5 to put it in front of the camera, which we will put at 0, 0, 0
+myMesh = z.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
+
+```
+
+
+
 Even though we only have one mesh, it's recommended to use RasterMeshList() or RasterThings() anyways, because it does things like setting the internal camera, and sorting the triangles automatically.
 
-Pass the RasterMeshList() function your mesh to draw in a list and camera to view from, and it'll return a list of triangles to draw on the screen.
-
-I made convenient drawing functions for PyGame, but if you are using something else, ignore the z and just use the x and y points.
+Pass the RasterMeshList() function your mesh to draw and camera to view from, and it'll return a list of triangles to draw on the screen.
 
 ```python
 
 for tri in z.RasterMeshList([myMesh], myCamera):
-        
-    # My library has handy functions for PyGame
+
     # This will colour the triangle with it's normal value.
     # RGBF will take a normalized vector convert it to colour
     z.DrawTriangleRGBF(tri, screen, z.TriangleGetNormal(tri), pygame)
-        
-    # If you wanted flat shading instead of normal colouring
-    # [0] is x, [1] is y, [2] is z
-    #z.DrawTriangleF(tri, screen, z.TriangleGetNormal(tri)[2], pygame)
     
 # Update Display afterwards
 pygame.display.flip()
 ```
+
+I made convenient drawing functions for PyGame, but if you are using something else, ignore the z and just use the x and y points.
+
+<br>
 
 Now all that's left is to chuck it in a loop.
 
