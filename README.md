@@ -17,13 +17,13 @@ FAQ can be found at the bottom
 
 Download the z3dpy.py file and engine folder, and put them in the same folder as your script, then import it with
 ```python
-import z3dpy as z
+import z3dpy as zp
 ```
 
 There are two versions of Z3dPy. The function version is used by default, which is 2x faster than object-oriented. If you want to sacrifice some speed for ease of programming, you can instead import the OOP version.
 
 ```python
-import z3dpyOOP as z
+import z3dpyOOP as zp
 ```
 
 <br>
@@ -36,7 +36,7 @@ Basically the 'Hello World' of Z3dPy. I'll be showing you the function version. 
 
 I'll be using PyGame for my display to draw on.
 ```python
-import z3dpy as z
+import z3dpy as zp
 import pygame
 
 # Just some PyGame stuff
@@ -51,7 +51,7 @@ First, create a camera with it's location, screen width, and screen height. Make
 ```python
 
 # Create our camera object (x, y, z, width, height)
-myCamera = z.Camera(0, 0, 0, 1280, 720)
+myCamera = zp.Camera(0, 0, 0, 1280, 720)
 
 ```
 
@@ -65,7 +65,7 @@ For games, it's recommended to create your objects as Things, since they can hol
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
 # z of 5 to put it in front of the camera
-myMesh = z.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
+myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 
 ```
 
@@ -75,11 +75,11 @@ Pass the RasterMeshList() function your mesh to draw and camera to view from, an
 
 ```python
 
-for tri in z.RasterMeshList([myMesh], myCamera):
+for tri in zp.RasterMeshList([myMesh], myCamera):
 
     # This will colour the triangle with it's normal value.
     # RGBF will take a normalized vector convert it to colour
-    z.DrawTriangleRGBF(tri, screen, z.TriangleGetNormal(tri), pygame)
+    zp.DrawTriangleRGBF(tri, screen, zp.TriangleGetNormal(tri), pygame)
     
 # Update Display afterwards
 pygame.display.flip()
@@ -105,13 +105,13 @@ while not done:
     
     
     # Render 3D
-    for tri in z.RasterMeshList([myMesh], myCamera):
-        z.DrawTriangleRGBF(tri, screen, z.TriangleGetNormal(tri), pygame)
+    for tri in zp.RasterMeshList([myMesh], myCamera):
+        zp.DrawTriangleRGBF(tri, screen, zp.TriangleGetNormal(tri), pygame)
 
     pygame.display.flip()
     
     # Rotate mesh
-    z.MeshAddRot(myMesh, 2, 5, 1)
+    zp.MeshAddRot(myMesh, 2, 5, 1)
 ```
 There's more ways to raster triangles depending on how custom of a pipeline you need, all of which can be found on the wiki
 
