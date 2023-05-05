@@ -5,7 +5,7 @@ Zack's Python 3D Engine
 
 Written entirely in Python, no graphics libraries. 
 
-Renders 1400 triangles at 30 fps *(on a 3rd gen Ryzen 7)*
+Renders 950 triangles at 30 fps *(on a 3rd gen Ryzen 7.)*
 
 This engine is still very early on, I'm planning many more updates with features.
 
