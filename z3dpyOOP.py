@@ -2,20 +2,17 @@
 # or ZedPy for short
 # Object-Oriented Edition
 
-# 0.0.7 Changes
+# 0.0.7.1 Changes
 #
-# - Z3dPy has been split off into the OOP version, and regular Function version
+# - Quickly patched the OOP version's internal camera initializing with extra variables
 #
-# - Added a toggle between FirstPerson and ThirdPerson when setting the camera
+# - Fixed the raster functions
 #
-# - Added DrawTriangleRGBF() because I now realize the problem with giving a normalized vector when it expects 0-255
-#
-# - Removed Camera's forward vector, it was basically a bodge in order to get first person working, but I would instead use RotateVectorY() or something to get a new target vector.
 #
 
 import math
 
-print("Z3dPy v0.0.7")
+print("Z3dPy v0.0.7.1")
 
 #================
 #
@@ -94,11 +91,11 @@ class Thing:
         self.collisionId = id
         match id:
             case 0:
-                self.hitbox = LoadMeshScl("engine/mesh/sphere.obj", self.x, self.y, self.z, self.bbR, self.bbR, self.bbR)
+                self.hitbox = LoadMeshScl("engine/mesh/sphere.obj", self.pos.x, self.pos.y, self.pos.z, self.bbR, self.bbR, self.bbR)
             case 1:
-                self.hitbox = LoadMeshScl("engine/mesh/cylinder.obj", self.x, self.y, self.z, self.bbR, self.bbH, self.bbR)
+                self.hitbox = LoadMeshScl("engine/mesh/cylinder.obj", self.pos.x, self.pos.y, self.pos.z, self.bbR, self.bbH, self.bbR)
             case 2:
-                self.hitbox = LoadMeshScl("engine/mesh/cube.obj", self.x, self.y, self.z, self.bbR, self.bbR, self.bbR)
+                self.hitbox = LoadMeshScl("engine/mesh/cube.obj", self.pos.x, self.pos.y, self.pos.z, self.bbR, self.bbR, self.bbR)
 
 # Cameras:
 #
@@ -145,6 +142,8 @@ class Camera:
         self.x = vector.x
         self.y = vector.y
         self.z = vector.z
+
+intCam = Camera(0, 0, 0, 256, 240)
 
 #
 
@@ -394,6 +393,9 @@ def GetNormal(tri):
 def DrawTriangleRGB(tri, surface, colour, pyg):
     pyg.draw.polygon(surface, (max(colour.x, 0), max(colour.y, 0), max(colour.z, 0)), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
 
+def DrawTriangleRGBF(tri, surface, colour, pyg):
+    pyg.draw.polygon(surface, (max(colour.x, 0) * 255, max(colour.y, 0) * 255, max(colour.z, 0) * 255), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
+
 def DrawTriangleF(tri, surface, f, pyg):
     f = max(f, 0) * 255
     pyg.draw.polygon(surface, (f, f, f), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
@@ -484,7 +486,7 @@ def PointAtMatrix(pos, target, up, cam):
 def LookAtMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
-    return [[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(intCam.GetVector(), temp.p3)), -(VectorDoP(intCam.GetVector(), temp.p2)), -(VectorDoP(intCam.GetVector(), temp.p1)), 1]]
+    return [[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(intCam.GetPos(), temp.p3)), -(VectorDoP(intCam.GetPos(), temp.p2)), -(VectorDoP(intCam.GetPos(), temp.p1)), 1]]
 
 
 def MatrixMakeRotX(deg):
@@ -535,8 +537,6 @@ def LoadMeshScl(filename, x, y, z, sclX, sclY, sclZ):
 
 def LoadMesh(filename, x, y, z):
     return LoadMeshScl(filename, x, y, z, 1, 1, 1)
-
-intCam = Camera(0, 0, 0, 256, 240, 90, 0.1, 1500)
 
 def CollisionLoop(meshList):
     results = []
@@ -643,7 +643,7 @@ def RasterMesh(msh, camera):
     projected = []
     translated = []
     for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh.tris, msh.rot), msh.pos)):
-        if VectorDoP(c.normal, camera.forward) < 0.1:
+        if VectorDoP(c.normal, Vector(0, 0, 1)) < 0.1:
             for r in TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), c):
                 translated.append(r)
         
@@ -663,7 +663,7 @@ def RasterThing(thing, camera):
     for msh in thing.meshes:
         translated = []
         for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh.tris, VectorAdd(msh.rot, thing.rot)), VectorAdd(msh.pos, thing.pos))):
-            if VectorDoP(c.normal, camera.forward) < 0.1:
+            if VectorDoP(c.normal, Vector(0, 0, 1)) < 0.1:
                 for r in TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), c):
                     translated.append(r)
 
@@ -679,7 +679,7 @@ def RasterThing(thing, camera):
 
 intVecU = Vector(0, 1, 0)
 
-def SetInternalCamera(camera, isFP):
+def SetInternalCamera(camera):
     global intCam
     global intMatT
     global intMatV
@@ -687,8 +687,8 @@ def SetInternalCamera(camera, isFP):
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intCam = camera
     intMatT = GetTranslationMatrix(camera.x, camera.y, camera.z)
-    intVecT = camera.forward
-    intMatV = LookAtMatrix(camera.GetVector(), intVecT, intVecU)
+    intVecT = camera.target
+    intMatV = LookAtMatrix(camera.GetPos(), intVecT, intVecU)
     
     
 
