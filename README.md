@@ -3,11 +3,9 @@ Zack's Python 3D Engine
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
 
-Written entirely in Python, no OpenGL or anything
+Written entirely in Python, no OpenGL
 
-Renders 950 on-screen triangles at 30 fps *(on a 3rd gen Ryzen 7)*
-
-**This engine is still in development, so certain aspects are unfinished**
+Renders 950 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
@@ -28,7 +26,7 @@ import z3dpyOOP as zp
 
 <br>
 
-My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster, so I built my library around it, but it's certainly possible to use other things.
+My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster.
 
 # Example Program
 
