@@ -85,7 +85,7 @@ for tri in z.RasterMeshList([myMesh], myCamera):
 pygame.display.flip()
 ```
 
-I made convenient drawing functions for PyGame, but if you are using something else, check the <a>Drawing Triangles</a> page
+I made convenient drawing functions for PyGame, but if you are using something else, check the <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing-Triangles">Drawing Triangles</a> page
 
 <br>
 
