@@ -61,17 +61,13 @@ By default, cameras are set with an FOV of 90, and the target is pointed along t
 
 For games, it's recommended to create your objects as Things, since they can hold multiple meshes among other benefits, but for this example we're only using one mesh
 
-Load a mesh with LoadMesh()
-
 ```python
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-# z of 5 to put it in front of the camera, which we will put at 0, 0, 0
+# z of 5 to put it in front of the camera
 myMesh = z.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 
 ```
-
-
 
 Even though we only have one mesh, it's recommended to use RasterMeshList() or RasterThings() anyways, because it does things like setting the internal camera, and sorting the triangles automatically.
 
@@ -89,7 +85,7 @@ for tri in z.RasterMeshList([myMesh], myCamera):
 pygame.display.flip()
 ```
 
-I made convenient drawing functions for PyGame, but if you are using something else, ignore the z and just use the x and y points.
+I made convenient drawing functions for PyGame, but if you are using something else, check the <a>Drawing Triangles</a> page
 
 <br>
 
