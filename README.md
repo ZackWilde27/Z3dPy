@@ -7,7 +7,7 @@ Written entirely in Python, no OpenGL or anything
 
 Renders 950 on-screen triangles at 30 fps *(on a 3rd gen Ryzen 7)*
 
-This engine is still experimental as I figure things out, so make sure the latest version is installed
+**This engine is still in development, so certain aspects are unfinished**
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
