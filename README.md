@@ -13,7 +13,7 @@ FAQ can be found at the bottom
 
 # Installation Guide
 
-Download the latest release from the repo, or I guess I could give you a <a>link</a>
+Download the latest release from the repo, or I guess I could give you a <a href="https://github.com/ZackWilde27/Z3dPy/releases/tag/v0.1.0">link</a>
 
 Extract the zip folder to the same folder as your script, then import it with
 ```python
