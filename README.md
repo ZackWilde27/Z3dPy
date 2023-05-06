@@ -13,7 +13,9 @@ FAQ can be found at the bottom
 
 # Installation Guide
 
-Download the z3dpy.py file and engine folder, and put them in the same folder as your script, then import it with
+Download the latest release from the repo, or I guess I could give you a <a>link</a>
+
+Extract the zip folder to the same folder as your script, then import it with
 ```python
 import z3dpy as zp
 ```
