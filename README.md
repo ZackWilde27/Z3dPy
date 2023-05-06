@@ -123,8 +123,7 @@ Up axis is -Y, and Forward axis is -Z. In this case I wanted the mesh to face th
 
 I don't get asked questions, but I've compiled a list of mistakes that I've made before
 
-### return [v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2]] TypeError: can only concatenate list (not "int") to list
-
+### TypeError: can only concatenate list (not "int") to list
 
 When drawing a thing with one mesh, this usually means forgetting to put the meshes in a list: z3dpy.Thing([myMesh], x, y, z)
 
