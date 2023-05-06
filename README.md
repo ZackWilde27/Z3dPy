@@ -17,7 +17,7 @@ Download the latest release and extract the zip folder to the same folder as you
 ```python
 import z3dpy as zp
 ```
-There are two versions of Z3dPy. The function version is used by default, which is 2x faster than object-oriented. If you want to sacrifice some speed for ease of programming, you can instead import the OOP version.
+There are two versions of Z3dPy. The function version is used by default, which is 2x faster than object-oriented. If you don't mind sacrificing some speed for ease of programming, you can instead import the OOP version.
 
 ```python
 import z3dpyOOP as zp
