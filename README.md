@@ -7,6 +7,8 @@ Written entirely in Python, no OpenGL
 
 Renders 950 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
+My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster.
+
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
 FAQ can be found at the bottom
@@ -27,8 +29,6 @@ import z3dpyOOP as zp
 ```
 
 <br>
-
-My library does not come with a display, you'll need some other library, like Tkinter or PyGame. In my experience PyGame is faster.
 
 # Example Program
 
