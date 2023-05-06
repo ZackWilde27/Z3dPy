@@ -67,12 +67,10 @@ myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 
 ```
 
-Even though we only have one mesh, it's recommended to use RasterMeshList() or RasterThings() anyways, because it does things like setting the internal camera, and sorting the triangles automatically.
-
 Pass the RasterMeshList() function your mesh to draw and camera to view from, and it'll return a list of triangles to draw on the screen.
 
 ```python
-
+# Make sure that it's in a list, even if it's one mesh
 for tri in zp.RasterMeshList([myMesh], myCamera):
 
     # This will colour the triangle with it's normal value.
