@@ -23,6 +23,8 @@ There are two versions of Z3dPy. The function version is used by default, which 
 import z3dpyOOP as zp
 ```
 
+Lastly, you'll need a display to draw on, I recommend PyGame, but you could use Tkinter or something.
+
 # Example Program
 
 Basically the 'Hello World' of Z3dPy. I'll be showing you the function version. The OOP version can be found in the wiki.
