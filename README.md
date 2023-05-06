@@ -15,20 +15,15 @@ FAQ can be found at the bottom
 
 # Installation Guide
 
-Download the latest release from the repo, or I guess I could give you a <a href="https://github.com/ZackWilde27/Z3dPy/releases/tag/v0.1.0">link</a>
-
-Extract the zip folder to the same folder as your script, then import it with
+Download the latest release and extract the zip folder to the same folder as your script, then import it with:
 ```python
 import z3dpy as zp
 ```
-
 There are two versions of Z3dPy. The function version is used by default, which is 2x faster than object-oriented. If you want to sacrifice some speed for ease of programming, you can instead import the OOP version.
 
 ```python
 import z3dpyOOP as zp
 ```
-
-<br>
 
 # Example Program
 
