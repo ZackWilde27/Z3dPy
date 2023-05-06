@@ -2,17 +2,27 @@
 # or ZedPy for short
 # Object-Oriented Edition
 
-# 0.0.7.1 Changes
+# 0.1.0 Changes
 #
-# - Quickly patched the OOP version's internal camera initializing with extra variables
+# - Instead of the camera having an x, y, z, roll, pitch, and yaw separately, it's now camera.pos, and camera.rot, just like meshes and things.
 #
-# - Fixed the raster functions
+# - Fixed bug where a thing id's wasn't applied to triangles
 #
+# - Added length adjustment to cube hitbox, so it can be rectangular
+#
+# - Experimenting with dynamic lighting. Create a PointLight() and append it to Lights, then plug FlatLighting() into DrawTriangleRGB()'s colour.
+#
+# - Added TriangleClipAgainstZ() and TriangleClipAgainstScreenEdges to help with custom render pipelines
+#
+# - Turned Raster Triangles into RasterPt1 and RasterPt2, to fix depth sorting.
+#
+# - Triangles are now sorted by the furthest point's Z rather than the average Z of all points
 #
 
 import math
 
-print("Z3dPy v0.0.7.1")
+print("Z3dPy v0.1.0")
+        
 
 #================
 #
@@ -85,17 +95,18 @@ class Thing:
         self.collisionId = 0
         self.collisionType = 2
 
-    def SetCollisionParams(self, id, radius, height):
+    def SetCollisionParams(self, type, id, radius, height):
         self.bbR = radius
         self.bbH = height
+        self.collisionType = type
         self.collisionId = id
-        match id:
+        match type:
             case 0:
                 self.hitbox = LoadMeshScl("engine/mesh/sphere.obj", self.pos.x, self.pos.y, self.pos.z, self.bbR, self.bbR, self.bbR)
             case 1:
                 self.hitbox = LoadMeshScl("engine/mesh/cylinder.obj", self.pos.x, self.pos.y, self.pos.z, self.bbR, self.bbH, self.bbR)
             case 2:
-                self.hitbox = LoadMeshScl("engine/mesh/cube.obj", self.pos.x, self.pos.y, self.pos.z, self.bbR, self.bbR, self.bbR)
+                self.hitbox = LoadMeshScl("engine/mesh/cube.obj", self.pos.x, self.pos.y, self.pos.z, self.bbR, self.bbH, self.bbR)
 
 # Cameras:
 #
@@ -106,17 +117,11 @@ class Thing:
 # For a third person camera, set the target to a location
 # For a first person camera, set the target to a direction + the camera's location
 #
-# GetVector() will simply return the x, y, and z as a vector
-# SetVector() sets the x, y, and z to the vector given. It's a shortcut instead of setting them individually.
 
 class Camera:
     def __init__(self, x, y, z, sW, sH):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.roll = 0
-        self.pitch = 0
-        self.yaw = 0
+        self.pos = Vector(x, y, z)
+        self.rot = Vector(x, y, z)
         self.fov = 90
         self.scrH = sH
         self.scrW = sW
@@ -130,22 +135,12 @@ class Camera:
         self.tan = (1 / math.tan(self.theta))
         self.a = self.scrH / self.scrW
 
-    def GetPos(self):
-        return Vector(self.x, self.y, self.z)
-    
-    def SetPos(self, x, y, z):
-        self.x = x
-        self.y = y
-        self.z = z
-
-    def SetPosV(self, vector):
-        self.x = vector.x
-        self.y = vector.y
-        self.z = vector.z
+    def SetFOV(self, fov):
+        self.fov = fov * 0.0174533
+        self.theta = self.fov / 2
+        self.tan = (1 / math.tan(self.theta))
 
 intCam = Camera(0, 0, 0, 256, 240)
-
-#
 
 class Light:
     def __init__(self, x, y, z, colour, strength, radius):
@@ -180,6 +175,7 @@ def Texture(w, h):
 #
 #================
 
+# You can reference these at any time to get a global axis.
 globalX = Vector(1, 0, 0)
 globalY = Vector(0, 1, 0)
 globalZ = Vector(0, 0, 1)
@@ -188,10 +184,10 @@ globalZ = Vector(0, 0, 1)
 
 #matRotZ = np.matrix([[1, 0, 0, 0], [0, math.cos((time.time() - track) / 2), math.sin((time.time() - track) / 2), 0], [0, -math.sin((time.time() - track) / 2), math.cos((time.time() - track) / 2), 0], [0, 0, 1, 0]])
 
-showCollisions = True
-
 debugThings = []
-        
+
+Lights = []
+
 
 # Functions
 # There's a lot of them.
@@ -358,15 +354,15 @@ def TriangleClipAgainstPlane(pPos, pNrm, tri):
         outT2 = CreateTriangleComplex(insideP[0], outT1.p3, VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0]), tri.normal, tri.lighting, tri.colour, tri.wpos, tri.id)
         return [outT1, outT2]
     
-def TriangleClipAgainstZ(tri):
-    return TriangleClipAgainstPlane(Vector(0, 0, intCam.nc), Vector(0, 0, 1), tri)
+def TriangleClipAgainstZ(tri, camera):
+    return TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), tri)
 
-def TriangleClipAgainstScreenEdges(tri):
+def TriangleClipAgainstScreenEdges(tri, camera):
     output = []
     for p in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(0, 1, 0), tri):
-        for s in TriangleClipAgainstPlane(Vector(0, intCam.scrH - 1, 0), Vector(0, -1, 0), p):
+        for s in TriangleClipAgainstPlane(Vector(0, camera.scrH - 1, 0), Vector(0, -1, 0), p):
             for z in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(1, 0, 0), s):
-                for y in TriangleClipAgainstPlane(Vector(intCam.scrW - 1, 0, 0), Vector(-1, 0, 0), z):
+                for y in TriangleClipAgainstPlane(Vector(camera.scrW - 1, 0, 0), Vector(-1, 0, 0), z):
                     output.append(y)
     return output
     
@@ -396,6 +392,9 @@ def DrawTriangleRGB(tri, surface, colour, pyg):
 def DrawTriangleRGBF(tri, surface, colour, pyg):
     pyg.draw.polygon(surface, (max(colour.x, 0) * 255, max(colour.y, 0) * 255, max(colour.z, 0) * 255), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
 
+def DrawTriangleOutl(tri, surface, colour, pyg):
+    pyg.draw.lines(surface, (max(colour.x, 0) * 255, max(colour.y, 0) * 255, max(colour.z, 0) * 255), True, [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
+
 def DrawTriangleF(tri, surface, f, pyg):
     f = max(f, 0) * 255
     pyg.draw.polygon(surface, (f, f, f), [(tri.p1.x, tri.p1.y), (tri.p2.x, tri.p2.y), (tri.p3.x, tri.p3.y)])
@@ -418,7 +417,7 @@ def TriangleCopyUV(inTri, outTri):
 
 # Sort Triangles based on their distance from the camera
 def triSort(n):
-    return (intCam.fc + intCam.nc) - ((n.p1.z + n.p2.z + n.p3.z) / 3)
+    return (intCam.fc + intCam.nc) - max(n.p1.z, n.p2.z, n.p3.z)
 
 def VectorRotateX(vec, deg):
     return MatrixMul(vec, MatrixMakeRotX(deg))
@@ -481,12 +480,12 @@ def MatrixStuff(pos, target, up):
 def PointAtMatrix(pos, target, up, cam):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
-    return [[temp.p3.x, temp.p3.y, temp.p3.z, 0], [temp.p2.x, temp.p2.y, temp.p2.z, 0], [temp.p1.x, temp.p1.y, temp.p1.z, 0], [cam.x, cam.y, cam.z, 1]]
+    return [[temp.p3.x, temp.p3.y, temp.p3.z, 0], [temp.p2.x, temp.p2.y, temp.p2.z, 0], [temp.p1.x, temp.p1.y, temp.p1.z, 0], [cam.pos.x, cam.pos.y, cam.pos.z, 1]]
 
 def LookAtMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
     # Now for the matrix
-    return [[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(intCam.GetPos(), temp.p3)), -(VectorDoP(intCam.GetPos(), temp.p2)), -(VectorDoP(intCam.GetPos(), temp.p1)), 1]]
+    return [[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(intCam.pos, temp.p3)), -(VectorDoP(intCam.pos, temp.p2)), -(VectorDoP(intCam.pos, temp.p1)), 1]]
 
 
 def MatrixMakeRotX(deg):
@@ -547,7 +546,7 @@ def CollisionLoop(meshList):
                 # Each object has a collision radius around it's origin, and if any object enters that radius, it's a hit.
                 for ms in range(0, len(meshList)):
                     # Not colliding against self, and testing if they should collide
-                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId:
+                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId and [meshList[ms], meshList[me]] not in results:
                         distance = DistanceBetweenVectors(meshList[me].pos, meshList[ms].pos)
                         if distance - meshList[me].bbR < meshList[ms].bbR:
                             results.append([meshList[me], meshList[ms]])
@@ -556,7 +555,7 @@ def CollisionLoop(meshList):
                 # Cylinder
                 # The distance is measured with no vertical in mind, and a check to make sure it's within height
                 for ms in range(0, len(meshList)):
-                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId:
+                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId and [meshList[ms], meshList[me]] not in results:
                         distance = DistanceBetweenVectors(Vector(meshList[me].pos.x, 0, meshList[me].pos.z), Vector(meshList[ms].pos.x, 0, meshList[ms].pos.z))
                         if distance - meshList[me].bbR < meshList[ms].bbR and int(meshList[me].pos.y) in range(meshList[ms].pos.y - 5, meshList[ms].pos.y + 5):
                             results.append([meshList[me], meshList[ms]])
@@ -565,7 +564,7 @@ def CollisionLoop(meshList):
                 # Cube
                 # The position of the first mesh simply has to be in range of the other mesh's position.
                 for ms in range(0, len(meshList)):
-                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId:
+                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId and [meshList[ms], meshList[me]] not in results:
                         if int(meshList[me].pos.y) in range(meshList[ms].pos.y - 5, meshList[ms].pos.y + 5) or int(meshList[me].pos.x) in range(meshList[ms].pos.x - 5, meshList[ms].pos.x + 5) or int(meshList[me].pos.z) in range(meshList[ms].pos.z - 5, meshList[ms].pos.z + 5):
                             results.append([meshList[me], meshList[ms]])
 
@@ -623,9 +622,12 @@ def CollisionLoop(meshList):
 def RasterThings(thingList, camera):
     SetInternalCamera(camera)
     finished = []
+    viewed = []
     for t in thingList:
-        finished += RasterThing(t, camera)
-    finished.sort(key = triSort)
+        for m in t.meshes:
+            viewed += RasterPt1(m.tris, VectorAdd(m.pos, t.pos), VectorAdd(m.rot, t.rot), t.id, m.colour, camera)
+    viewed.sort(key = triSort)
+    finished = RasterPt2(viewed, camera)
     return finished
 
 def RasterMeshList(meshList, camera):
@@ -633,49 +635,52 @@ def RasterMeshList(meshList, camera):
     finished = []
     for m in meshList:
         finished += RasterMesh(m, camera)
-    finished.sort(key = triSort)
     return finished
 
-def RasterTriangles(meshList, camera):
-    return RasterMeshList(meshList, camera)
-
-def RasterMesh(msh, camera):
-    projected = []
+def RasterTriangles(tris, rot, pos, colour, id, camera):
+    output = []
     translated = []
-    for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh.tris, msh.rot), msh.pos)):
+    for c in ViewTriangles(TranslateTriangles(TransformTriangles(tris, rot), pos)):
         if VectorDoP(c.normal, Vector(0, 0, 1)) < 0.1:
             for r in TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), c):
                 translated.append(r)
+    translated.sort(key=triSort)
         
     for i in ProjectTriangles(translated):
         for p in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(0, 1, 0), i):
             for s in TriangleClipAgainstPlane(Vector(0, intCam.scrH - 1, 0), Vector(0, -1, 0), p):
                 for z in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(1, 0, 0), s):
                     for y in TriangleClipAgainstPlane(Vector(intCam.scrW - 1, 0, 0), Vector(-1, 0, 0), z):
-                        y.colour = msh.colour
-                        y.id = msh.id
-                        projected.append(y)
-    return projected
+                        y.colour = colour
+                        y.id = id
+                        output.append(y)
+    return output
+
+def RasterPt1(tris, pos, rot, id, colour, camera):
+    translated = []
+    for c in ViewTriangles(TranslateTriangles(TransformTriangles(tris, rot), pos)):
+        if VectorDoP(c.normal, Vector(0, 0, 1)) < 0.1:
+            for r in TriangleClipAgainstZ(c, camera):
+                r.colour = colour
+                r.id = id
+                translated.append(r)
+    return translated
+
+def RasterPt2(tris, camera):
+    output = []
+    for i in ProjectTriangles(tris):
+        for s in TriangleClipAgainstScreenEdges(i, camera):
+            output.append(s)
+    return output
+
+def RasterMesh(msh, camera):
+    return RasterTriangles(msh.tris, msh.rot, msh.pos, msh.colour, msh.id, camera)
 
 def RasterThing(thing, camera):
-    projected = []
-
-    for msh in thing.meshes:
-        translated = []
-        for c in ViewTriangles(TranslateTriangles(TransformTriangles(msh.tris, VectorAdd(msh.rot, thing.rot)), VectorAdd(msh.pos, thing.pos))):
-            if VectorDoP(c.normal, Vector(0, 0, 1)) < 0.1:
-                for r in TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), c):
-                    translated.append(r)
-
-        for i in ProjectTriangles(translated):
-            for p in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(0, 1, 0), i):
-                for s in TriangleClipAgainstPlane(Vector(0, intCam.scrH - 1, 0), Vector(0, -1, 0), p):
-                    for z in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(1, 0, 0), s):
-                        for y in TriangleClipAgainstPlane(Vector(intCam.scrW - 1, 0, 0), Vector(-1, 0, 0), z):
-                            y.colour = msh.colour
-                            y.id = msh.id
-                            projected.append(y)
-    return projected
+    output = []
+    for m in thing.meshes:
+        output += RasterTriangles(m.tris, VectorAdd(m.rot, thing.rot), VectorAdd(m.pos, thing.pos), m.colour, thing.id, camera)
+    return output
 
 intVecU = Vector(0, 1, 0)
 
@@ -686,9 +691,9 @@ def SetInternalCamera(camera):
     global intVecT
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intCam = camera
-    intMatT = GetTranslationMatrix(camera.x, camera.y, camera.z)
+    intMatT = GetTranslationMatrix(camera.pos.x, camera.pos.y, camera.pos.z)
     intVecT = camera.target
-    intMatV = LookAtMatrix(camera.GetPos(), intVecT, intVecU)
+    intMatV = LookAtMatrix(camera.pos, intVecT, intVecU)
     
     
 
@@ -761,8 +766,8 @@ def ProjectTriangles(tris):
 #
 #================
        
-def FlatLighting(tri, lightList):
+def FlatLighting(tri):
     finalColour = Vector(0, 0, 0)
-    for l in lightList:
+    for l in Lights:
         finalColour = VectorAdd(finalColour, VectorMulF(VectorMulF(tri.colour, VectorDoP(VectorMul(tri.normal, Vector(-1, -1, -1)), DirectionBetweenVectors(l.pos, tri.wpos))), 1 - min(max(DistanceBetweenVectors(tri.wpos, l.pos) / l.rad, 0), 1)))
     return finalColour
