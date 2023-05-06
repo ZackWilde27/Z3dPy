@@ -1,4 +1,4 @@
-# Z3dPy v0.0.7
+# Z3dPy v0.1.0
 Zack's Python 3D Engine
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
