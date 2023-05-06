@@ -3,7 +3,7 @@ Zack's Python 3D Engine
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
 
-Z3dPy handles all the math required for 3D, and has useful functions for game developers. Meant to be used with PyGame.
+Z3dPy handles rasterization, and has useful functions for game developers. Meant to be used with PyGame.
 
 Renders 950 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
