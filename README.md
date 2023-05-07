@@ -103,6 +103,46 @@ while not done:
     zp.MeshAddRot(myMesh, 2, 5, 1)
 ```
 
+Final script:
+
+```python
+import z3dpy as zp
+import pygame
+
+# Just some PyGame stuff
+pygame.init()
+# We'll need to use the width and height for our camera later
+screen = pygame.display.set_mode((1280, 720))
+clock = pygame.time.Clock()
+
+# Create our camera object (x, y, z, width, height)
+myCamera = zp.Camera(0, 0, 0, 1280, 720)
+
+# Use the LoadMesh function to load an OBJ file (filename, x, y, z)
+myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
+
+# Raster Loop
+done = False
+
+while not done:
+    # more PyGame Stuff
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            done = True    
+    clock.tick(30)
+    screen.fill("black")
+    
+    
+    # Render 3D
+    for tri in zp.RasterMeshList([myMesh], myCamera):
+        zp.DrawTriangleRGBF(tri, screen, zp.TriangleGetNormal(tri), pygame)
+
+    pygame.display.flip()
+    
+    # Rotate mesh
+    zp.MeshAddRot(myMesh, 2, 5, 1)
+```
+
 # Exporting Mesh
 
 Export your mesh as an OBJ file, with no extra information. Make sure to triangulate.
