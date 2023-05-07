@@ -50,7 +50,7 @@ myCamera = zp.Camera(0, 0, 0, 1280, 720)
 
 ```
 
-By default, cameras are set with an FOV of 90, and the target is pointed along the z axis. These can be changed with functions, like CameraSetFOV(), and CameraSetTarget()
+By default, cameras are set with an FOV of 90, and the target is pointed along the z axis. These can be changed with functions
 
 <br>
 
@@ -59,7 +59,6 @@ For games, it's recommended to create your objects as Things, since they can hol
 ```python
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-# z of 5 to put it in front of the camera
 myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 
 ```
@@ -67,14 +66,11 @@ myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 Pass the RasterMeshList() function your mesh to draw and camera to view from, and it'll return a list of triangles to draw on the screen.
 
 ```python
-# Make sure that it's in a list, even if it's one mesh
 for tri in zp.RasterMeshList([myMesh], myCamera):
 
-    # This will colour the triangle with it's normal value.
     # RGBF will take a normalized vector convert it to colour
     zp.DrawTriangleRGBF(tri, screen, zp.TriangleGetNormal(tri), pygame)
     
-# Update Display afterwards
 pygame.display.flip()
 ```
 
