@@ -3,7 +3,7 @@ Zack's Python 3D Engine
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
 
-Z3dPy is a personal project I'm working on, a 3D engine written entirely in Python. While it doesn't handle the display itself or inputs, it does pretty much everything else. It's meant to be used with Pygame to make for a speedy 3D engine, but it can also be used independently as quite the starting point for your own 3D project.
+Z3dPy is a personal project I'm working on, a 3D engine written entirely in Python. While it doesn't handle the display itself or inputs, it does pretty much everything else. It's meant to be used with Pygame to make speedy 3D easy, but it can also be used independently as quite the starting point for your own 3D project.
 
 Renders 950 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
