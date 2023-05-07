@@ -3,7 +3,7 @@ Zack's Python 3D Engine
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
 
-Z3dPy is a personal project I'm working on, a 3D engine written entirely in Python. While it doesn't handle the display or inputs, it does pretty much everything else. It's meant to be used with PyGame to make for a speedy 3D engine, but it can also be used independently as quite the starting point for your own 3D engine.
+Z3dPy is a personal project I'm working on, a 3D engine written entirely in Python. While it doesn't handle the display itself or inputs, it does pretty much everything else. It's meant to be used with Pygame to make for a speedy 3D engine, but it can also be used independently as quite the starting point for your own 3D project.
 
 Renders 950 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
@@ -12,6 +12,8 @@ Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki"
 FAQ can be found at the bottom
 
 # Installation Guide
+
+My library does not handle the display itself or inputs, so first you'll need something like Pygame. Although <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing-Triangles">it doesn't have to be Pygame</a>
 
 Download the latest release and extract the zip folder to the same folder as your script, then import it with:
 ```python
@@ -23,25 +25,22 @@ There are two versions of Z3dPy. The function version is used by default, which 
 import z3dpyOOP as zp
 ```
 
-Lastly, you'll need a display to draw on, I recommend PyGame, but you could use Tkinter or something.
-
 # Example Program
 
 Basically the 'Hello World' of Z3dPy. I'll be showing you the function version. The OOP version can be found in the wiki.
 
-I'll be using PyGame for my display to draw on.
+I'll be using Pygame for my display to draw on.
 ```python
 import z3dpy as zp
 import pygame
 
-# Just some PyGame stuff
+# Just some Pygame stuff
 pygame.init()
-# We'll need to use the width and height for our camera later
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 ```
 
-First, create a camera with it's location, screen width, and screen height. Make sure it matches the output display.
+First, create a camera with it's location, screen width, and screen height. Make sure it matches the Pygame display.
 
 ```python
 
@@ -74,10 +73,6 @@ for tri in zp.RasterMeshList([myMesh], myCamera):
 pygame.display.flip()
 ```
 
-I made convenient drawing functions for PyGame, but if you are using something else, check the <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing-Triangles">Drawing Triangles</a> page
-
-<br>
-
 Now all that's left is to chuck it in a loop.
 
 ```python
@@ -85,7 +80,7 @@ Now all that's left is to chuck it in a loop.
 done = False
 
 while not done:
-    # more PyGame Stuff
+    # more Pygame Stuff
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True    
@@ -109,7 +104,7 @@ Final script:
 import z3dpy as zp
 import pygame
 
-# Just some PyGame stuff
+# Just some Pygame stuff
 pygame.init()
 # We'll need to use the width and height for our camera later
 screen = pygame.display.set_mode((1280, 720))
@@ -125,7 +120,7 @@ myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 done = False
 
 while not done:
-    # more PyGame Stuff
+    # more Pygame Stuff
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True    
