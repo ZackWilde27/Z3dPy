@@ -4,7 +4,7 @@
 
 # 0.1.2 Changes
 #
-# - Added IsMovable to things. When a thing is static, it won't calculate rotation, so that should speed things up.
+# - Added thing.movable. When a thing is static, it won't calculate rotation during rastering, so that should speed things up.
 #
 # - Quite a few drawing optimizations, much faster culling. Internal Camera has pretty much been eliminated, except for the View Matrix which should be calculated before everything.
 #
