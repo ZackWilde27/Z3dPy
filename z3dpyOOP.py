@@ -2,26 +2,23 @@
 # or ZedPy for short
 # Object-Oriented Edition
 
-# 0.1.0 Changes
+# 0.1.2 Changes
 #
-# - Instead of the camera having an x, y, z, roll, pitch, and yaw separately, it's now camera.pos, and camera.rot, just like meshes and things.
+# - Added IsMovable to things. When a thing is static, it won't calculate rotation, so that should speed things up.
 #
-# - Fixed bug where a thing id's wasn't applied to triangles
+# - Quite a few drawing optimizations, much faster culling. Internal Camera has pretty much been eliminated, except for the View Matrix which should be calculated before everything.
 #
-# - Added length adjustment to cube hitbox, so it can be rectangular
+# - Added Camera.SetTargetDirection() and Camera.GetTargetDirection(), which will account for camera position to return direction.
 #
-# - Experimenting with dynamic lighting. Create a PointLight() and append it to Lights, then plug FlatLighting() into DrawTriangleRGB()'s colour.
+# - Added a basic physics engine with delta calculations. Create a physics body for a Thing with myThing[10] = z3dpy.PhysicsBody(), then use z3dpy.HandlePhysics() in your game loop.
 #
-# - Added TriangleClipAgainstZ() and TriangleClipAgainstScreenEdges to help with custom render pipelines
-#
-# - Turned Raster Triangles into RasterPt1 and RasterPt2, to fix depth sorting.
-#
-# - Triangles are now sorted by the furthest point's Z rather than the average Z of all points
+# - Added VectorNegate()
 #
 
 import math
+import time
 
-print("Z3dPy v0.1.0")
+print("Z3dPy v0.1.2")
         
 
 #================
@@ -73,27 +70,17 @@ class Mesh:
         self.id = id
 
 
-# Thing Object:
-#
-# The Thing is what you would typically refer to as an object, it has a collection of meshes, and collision data.
-#
-# SetCollisionParams(id, radius, height) will set the collision data and update the hitbox, for drawing to the screen.
-# Id: 0 = Sphere, 1 = Cylinder, 2 = Cube
-# Radius: radius of the hitbox
-# Height: height of the cylinder, if it's a cylinder.
 
-class Thing:
-    def __init__(self, meshList, x, y, z):
-        self.meshes = meshList
-        self.pos = Vector(x, y, z)
-        self.rot = Vector(0, 0, 0)
-        self.id = 0
-        self.hitbox = LoadMesh("engine/mesh/cube.obj", x, y, z)
-        # Collision Data
-        self.bbR = 1
-        self.bbH = 1
-        self.collisionId = 0
-        self.collisionType = 2
+# Some stuff I need to declare before the Thing class
+
+# Hitbox Object:
+#
+# Stores all the needed info regarding collisions, the type of hitbox, it's scale, and collision id.
+# Only hitboxes with the same collision id will collide.
+#
+class Hitbox:
+    def __init__(self, type, id, radius, height):
+        self.SetCollisionParams(type, id, radius, height)
 
     def SetCollisionParams(self, type, id, radius, height):
         self.bbR = radius
@@ -102,11 +89,39 @@ class Thing:
         self.collisionId = id
         match type:
             case 0:
-                self.hitbox = LoadMeshScl("engine/mesh/sphere.obj", self.pos.x, self.pos.y, self.pos.z, self.bbR, self.bbR, self.bbR)
+                self.hitbox = LoadMeshScl("engine/mesh/sphere.obj", 0, 0, 0, self.bbR, self.bbR, self.bbR)
             case 1:
-                self.hitbox = LoadMeshScl("engine/mesh/cylinder.obj", self.pos.x, self.pos.y, self.pos.z, self.bbR, self.bbH, self.bbR)
+                self.hitbox = LoadMeshScl("engine/mesh/cylinder.obj", 0, 0, 0, self.bbR, self.bbH, self.bbR)
             case 2:
-                self.hitbox = LoadMeshScl("engine/mesh/cube.obj", self.pos.x, self.pos.y, self.pos.z, self.bbR, self.bbH, self.bbR)
+                self.hitbox = LoadMeshScl("engine/mesh/cube.obj", 0, 0, 0, self.bbR, self.bbH, self.bbR)
+
+# PhysicsBody Object:
+#
+# Stores a bunch of variables for physics calculations.
+#
+class PhysicsBody:
+    def __init__(self, mass, friction):
+        self.velocity = Vector(0, 0, 0)
+        self.acceleration = Vector(0, 0, 0)
+        self.mass = mass
+        self.friction = friction
+
+
+# Thing Object:
+#
+# The Thing is what you would typically refer to as an in-game object, it has a collection of meshes, a hitbox, and physics information.
+#
+class Thing:
+    def __init__(self, meshList, x, y, z):
+        self.meshes = meshList
+        self.pos = Vector(x, y, z)
+        self.rot = Vector(0, 0, 0)
+        self.id = 0
+        self.hitbox = Hitbox(2, 0, 1, 1)
+        self.physics = PhysicsBody(5, 0.2)
+        self.movable = True
+
+    
 
 # Cameras:
 #
@@ -140,7 +155,14 @@ class Camera:
         self.theta = self.fov / 2
         self.tan = (1 / math.tan(self.theta))
 
-intCam = Camera(0, 0, 0, 256, 240)
+    def SetTargetWorld(self, x, y, z):
+        self.target = Vector(x, y, z)
+
+    def SetTargetDirection(self, x, y, z):
+        self.target = VectorAdd(self.pos, VectorNormalize(Vector(x, y, z)))
+
+    def GetTargetDirection(self):
+        return VectorNormalize(VectorSub(self.pos, self.target))
 
 class Light:
     def __init__(self, x, y, z, colour, strength, radius):
@@ -148,7 +170,6 @@ class Light:
         self.col = colour
         self.str = strength
         self.rad = radius
-        debugThings.append(Thing([LoadMesh("engine/mesh/light.obj", 0, 0, 0)], x, y, z))
 
 # Unfinished, but right now it's much easier to make a third person game, so I'm planning
 # a first person camera object that makes it easier.
@@ -180,13 +201,13 @@ globalX = Vector(1, 0, 0)
 globalY = Vector(0, 1, 0)
 globalZ = Vector(0, 0, 1)
 
-#ProjectionMatrix = np.matrix([[CamAspR * CamTan, 0, 0, 0], [0, CamTan, 0, 0], [0, 0, CamFC / (CamFC - CamNC), 1], [0, 0, (-CamFC * CamNC) / (CamFC - CamNC), 0]])
+#projectionMatrix = np.matrix([[CamAspR * CamTan, 0, 0, 0], [0, CamTan, 0, 0], [0, 0, CamFC / (CamFC - CamNC), 1], [0, 0, (-CamFC * CamNC) / (CamFC - CamNC), 0]])
 
 #matRotZ = np.matrix([[1, 0, 0, 0], [0, math.cos((time.time() - track) / 2), math.sin((time.time() - track) / 2), 0], [0, -math.sin((time.time() - track) / 2), math.cos((time.time() - track) / 2), 0], [0, 0, 1, 0]])
 
-debugThings = []
+lights = []
 
-Lights = []
+gravityDir = Vector(0, 9.8, 0)
 
 
 # Functions
@@ -268,6 +289,9 @@ def VectorToList(v):
 
 def VectorEqual(v1, v2):
     return v1.x == v2.x and v1.y == v2.y and v1.z == v2.z
+
+def VectorNegate(v):
+    return VectorMulF(v, -1)
 
 def DistanceBetweenVectors(v1, v2):
     return math.sqrt(((v2.x - v1.x) ** 2) + ((v2.y - v1.y) ** 2) + ((v2.z - v1.z) ** 2))
@@ -417,7 +441,7 @@ def TriangleCopyUV(inTri, outTri):
 
 # Sort Triangles based on their distance from the camera
 def triSort(n):
-    return (intCam.fc + intCam.nc) - max(n.p1.z, n.p2.z, n.p3.z)
+    return (n.p1.z + n.p2.z + n.p3.z) / 3
 
 def VectorRotateX(vec, deg):
     return MatrixMul(vec, MatrixMakeRotX(deg))
@@ -477,15 +501,15 @@ def MatrixStuff(pos, target, up):
     return Triangle(newForward, newUp, newRight)
 
 
-def PointAtMatrix(pos, target, up, cam):
-    temp = MatrixStuff(pos, target, up)
+def PointAtMatrix(cam):
+    temp = MatrixStuff(cam.pos, cam.target, cam.up)
     # Now for the matrix
     return [[temp.p3.x, temp.p3.y, temp.p3.z, 0], [temp.p2.x, temp.p2.y, temp.p2.z, 0], [temp.p1.x, temp.p1.y, temp.p1.z, 0], [cam.pos.x, cam.pos.y, cam.pos.z, 1]]
 
-def LookAtMatrix(pos, target, up):
-    temp = MatrixStuff(pos, target, up)
+def LookAtMatrix(cam):
+    temp = MatrixStuff(cam.pos, cam.target, cam.up)
     # Now for the matrix
-    return [[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(intCam.pos, temp.p3)), -(VectorDoP(intCam.pos, temp.p2)), -(VectorDoP(intCam.pos, temp.p1)), 1]]
+    return [[temp.p3.x, temp.p2.x, temp.p1.x, 0], [temp.p3.y, temp.p2.y, temp.p1.y, 0], [temp.p3.z, temp.p2.z, temp.p1.z, 0], [-(VectorDoP(cam.pos, temp.p3)), -(VectorDoP(cam.pos, temp.p2)), -(VectorDoP(cam.pos, temp.p1)), 1]]
 
 
 def MatrixMakeRotX(deg):
@@ -537,80 +561,126 @@ def LoadMeshScl(filename, x, y, z, sclX, sclY, sclZ):
 def LoadMesh(filename, x, y, z):
     return LoadMeshScl(filename, x, y, z, 1, 1, 1)
 
+#================
+#  
+# Collisions and Physics
+#
+#================
+
 def CollisionLoop(meshList):
     results = []
     for me in range(0, len(meshList)):
-        match meshList[me].collisionType:
-            case 0:
-                # Sphere
-                # Each object has a collision radius around it's origin, and if any object enters that radius, it's a hit.
-                for ms in range(0, len(meshList)):
-                    # Not colliding against self, and testing if they should collide
-                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId and [meshList[ms], meshList[me]] not in results:
-                        distance = DistanceBetweenVectors(meshList[me].pos, meshList[ms].pos)
-                        if distance - meshList[me].bbR < meshList[ms].bbR:
-                            results.append([meshList[me], meshList[ms]])
-
-            case 1:
-                # Cylinder
-                # The distance is measured with no vertical in mind, and a check to make sure it's within height
-                for ms in range(0, len(meshList)):
-                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId and [meshList[ms], meshList[me]] not in results:
-                        distance = DistanceBetweenVectors(Vector(meshList[me].pos.x, 0, meshList[me].pos.z), Vector(meshList[ms].pos.x, 0, meshList[ms].pos.z))
-                        if distance - meshList[me].bbR < meshList[ms].bbR and int(meshList[me].pos.y) in range(meshList[ms].pos.y - 5, meshList[ms].pos.y + 5):
-                            results.append([meshList[me], meshList[ms]])
-
-            case 2:
-                # Cube
-                # The position of the first mesh simply has to be in range of the other mesh's position.
-                for ms in range(0, len(meshList)):
-                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId and [meshList[ms], meshList[me]] not in results:
-                        if int(meshList[me].pos.y) in range(meshList[ms].pos.y - 5, meshList[ms].pos.y + 5) or int(meshList[me].pos.x) in range(meshList[ms].pos.x - 5, meshList[ms].pos.x + 5) or int(meshList[me].pos.z) in range(meshList[ms].pos.z - 5, meshList[ms].pos.z + 5):
-                            results.append([meshList[me], meshList[ms]])
-
-            case 3:
-                # All Triangles
-                # Accurate but SLOW
-                # Unfinished
-                """
-                for ms in range(0, len(meshList)):
-                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId:
-                        dir = DirectionBetweenVectors(meshList[me].pos, meshList[ms].pos)
-                        # Calculate the intersection of a ray with a triangle using the Thomas Moller alogrithm
-                        for tri in meshList[me].tris:
-                            for tri2 in meshList[ms].tris:
-                                n2 = GetNormal(tri2)
-                                d2 = -VectorDoP(n2, tri2.p1)
-                                n1 = GetNormal(tri)
-                                d1 = -VectorDoP(n1, tri.p1)
-
-                                dv1 = VectorDoP(n1, tri2.p1) + d1
-                                dv2 = VectorDoP(n1, tri2.p2) + d1
-                                dv3 = VectorDoP(n1, tri2.p3) + d1
-                                # Getting rid of irrelevant triangles
-                                if dv1 == 0 and dv2 == 0 and dv3 == 0:
-                                    break
-                                else:
-                                    if dv1 < 0 and dv2 < 0 and dv3 < 0 or dv1 > 0 and dv2 > 0 and dv3 > 0:
-                                        break
+        for ms in range(0, len(meshList)):
+            # Staggering like this so they are done in order of speed
+            if me != ms:
+                if meshList[ms].collisionId == meshList[me].collisionId:
+                    if [meshList[ms], meshList[me]] not in results:
+                        match meshList[me].collisionType:
+                            case 0:
+                                # Sphere
+                                # Each object has a collision radius around it's origin, and if any object enters that radius, it's a hit.
                                 
-                                dt1 = VectorDoP(n2, tri.p1) + d2
-                                dt2 = VectorDoP(n2, tri.p2) + d2
-                                dt3 = VectorDoP(n2, tri.p3) + d2
-                                # Same thing on the other side
-                                if dt1 == 0 and dt2 == 0 and dt3 == 0:
-                                    break
-                                else:
-                                    if dt1 < 0 and dt2 < 0 and dt3 < 0 or dt1 > 0 and dt2 > 0 and dt3 > 0:
-                                        break
+                                # Not colliding against self, and testing if they should collide
+                                distance = DistanceBetweenVectors(meshList[me].pos, meshList[ms].pos)
+                                if distance - meshList[me].bbR < meshList[ms].bbR:
+                                    results.append([meshList[me], meshList[ms]])
 
-                                # Plane Intersection
-                                pi2 = VectorDoP(n2, tri2.p1) + d2
-                                pi1 = VectorDoP(n1, tri.p1) + d1
-                                if pi1 == 0 and pi2 == 0:
-                                    print("Triangle Hit")
-                """
+                            case 1:
+                                # Cylinder
+                                # The distance is measured with no vertical in mind, and a check to make sure it's within height
+                                distance = DistanceBetweenVectors(Vector(meshList[me].pos.x, 0, meshList[me].pos.z), Vector(meshList[ms].pos.x, 0, meshList[ms].pos.z))
+                                if distance - meshList[me].bbR < meshList[ms].bbR and int(meshList[me].pos.y) in range(meshList[ms].pos.y - 5, meshList[ms].pos.y + 5):
+                                    results.append([meshList[me], meshList[ms]])
+
+                            case 2:
+                                # Cube
+                                # The position of the first mesh simply has to be in range of the other mesh's position.
+                                if int(meshList[me].pos.y) in range(meshList[ms].pos.y - 5, meshList[ms].pos.y + 5) or int(meshList[me].pos.x) in range(meshList[ms].pos.x - 5, meshList[ms].pos.x + 5) or int(meshList[me].pos.z) in range(meshList[ms].pos.z - 5, meshList[ms].pos.z + 5):
+                                    results.append([meshList[me], meshList[ms]])
+
+                            case 3:
+                                # All Triangles
+                                # Accurate but SLOW
+                                # Unfinished
+                                """
+                                for ms in range(0, len(meshList)):
+                                    if ms != me and meshList[ms].collisionId == meshList[me].collisionId:
+                                        dir = DirectionBetweenVectors(meshList[me].pos, meshList[ms].pos)
+                                        # Calculate the intersection of a ray with a triangle using the Thomas Moller alogrithm
+                                        for tri in meshList[me].tris:
+                                            for tri2 in meshList[ms].tris:
+                                                n2 = GetNormal(tri2)
+                                                d2 = -VectorDoP(n2, tri2.p1)
+                                                n1 = GetNormal(tri)
+                                                d1 = -VectorDoP(n1, tri.p1)
+
+                                                dv1 = VectorDoP(n1, tri2.p1) + d1
+                                                dv2 = VectorDoP(n1, tri2.p2) + d1
+                                                dv3 = VectorDoP(n1, tri2.p3) + d1
+                                                # Getting rid of irrelevant triangles
+                                                if dv1 == 0 and dv2 == 0 and dv3 == 0:
+                                                    break
+                                                else:
+                                                    if dv1 < 0 and dv2 < 0 and dv3 < 0 or dv1 > 0 and dv2 > 0 and dv3 > 0:
+                                                        break
+                                                
+                                                dt1 = VectorDoP(n2, tri.p1) + d2
+                                                dt2 = VectorDoP(n2, tri.p2) + d2
+                                                dt3 = VectorDoP(n2, tri.p3) + d2
+                                                # Same thing on the other side
+                                                if dt1 == 0 and dt2 == 0 and dt3 == 0:
+                                                    break
+                                                else:
+                                                    if dt1 < 0 and dt2 < 0 and dt3 < 0 or dt1 > 0 and dt2 > 0 and dt3 > 0:
+                                                        break
+
+                                                # Plane Intersection
+                                                pi2 = VectorDoP(n2, tri2.p1) + d2
+                                                pi1 = VectorDoP(n1, tri.p1) + d1
+                                                if pi1 == 0 and pi2 == 0:
+                                                    print("Triangle Hit")
+                                """
     return results
+
+def BasicHandleCollisions(pair):
+    if not pair[0].movable:
+        if not pair[1].movable:
+            return
+        pair[1].pos = VectorAdd(pair[1].pos, VectorNegate(DirectionBetweenVectors(pair[1].pos, pair[0].pos)))
+    else:
+        pair[0].pos = VectorAdd(pair[0].pos, VectorMulF(VectorNegate(DirectionBetweenVectors(pair[0].pos, pair[1].pos)), DistanceBetweenVectors(pair[1].pos, pair[0].pos)))
+
+def HandlePhysics(thingList, floorHeight):
+    global physTime
+    delta = time.time() - physTime
+    physTime = time.time()
+    for t in thingList:
+        if t.movable:
+
+            t.physics.velocity = VectorAdd(t.physics.velocity, t.physics.acceleration)
+            # Drag
+            t.physics.velocity = VectorSub(t.physics.velocity, VectorMulF(t.physics.velocity, 0.04))
+
+            # Gravity
+
+            t.physics.velocity = VectorAdd(t.physics.velocity, VectorMulF(gravityDir, 0.05))
+
+            t.pos = VectorAdd(t.pos, VectorMulF(t.physics.velocity, delta))
+            t.pos.y = min(t.pos.y, floorHeight)
+    for cols in CollisionLoop(thingList):
+        if cols[0].movable:
+            force = VectorMulF(cols[0].physics.velocity, cols[0].physics.mass)
+            if cols[1].movable:
+                toforce = VectorAdd(force, VectorMulF(cols[1].physics.velocity, cols[1].physics.mass))
+                cols[0].physics.velocity = VectorNegate(toforce)
+                cols[1].physics.velocity = toforce
+            else:
+                cols[0].physics.velocity = VectorNegate(force)
+
+
+def sign(f):
+    # I know, but it's fast
+    return 1 if f > 0 else 0 if f == 0 else -1
 
 
 #================
@@ -619,6 +689,9 @@ def CollisionLoop(meshList):
 #
 #================
 
+# Rastering is a Python version of the OLC method.
+# Credit to Javidx9
+
 def RasterThings(thingList, camera):
     SetInternalCamera(camera)
     finished = []
@@ -626,35 +699,18 @@ def RasterThings(thingList, camera):
     for t in thingList:
         for m in t.meshes:
             viewed += RasterPt1(m.tris, VectorAdd(m.pos, t.pos), VectorAdd(m.rot, t.rot), t.id, m.colour, camera)
-    viewed.sort(key = triSort)
+    viewed.sort(reverse = True, key = triSort)
     finished = RasterPt2(viewed, camera)
     return finished
 
 def RasterMeshList(meshList, camera):
     SetInternalCamera(camera)
     finished = []
+    viewed = []
     for m in meshList:
-        finished += RasterMesh(m, camera)
+        viewed += RasterPt1(m.tris, m.pos, m.rot, m.id, m.colour, camera)
+    viewed.sort(reverse = True, key = triSort)
     return finished
-
-def RasterTriangles(tris, rot, pos, colour, id, camera):
-    output = []
-    translated = []
-    for c in ViewTriangles(TranslateTriangles(TransformTriangles(tris, rot), pos)):
-        if VectorDoP(c.normal, Vector(0, 0, 1)) < 0.1:
-            for r in TriangleClipAgainstPlane(Vector(0, 0, camera.nc), Vector(0, 0, 1), c):
-                translated.append(r)
-    translated.sort(key=triSort)
-        
-    for i in ProjectTriangles(translated):
-        for p in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(0, 1, 0), i):
-            for s in TriangleClipAgainstPlane(Vector(0, intCam.scrH - 1, 0), Vector(0, -1, 0), p):
-                for z in TriangleClipAgainstPlane(Vector(0, 0, 0), Vector(1, 0, 0), s):
-                    for y in TriangleClipAgainstPlane(Vector(intCam.scrW - 1, 0, 0), Vector(-1, 0, 0), z):
-                        y.colour = colour
-                        y.id = id
-                        output.append(y)
-    return output
 
 def RasterPt1(tris, pos, rot, id, colour, camera):
     translated = []
@@ -673,28 +729,11 @@ def RasterPt2(tris, camera):
             output.append(s)
     return output
 
-def RasterMesh(msh, camera):
-    return RasterTriangles(msh.tris, msh.rot, msh.pos, msh.colour, msh.id, camera)
-
-def RasterThing(thing, camera):
-    output = []
-    for m in thing.meshes:
-        output += RasterTriangles(m.tris, VectorAdd(m.rot, thing.rot), VectorAdd(m.pos, thing.pos), m.colour, thing.id, camera)
-    return output
-
 intVecU = Vector(0, 1, 0)
 
 def SetInternalCamera(camera):
-    global intCam
-    global intMatT
     global intMatV
-    global intVecT
-    # doing all these calculations once so we can hold on to them for the rest of calculations
-    intCam = camera
-    intMatT = GetTranslationMatrix(camera.pos.x, camera.pos.y, camera.pos.z)
-    intVecT = camera.target
-    intMatV = LookAtMatrix(camera.pos, intVecT, intVecU)
-    
+    intMatV = LookAtMatrix(camera)
     
 
 def TransformTriangles(tris, rot):
@@ -704,8 +743,6 @@ def TransformTriangles(tris, rot):
     matRotX = MatrixMakeRotX(rot.x)
     matRotZ = MatrixMakeRotZ(rot.z)
 
-    matWorld = MatrixMatrixMul(matRotZ, matRotY)
-    matWorld = MatrixMatrixMul(matWorld, matRotX)
     for t in tris:
         # Moving Triangle based on Object Rotation (It's also supposed to take camera position into account but apparently not)
         nt = TriMatrixMul(t, matRotY)
@@ -737,23 +774,16 @@ def ViewTriangles(tris):
         newTris.append(newTri)
     return newTris
                     
-def ProjectTriangles(tris):
+def ProjectTriangles(tris, camera):
     projected = []
     for tri in tris:
         # Projecting 3D into 2D
-        newTri = TriangleAdd(ProjectTriangle(tri, intCam.a, intCam.tan, intCam.fc, intCam.nc), Vector(1, 1, 0))
+        newTri = TriangleAdd(ProjectTriangle(tri, camera.a, camera.tan, camera.fc, camera.nc), Vector(1, 1, 0))
 
-        newTri.p1.x *= intCam.scrWh
-        newTri.p1.y *= intCam.scrHh
-        newTri.p2.x *= intCam.scrWh
-        newTri.p2.y *= intCam.scrHh
-        newTri.p3.x *= intCam.scrWh
-        newTri.p3.y *= intCam.scrHh
+        TriangleMul(newTri, Vector(camera.scrWh, camera.scrHh, 1))
 
-        # Z should be flipped towards the camera
         newTri.normal = tri.normal
         newTri.wpos = tri.wpos
-        #newTri.normal.z *= -1
         
         projected.append(newTri)
                         
@@ -768,6 +798,6 @@ def ProjectTriangles(tris):
        
 def FlatLighting(tri):
     finalColour = Vector(0, 0, 0)
-    for l in Lights:
+    for l in lights:
         finalColour = VectorAdd(finalColour, VectorMulF(VectorMulF(tri.colour, VectorDoP(VectorMul(tri.normal, Vector(-1, -1, -1)), DirectionBetweenVectors(l.pos, tri.wpos))), 1 - min(max(DistanceBetweenVectors(tri.wpos, l.pos) / l.rad, 0), 1)))
     return finalColour
