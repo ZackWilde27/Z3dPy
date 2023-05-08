@@ -3,7 +3,7 @@ Zack's Python 3D Engine
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
 
-Z3dPy is a personal project I'm working on, a 3D engine written entirely in Python. While it doesn't handle the display itself or inputs, it does pretty much everything else. It's meant to be used with Pygame to make speedy 3D easy, but it can also be used independently as quite the starting point for your own 3D project.
+Z3dPy is a personal project I'm working on, a 3D engine written entirely in Python. While it doesn't handle the window itself or inputs, it does pretty much everything else. It's meant to be used with Pygame to make speedy 3D easy, but it can also be used independently as quite the starting point for your own 3D project.
 
 Renders 950 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
@@ -13,7 +13,7 @@ FAQ can be found at the bottom
 
 # Installation Guide
 
-My library does not handle the display itself or inputs, so first you'll need something like Pygame. Although <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing-Triangles">it doesn't have to be Pygame</a>
+My library does not handle the window itself, so first you'll need something like Pygame. Although <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing-Triangles">it doesn't have to be Pygame</a>
 
 Download the latest release and extract the zip folder to the same folder as your script, then import it with:
 ```python
@@ -62,7 +62,7 @@ myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 
 ```
 
-Pass the RasterMeshList() function your mesh to draw and camera to view from, and it'll return a list of triangles to draw on the screen.
+Drawing to the screen is as simple as 2 lines
 
 ```python
 for tri in zp.RasterMeshList([myMesh], myCamera):
@@ -70,6 +70,7 @@ for tri in zp.RasterMeshList([myMesh], myCamera):
     # RGBF will take a normalized vector convert it to colour
     zp.DrawTriangleRGBF(tri, screen, zp.TriangleGetNormal(tri), pygame)
     
+# Update window afterwards
 pygame.display.flip()
 ```
 
