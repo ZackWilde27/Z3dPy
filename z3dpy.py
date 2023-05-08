@@ -36,7 +36,9 @@ debugThings = []
 # Light list for FlatShading()
 Lights = []
 
-gravityDir = [0, 0.1, 0]
+gravityDir = [0, 9.8, 0]
+
+physTime = time.time()
 
 
 #================
@@ -128,17 +130,18 @@ def MeshGetId(mesh):
     return mesh[4]
 
 
+
 # Things:
 #
 # The Thing is what you would typically refer to as an object, it has a collection of meshes, and collision data.
 #
 #
 # [0] is the list of meshes, [1] is position, [2] is rotation, [3] is object id, [4] is hitbox mesh, [5] is hitbox radius,
-# [6] is hitbox height, [7] is collision id [8] is collision type, and [9] is IsMovable, and [10] is velocity
+# [6] is hitbox height, [7] is collision id [8] is collision type, and [9] is IsMovable, and [10] is physicsBody
 #
 
 def Thing(meshList, x, y, z):
-    return [meshList, [x, y, z], [0, 0, 0], 0, LoadMesh("engine/mesh/cube.obj", x, y, z), 1, 1, 0, 2, True, [0, 0, 0]]
+    return [meshList, [x, y, z], [0, 0, 0], 0, LoadMesh("engine/mesh/cube.obj", x, y, z), 1, 1, 0, 2, True, []]
 
 
 # SetCollisionParams(type, radius, height, id) will set the collision data and update the hitbox, for drawing to the screen.
@@ -256,6 +259,51 @@ def ThingGetMovable(thing):
     return thing[9]
 
 
+# Physics Body:
+#
+# Enable physics with myThing[10] = z3dpy.PhysicsBody()
+#
+# [0] is velocity, [1] is acceleration, [2] is mass, [3] is friction, [4] is bounciness, [5] is drag
+
+
+def PhysicsBody():
+    return [[0, 0, 0], [0, 0, 0], 5, 0.2, 0.1, 2]
+
+def PhysicsBodySetVelocity(physb, x, y, z):
+    physb[0] = [x, y, z]
+
+def PhysicsBodySetVelocityV(physb, v):
+    physb[0] = v
+
+def PhysicsBodyGetVelocity(physb):
+    return physb[0]
+
+def PhysicsBodySetAcceleration(physb, x, y, z):
+    physb[1] = [x, y, z]
+
+def PhysicsBodySetAccelerationV(physb, v):
+    physb[1] = v
+
+def PhysicsBodyGetAcceleration(physb):
+    return physb[1]
+
+def PhysicsBodySetMass(physb, mass):
+    physb[2] = mass
+
+def PhysicsBodyGetMass(physb):
+    return physb[2]
+
+def PhysicsBodySetFriction(physb, frc):
+    physb[3] = frc
+
+def PhysicsBodyGetFriction(physb):
+    return physb[3]
+
+def PhysicsBodySetBounciness(physb, bnc):
+    physb[4] = bnc
+
+def PhysicsBodyGetBounciness(physb):
+    return physb[4]
 
 # Cameras:
 #
@@ -403,11 +451,9 @@ def CameraSetFCl(cam, fc):
 def CameraGetFCl(cam):
     return cam[8]
 
-# Deprecated in favour of CameraSetTargetWorld()
-
+# Deprecated
 def CameraSetTarget(cam, x, y, z):
     CameraSetTargetWorld(cam, x, y, z)
-
 def CameraSetTargetV(cam, v):
     CameraSetTargetWorldV(cam, v)
 
@@ -883,12 +929,33 @@ def HandleCollisions(things):
         things[0][1] = VectorAdd(things[0][1], VectorMulF(VectorNegate(DirectionBetweenVectors(things[0][1], things[1][1])), DistanceBetweenVectors(things[1][1], things[0][1])))
 
 def HandlePhysics(thingList, floorHeight):
+    global physTime
+    delta = time.time() - physTime
+    physTime = time.time()
     for t in thingList:
         if t[9]:
-            t[10] = VectorAdd(t[10], gravityDir)
-            t[1] = VectorAdd(t[1], t[10])
+
+            t[10][0] = VectorAdd(t[10][0], t[10][1])
+            # Drag
+            t[10][0] = VectorSub(t[10][0], VectorMulF(t[10][0], 0.04))
+
+            # Gravity
+
+            t[10][0] = VectorAdd(t[10][0], VectorMulF(gravityDir, 0.05))
+
+            t[1] = VectorAdd(t[1], VectorMulF(t[10][0], delta))
             t[1][1] = min(t[1][1], floorHeight)
-    CollisionLoop(thingList)
+    for cols in CollisionLoop(thingList):
+        if cols[0][10] != []:
+            force = VectorMulF(PhysicsBodyGetVelocity(cols[0][10]), PhysicsBodyGetMass(cols[0][10]))
+            if cols[0][10] != []:
+                toforce = VectorAdd(force, VectorMulF(PhysicsBodyGetVelocity(cols[1][10]), PhysicsBodyGetMass(cols[1][10])))
+                PhysicsBodySetVelocityV(cols[0][10], VectorNegate(toforce))
+                PhysicsBodySetVelocityV(cols[1][10], toforce)
+
+
+def sign(f):
+    return 1 if f > 0 else -1
 
 
 
