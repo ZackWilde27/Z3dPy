@@ -1,11 +1,11 @@
-# Z3dPy v0.1.0
+# Z3dPy v0.1.4
 Zack's Python 3D Engine
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
 
-Z3dPy is a personal project I'm working on, a 3D engine written entirely in Python. While it doesn't handle the window itself or inputs, it does pretty much everything else. It's meant to be used with Pygame to make speedy 3D easy, but it can also be used independently as a starting point for your own 3D project.
+Z3dPy is a personal project I'm working on, a 3D engine written entirely in Python. While it doesn't handle the window itself or inputs, it does pretty much everything else. It's meant to be used with Pygame to make speedy 3D easy, but it can be used with any library that can draw to a screen.
 
-Renders 950 on-screen triangles at 30 fps *(tested on my ryzen 7)*
+Renders nearly 1000 on-screen triangles at 30 fps *(tested on my ryzen 7, in pygame)*
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
@@ -68,7 +68,7 @@ Drawing to the screen is as simple as 2 lines
 for tri in zp.RasterMeshList([myMesh], myCamera):
 
     # RGBF will take a normalized vector convert it to colour
-    zp.DrawTriangleRGBF(tri, screen, zp.TriangleGetNormal(tri), pygame)
+    zp.DrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
     
 # Update window afterwards
 pygame.display.flip()
@@ -91,12 +91,12 @@ while not done:
     
     # Render 3D
     for tri in zp.RasterMeshList([myMesh], myCamera):
-        zp.DrawTriangleRGBF(tri, screen, zp.TriangleGetNormal(tri), pygame)
+        zp.DrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
     
     # Rotate mesh
-    zp.MeshAddRot(myMesh, 2, 5, 1)
+    zp.MeshAddRot(myMesh, [2, 5, 1])
 ```
 
 Final script:
@@ -131,12 +131,12 @@ while not done:
     
     # Render 3D
     for tri in zp.RasterMeshList([myMesh], myCamera):
-        zp.DrawTriangleRGBF(tri, screen, zp.TriangleGetNormal(tri), pygame)
+        zp.DrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
     
     # Rotate mesh
-    zp.MeshAddRot(myMesh, 2, 5, 1)
+    zp.MeshAddRot(myMesh, [2, 5, 1])
 ```
 
 # Exporting Mesh
