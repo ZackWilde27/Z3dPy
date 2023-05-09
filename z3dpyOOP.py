@@ -2,7 +2,7 @@
 # or ZedPy for short
 # Object-Oriented Edition
 
-# 0.1.2 Changes
+# 0.1.4 Changes
 #
 # - Added thing.movable. When a thing is static, it won't calculate rotation, so that should speed things up.
 #
@@ -18,7 +18,7 @@
 import math
 import time
 
-print("Z3dPy v0.1.2")
+print("Z3dPy v0.1.4")
 
 # The OOP version gets less support, because it's slower, but it's a lot easier to read, and a lot of the classes line up with the function version.
         
