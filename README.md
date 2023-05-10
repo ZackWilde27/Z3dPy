@@ -7,8 +7,6 @@ Z3dPy is a personal project I'm working on, a 3D engine written entirely in Pyth
 
 Renders nearly 1000 on-screen triangles at 30 fps *(tested on my ryzen 7, in pygame)*
 
-Z3dPy not only handles Rasterization, but also has a simple physics and collision system
-
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
 FAQ can be found at the bottom
