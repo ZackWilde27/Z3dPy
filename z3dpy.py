@@ -1,31 +1,20 @@
+# -zw
+
 # Zack's 3D Engine
 # or ZedPy for short
 # Function/List Edition
 
-# 0.1.4 Changes
+# 0.1.5 Changes
 #
-# - Added IsMovable to things. When a thing is static, it won't calculate rotation, so that should speed things up if you don't need it
+# - More optimizations for drawing
 #
-# - Quite a few drawing optimizations, much faster culling. Internal Camera has pretty much been eliminated, except for the View Matrix which should be calculated before everything.
-#
-# - Split CameraGetTarget() into CameraGetTargetLocation() and CameraGetTargetVector(). Vector will return the normalized direction, Location will return the world location.
-# similarly, CameraSetTargetLocation() will set the location, CameraSetTargetVector() will set the direction relative to the camera.
-#
-# - Added a basic physics engine with delta calculations. Create a physics body for a Thing with myThing[10] = z3dpy.PhysicsBody(), then use z3dpy.HandlePhysics() and z3dpy.PhysicsCollisions() in your game loop.
-#
-# - Added TriangleSetNormal(), TriangleSetColour(), and TriangleSetWPos(). These things are set automatically during the raster process, but it's nice to have.
-#
-# - Replaced regular object functions with their V counterpart, as splitting the axis up can be done by making a new vector, like z3dpy.CameraSetPos(myCamera, [x, y, z])
-#
-# - Added CameraGetRightVector()
-#
-# - DrawTriangle*() functions have been changed to PgDrawTriangle*(), because I've added TkDrawTriangle*() functions.
+# - Each mesh's triangle list is now a tuple for speed
 #
 
 import math
 import time
 
-print("Z3dPy v0.1.4")
+print("Z3dPy v0.1.5")
 
 #================
 #  
@@ -34,14 +23,11 @@ print("Z3dPy v0.1.4")
 #================
 
 # You can reference these at any time to get a global axis.
-globalX = [1, 0, 0]
-globalY = [0, 1, 0]
-globalZ = [0, 0, 1]
+globalX = (1, 0, 0)
+globalY = (0, 1, 0)
+globalZ = (0, 0, 1)
 
 #matRotZ = np.matrix([[1, 0, 0, 0], [0, math.cos((time.time() - track) / 2), math.sin((time.time() - track) / 2), 0], [0, -math.sin((time.time() - track) / 2), math.cos((time.time() - track) / 2), 0], [0, 0, 1, 0]])
-
-# This is for drawing hitboxes and stuff, to-be-finished
-debugThings = []
 
 # Light list for FlatShading()
 lights = []
@@ -129,16 +115,16 @@ def MeshSetRot(mesh, vector):
     mesh[2] = vector
 
 def MeshAddRot(mesh, vector):
-    mesh[2] = [(mesh[2][0] + vector[0]) % 360, (mesh[2][1] + vector[1]) % 360, (mesh[2][2] + vector[2]) % 360]
+    mesh[2] = [mesh[2][0] + vector[0], mesh[2][1] + vector[1], mesh[2][2] + vector[2]]
 
 def MeshSubRot(mesh, vector):
-    mesh[2] = [(mesh[2][0] - vector[0]) % 360, (mesh[2][1] - vector[1]) % 360, (mesh[2][2] - vector[2]) % 360]
+    mesh[2] = [mesh[2][0] - vector[0], mesh[2][1] - vector[1], mesh[2][2] - vector[2]]
 
 def MeshMulRot(mesh, vector):
-    mesh[2] = [(mesh[2][0] * vector[0]) % 360, (mesh[2][1] * vector[1]) % 360, (mesh[2][2] * vector[2]) % 360]
+    mesh[2] = [mesh[2][0] * vector[0], mesh[2][1] * vector[1], mesh[2][2] * vector[2]]
 
 def MeshDivRot(mesh, vector):
-    mesh[2] = [(mesh[2][0] / vector[0]) % 360, (mesh[2][1] / vector[1]) % 360, (mesh[2][2] / vector[2]) % 360]
+    mesh[2] = [mesh[2][0] / vector[0], mesh[2][1] / vector[1], mesh[2][2] / vector[2]]
 
 def MeshGetRot(mesh):
     return mesh[2]
@@ -185,7 +171,7 @@ def PhysicsBody():
 #
 # [0] is the list of meshes, [1] is position, [2] is rotation, [3] is object id, [4] is hitbox, [5] is IsMovable, and [6] is physics body
 #
-# I'm no computer scientist, but I'm assuming that a bigger list is worse, so hitbox and physics body are empty until you need them.
+# I'm no computer scientist, but I'm assuming that a bigger list is worse, so hitbox and physics body are empty until you assign them.
 
 def Thing(meshList, x, y, z):
     return [meshList, [x, y, z], [0, 0, 0], 0, [], True, []]
@@ -289,19 +275,29 @@ def ThingSetCollision(thing, type, id, radius, height):
                 thing[4][4] = LoadMeshScl("engine/mesh/cube.obj", 0, 0, 0, radius, height, radius)
 
 def ThingGetHitboxMesh(thing):
-    return thing[4][4]
+    if thing[4] != []:
+        return thing[4][4]
+    return []
 
 def ThingGetHitboxHeight(thing):
-    return thing[4][3]
+    if thing[4] != []:
+        return thing[4][3]
+    return []
 
 def ThingGetHitboxRadius(thing):
-    return thing[4][2]
+    if thing[4] != []:
+        return thing[4][2]
+    return []
 
 def ThingGetHitboxId(thing):
-    return thing[4][1]
+    if thing[4] != []:
+        return thing[4][1]
+    return []
 
 def ThingGetHitboxType(thing):
-    return thing[4][0]
+    if thing[4] != []:
+        return thing[4][0]
+    return []
 
 def ThingSetMovable(thing, isMovable):
     thing[5] = isMovable
@@ -603,9 +599,14 @@ def VectorSub(v1, v2):
 def VectorMul(v1, v2):
     return [v1[0] * v2[0], v1[1] * v2[1], v1[2] * v2[2]]
 
-def VectorMulF(v1, f):
-    return [v1[0] * f, v1[1] * f, v1[2] * f]
+def VectorMulF(v, f):
+    return [v[0] * f, v[1] * f, v[2] * f]
 
+def VectorMin(v, f):
+    return [min(v[0], f), min(v[1], f), min(v[2], f)]
+
+def VectorMax(v, f):
+    return [max(v[0], f), max(v[1], f), max(v[2], f)]
 # Vector Cross Product gives you the direction of the 3rd dimension, given 2 Vectors. If you give it an X and a Y direction, it will give you the Z direction.
 def VectorCrP(v1, v2):
     return [v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2], v1[0] * v2[1] - v1[1] * v2[0]]
@@ -736,8 +737,11 @@ def TriangleAverage(tri):
 
 
 # Sort Triangles based on their distance from the camera
-def triSort(n):
-    return  ((n[0][2] + n[1][2] + n[2][2]) / 2)
+def triSortAverage(n):
+    return (n[0][2] + n[1][2] + n[2][2]) / 3
+
+def triSortFurthest(n):
+    return max(n[0][2], n[1][2], n[2][2])
 
 
 def TriangleClipAgainstZ(tri, camera):
@@ -750,7 +754,7 @@ def TriangleClipAgainstScreenEdges(tri, camera):
             for i in TriangleClipAgainstPlane([0, 0, 0], [1, 0, 0], r):
                 for s in TriangleClipAgainstPlane([camera[4] - 1, 0, 0], [-1, 0, 0], i):
                     output.append(s)
-    return output
+    return tuple(output)
 
 #================
 #  
@@ -758,21 +762,13 @@ def TriangleClipAgainstScreenEdges(tri, camera):
 #
 #================
 
-def MeshRotateX(msh, deg):
-    for tri in msh.tris:
-        tri = TriMatrixMul(tri, MatrixMakeRotX(deg))
-
-def MeshRotateY(msh, deg):
-    for tri in msh.tris:
-        tri = TriMatrixMul(tri, MatrixMakeRotY(deg))
-
-def MeshRotateZ(msh, deg):
-    for tri in msh.tris:
-        tri = TriMatrixMul(tri, MatrixMakeRotZ(deg))
-
 # Load OBJ File
 def LoadMeshScl(filename, x, y, z, sclX, sclY, sclZ):
-    file = open(filename)
+    try:
+        file = open(filename)
+    except:
+        print("Mesh: " + filename + " does not exist. Replacing...")
+        return LoadMeshScl("engine/mesh/error.obj", x, y, z, sclX, sclY, sclZ)
     verts = []
     vtCount = 0
     triangles = []
@@ -794,7 +790,7 @@ def LoadMeshScl(filename, x, y, z, sclX, sclY, sclZ):
             triangles.append(newTriangle)
         
     file.close()
-    return Mesh(triangles, x, y, z)
+    return Mesh(tuple(triangles), x, y, z)
 
 def LoadMesh(filename, x, y, z):
     return LoadMeshScl(filename, x, y, z, 1, 1, 1)
@@ -838,9 +834,9 @@ def MatrixStuff(pos, target, up):
     return [newForward, newUp, newRight]
 
 
-def PointAtMatrix(pos, target, up, cam):
+def PointAtMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
-    return [[temp[2][0], temp[2][1], temp[2][2], 0], [temp[1][0], temp[1][1], temp[1][2], 0], [temp[0][0], temp[0][1], temp[0][2], 0], [cam[0][0], cam[0][1], cam[0][2], 1]]
+    return [[temp[2][0], temp[2][1], temp[2][2], 0], [temp[1][0], temp[1][1], temp[1][2], 0], [temp[0][0], temp[0][1], temp[0][2], 0], [pos[0], pos[1], pos[2], 1]]
 
 def LookAtMatrix(camera):
     temp = MatrixStuff(camera[0], camera[9], camera[10])
@@ -863,7 +859,47 @@ def MatrixMakeRotZ(deg):
 def MatrixMakeProjection(camera):
     return [[camera[13] * camera[12], 0, 0, 0], [0, camera[12], 0, 0], [0, 0, camera[8] / (camera[8] - camera[7]), 1], [0, 0, (-camera[8] * camera[7]) / (camera[8] - camera[7]), 0]]
 
-#================       
+#================
+#  
+# Ray Functions
+#
+#================
+
+def RayIntersectTriangle(raySt, rayDr, tri):
+    # Using the Moller Trumbore algorithm
+    e1 = VectorSub(tri[1], tri[0])
+    e2 = VectorSub(tri[2], tri[1])
+    h = VectorCrP(rayDr, e2)
+    a = VectorDoP(e1, h)
+
+    if a > -0.00001 and a < 0.00001:
+        return False
+    
+    f = 1 / a
+    s = VectorSub(raySt, tri[0])
+    u = f * VectorDoP(s, h)
+
+    if u < 0.0 or u > 1.0:
+        return False
+    
+    q = VectorCrP(s, e1)
+    v = f * VectorDoP(rayDr, q)
+
+    if v < 0.0 or u + v > 1.0:
+        return False
+    
+    return True
+
+def RayIntersectMesh(raySt, rayDr, mesh):
+    for t in mesh[0]:
+        if RayIntersectTriangle(raySt, rayDr, t):
+            return True
+    return False
+    
+
+
+
+#================
 #  
 # Collisions and Physics
 #
@@ -900,11 +936,13 @@ def GatherCollisions(thingList):
                                     case 2:
                                         # Cube
                                         # Just a bunch of range checks
-                                        radius = ThingGetHitboxRadius(thingList[ms])
-                                        height = ThingGetHitboxHeight(thingList[ms])
-                                        if myPos[0] > thPos[0] - radius and myPos[0] < thPos[0] + radius:
-                                            if myPos[1] > thPos[1] - height and myPos[1] < thPos[1] + height:
-                                                if myPos[2] > thPos[2] - radius and myPos[2] < thPos[2] + radius:
+                                        thR = ThingGetHitboxRadius(thingList[ms])
+                                        thH = ThingGetHitboxHeight(thingList[ms])
+                                        myR = ThingGetHitboxRadius(thingList[me])
+                                        myH = ThingGetHitboxHeight(thingList[me])
+                                        if myPos[0] + thR > thPos[0] - thR and myPos[0] - thR < thPos[0] + thR:
+                                            if myPos[1] + thH > thPos[1] - thH and myPos[1] - thH < thPos[1] + thH:
+                                                if myPos[2] + thR > thPos[2] - thR and myPos[2] - thR < thPos[2] + thR:
                                                     results.append([thingList[me], thingList[ms]])
     return results
 
@@ -939,16 +977,16 @@ def HandlePhysics(thingList, floorHeight):
 
 def PhysicsCollisions(thingList):
     for cols in GatherCollisions(thingList):
-        if cols[0][10] != []:
+        if ThingGetPhysics(cols[0]) != []:
             force = VectorMulF(DirectionBetweenVectors(ThingGetPos(cols[0]), ThingGetPos(cols[1])), ThingGetMass(cols[0]))
-            if cols[1][10] != []:
+            if ThingGetPhysics(cols[1]) != []:
                 toforce = VectorAdd(force, VectorMulF(ThingGetVelocity(cols[1]), ThingGetMass(cols[1])))
-                ThingAddVelocity(cols[0], VectorNegate(toforce))
-                ThingAddVelocity(cols[1], toforce)
+                ThingAddVelocity(cols[0], toforce)
+                ThingAddVelocity(cols[1], VectorNegate(toforce))
             else:
-                ThingAddVelocity(cols[0], VectorNegate(force))
+                ThingAddVelocity(cols[0], force)
         else:
-            if cols[1][10] != []:
+            if ThingGetPhysics(cols[1]) != []:
                 force = VectorMulF(DirectionBetweenVectors(ThingGetPos(cols[1]), ThingGetPos(cols[0])), ThingGetMass(cols[1]))
                 ThingAddVelocity(cols[1], VectorNegate(force))
 
@@ -964,21 +1002,26 @@ def sign(f):
 #================
 
 def RasterThings(thingList, camera):
-    SetInternalCamera(camera)
     finished = []
     viewed = []
     for t in thingList:
         for m in t[0]:
-            if ThingGetMovable(t):
-                viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m), camera)
-            else:
-                viewed += RasterPt1Static(MeshGetTris(m), MeshGetPos(m), MeshGetId(m), MeshGetColour(m), camera)
-    viewed.sort(key = triSort, reverse=True)
+            viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m), camera)
+    viewed.sort(key=triSortFurthest, reverse=True)
+    finished = RasterPt2(viewed, camera)
+    return finished
+
+def RasterThingsStatic(thingList, camera):
+    finished = []
+    viewed = []
+    for t in thingList:
+        for m in t[0]:
+            viewed += RasterPt1Static(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), MeshGetId(m), MeshGetColour(m), camera)
+    viewed.sort(key=triSortAverage, reverse=True)
     finished = RasterPt2(viewed, camera)
     return finished
 
 def DebugRasterThings(thingList, camera):
-    SetInternalCamera(camera)
     finished = []
     viewed = []
     for t in thingList:
@@ -987,33 +1030,34 @@ def DebugRasterThings(thingList, camera):
                 viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m), camera)
             else:
                 viewed += RasterPt1Static(MeshGetTris(m), MeshGetPos(m), MeshGetId(m), MeshGetColour(m), camera)
-        viewed += RasterPt1(ThingGetHitboxMesh(t), ThingGetPos(t), [0, 0, 0], -1, [255, 0, 0], camera)
+        if t[4] != []:
+            viewed += RasterPt1(MeshGetTris(ThingGetHitboxMesh(t)), ThingGetPos(t), [0, 0, 0], -1, [255, 0, 0], camera)
 
         for l in lights:
             viewed += RasterPt1(lightMesh[0], l[0], [0, 0, 0], -1, [255, 255, 255], camera)
 
-    viewed.sort(key = triSort, reverse=True)
+    viewed.sort(key = triSortAverage, reverse=True)
     finished = RasterPt2(viewed, camera)
     return finished
 
 def RasterMeshList(meshList, camera):
-    SetInternalCamera(camera)
     finished = []
     viewed = []
     for m in meshList:
         viewed += RasterPt1(MeshGetTris(m), MeshGetPos(m), MeshGetRot(m), MeshGetId(m), MeshGetColour(m), camera)
-    viewed.sort(key=triSort, reverse=True)
+    viewed.sort(key=triSortAverage, reverse=True)
     finished = RasterPt2(viewed, camera)
     return finished
 
 def RasterPt1(tris, pos, rot, id, colour, camera):
     translated = []
     prepared = []
-    for tri in TranslateTriangles(TransformTriangles(tris, rot), pos):
-        if VectorDoP(TriangleGetNormal(tri), CameraGetTargetVector(camera)) < 0.4:
+    dir = CameraGetTargetVector(camera)
+    for tri in TransformTriangles(tris, rot):
+        if VectorDoP(TriangleGetNormal(tri), dir) < 0.4:
             prepared.append(tri)
 
-    for t in ViewTriangles(prepared):
+    for t in ViewTriangles(TranslateTriangles(prepared, pos)):
         for r in TriangleClipAgainstZ(t, camera):
             TriangleSetColour(r, colour)
             r[7] = id
@@ -1049,7 +1093,6 @@ def SetInternalCamera(camera):
 
 def TransformTriangles(tris, rot):
     transformed = []
-    # Matrix Stuff  
     matRotY = MatrixMakeRotY(rot[1])
     matRotX = MatrixMakeRotX(rot[0])
     matRotZ = MatrixMakeRotZ(rot[2])
@@ -1065,28 +1108,26 @@ def TransformTriangles(tris, rot):
 def TranslateTriangles(tris, pos):
     translated = []
     for tri in tris:
-        # Moving triangle based on object position
         tri = TriangleAdd(tri, pos)
         tri[6] = TriangleAverage(tri)
         translated.append(tri)
-    
     return translated
 
 def ViewTriangles(tris):
     newTris = []
     for tries in tris:
-        # Converting World Space to View Space
-        newTri = TriMatrixMul(tries, intMatV)
+        try:
+            newTri = TriMatrixMul(tries, intMatV)
+        except:
+            print("Internal Camera is not set. Use z3dpy.SetInternalCamera() before rastering.")
+            return []
         newTris.append(newTri)
     return newTris
                     
 def ProjectTriangles(tris, camera):
     projected = []
     for tri in tris:
-        # Flattening View Space
         newTri = TriangleAdd(ProjectTriangle(tri, camera[13], camera[12], CameraGetFCl(camera), CameraGetNCl(camera)), [1, 1, 0])
-
-        # Converting to Screen Space
         newTri = TriangleMul(newTri, [CameraGetScWh(camera), CameraGetScHh(camera), 1])
         
         projected.append(newTri)
@@ -1099,8 +1140,6 @@ def ProjectTriangles(tris, camera):
 # Drawing/Shaders
 #
 #================
-
-# Shortcuts for drawing to a screen.
 
 # Pygame
 # Pygame is the fastest at drawing.
@@ -1145,43 +1184,114 @@ def FlatLighting(tri):
     for l in lights:
         finalColour = VectorAdd(finalColour, VectorMulF(VectorMulF(tri[5], VectorDoP(VectorMul(TriangleGetColour(tri), [1, -1, -1]), DirectionBetweenVectors(tri[6], l[0]))), 1 - min(DistanceBetweenVectors(tri[6], l[0]) / l[2], 1)))
     return finalColour
+    
+
 
 def FillSort(n):
     return int(n[0])
 
-# My own filling triangle routine so I can move beyond single-colour flat shading.
+
+# My own filling triangle routines so I can move beyond single-colour flat shading and single-triangle depth sorting.
+
+# FillTriangleLine()
+# Returns a list of lines to draw to the screen, given a triangle
 
 # Part One: From P1 to P2
 
-def FillTriangle(tri, screen, colour, pyg):
+def FillTriangleLine(tri):
+    output = []
+
     list = [tri[0], tri[1], tri[2]]
     list.sort(key=FillSort)
-
-    # Trying to do as many calculations before I start as I can
-    diff = int(list[1][0] - list[0][0])
-    diff2 = int(list[1][1] - list[0][1])
     if list[2][0] != list[0][0]:
         slope = (list[2][1] - list[0][1]) / (list[2][0] - list[0][0])
-        if list[1][0] != list[0][0]:
-            diff3 = (list[1][1] - list[0][1]) / (list[1][0] - list[0][0])
-            for x in range(0, diff):
+        
+        diff = int(list[1][0] - list[0][0])
+        if diff != 0:
+            
+            
+            diff3 = (list[1][1] - list[0][1]) / diff
+            for x in range(0, diff + 1, sign(diff)):
+
                 lStart = (x + list[0][0], (diff3 * x) + list[0][1])
                 lEnd = (x + list[0][0], (slope * x) + list[0][1])
-                pyg.draw.line(screen, (max(colour[0], 15), max(colour[1], 15), max(colour[2], 15)), lStart, lEnd)
-        FillTrianglePt2(list, screen, colour, pyg, slope)
-
+                output.append((lStart, lEnd))
+            
+        output += FillTriangleLinePt2(list, slope)
+    return output
 
 # Part Two: From P2 to P3
 
-def FillTrianglePt2(list, screen, colour, pyg, fSlope):
+def FillTriangleLinePt2(list, fSlope):
+    output = []
     # If this side is flat, no need.
-    if list[2][1] != list[1][1] and list[2][0] != list[1][0]:
+    if list[2][0] != list[1][0]:
         diff2 = list[2][0] - list[1][0]
         diff4 = list[1][0] - list[0][0]
         slope2 = (list[2][1] - list[1][1]) / diff2
-        for x in range(0, int(diff2)):
+        for x in range(0, int(diff2) + 1, sign(diff2)):
             lStart = (x + list[1][0], (slope2 * x) + list[1][1])
             lEnd = (x + list[1][0], (fSlope * (x + diff4)) + list[0][1])
-            pyg.draw.line(screen, (max(colour[0], 15), max(colour[1], 15), max(colour[2], 15)), lStart, lEnd)
-    else:
-            return
+            output.append((lStart, lEnd))
+    return output
+
+# FillTrianglePixel()
+# Returns a list of pixels to draw on the screen, given a triangle.
+
+# Part One: From P1 to P2
+
+def FillTrianglePixel(tri):
+    output = []
+    list = [tri[0], tri[1], tri[2]]
+    list.sort(key=FillSort)
+
+    if list[2][0] != list[0][0]:
+
+        slope = (list[2][1] - list[0][1]) / (list[2][0] - list[0][0])
+        diff = int(list[1][0] - list[0][0])
+        if diff != 0:
+
+            diff3 = (list[1][1] - list[0][1]) / diff
+            for x in range(diff + 1):
+
+                rang1 = int((diff3 * x) + list[0][1])
+                rang2 = int((slope * x) + list[0][1])
+                for y in range(rang1, rang2):
+
+                    output.append((x + list[0][0], y))
+
+        output += FillTrianglePixelPt2(list, slope)
+    return output
+
+# Part Two: From P2 to P3
+
+def FillTrianglePixelPt2(list, fSlope):
+    output = []
+    # If this side is flat, no need.
+    if list[2][0] != list[1][0]:
+        diff2 = list[2][0] - list[1][0]
+        diff4 = list[1][0] - list[0][0]
+        slope2 = (list[2][1] - list[1][1]) / diff2
+        for x in range(0, int(diff2), sign(diff2)):
+            for y in range(int((slope2 * x) + list[1][1]), int((fSlope * (x + diff4)) + list[0][1]), sign(fSlope)):
+                output.append((x + list[1][0], y))
+    return output
+
+def LoadMap(name):
+    output = []
+    file = open(name + ".zpl", "r")
+    line = file.readline()
+    if line != "":
+        match line[:2]:
+            case "t:":
+                newMeshes = []
+                line = line[2:].split(",")
+                meshes = line[0].split(">")
+                for m in meshes:
+                    m = m.split("<")
+                    newMeshes.append(LoadMesh(m))
+                newThing = Thing(meshes, line[1], line[2], line[3])
+                ThingSetRot(newThing, [line[4], line[5], line[6]])
+                output.append()
+    file.close()
+    return output
