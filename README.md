@@ -31,7 +31,7 @@ import z3dpyOOP as zp
 
 Basically the 'Hello World' of Z3dPy. I'll be showing you the function version. The OOP version can be found in the wiki.
 
-I'll be using Pygame for my display to draw on.
+I'll be using Pygame for my display.
 ```python
 import z3dpy as zp
 import pygame
@@ -55,7 +55,7 @@ By default, cameras are set with an FOV of 90, and the target is pointed along t
 
 <br>
 
-For games, it's recommended to create your objects as Things, since they can hold multiple meshes among other benefits, but for this example we're only using one mesh
+Now we need a mesh to draw
 
 ```python
 
@@ -63,14 +63,17 @@ For games, it's recommended to create your objects as Things, since they can hol
 myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 
 ```
+Now it's time for rastering.
 
-Drawing to the screen is as simple as 2 lines
+Rastering is taking a 3D triangle and converting it into a 2D triangle on our screen.
+
+There are two functions for rastering: RasterMeshList() and RasterThings(). Things are useful for games, but this demonstration doesn't need those.
 
 ```python
 for tri in zp.RasterMeshList([myMesh], myCamera):
 
     # RGBF will take a normalized vector convert it to colour
-    zp.DrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
+    zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
     
 # Update window afterwards
 pygame.display.flip()
@@ -93,7 +96,7 @@ while not done:
     
     # Render 3D
     for tri in zp.RasterMeshList([myMesh], myCamera):
-        zp.DrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
+        zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
     
@@ -133,7 +136,7 @@ while not done:
     
     # Render 3D
     for tri in zp.RasterMeshList([myMesh], myCamera):
-        zp.DrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
+        zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
     
