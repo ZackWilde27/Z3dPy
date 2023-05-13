@@ -1,19 +1,21 @@
-# Z3dPy v0.1.4
+# Z3dPy
 Zack's Python 3D Engine
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
 
-Z3dPy is a personal project I'm working on, a 3D engine written entirely in Python. While it doesn't handle the window itself or inputs, it does pretty much everything else. It's meant to be used with Pygame to make speedy 3D easy, but it can be used with any library that can draw to a screen.
+Z3dPy is a personal project I'm working on, a 3D library written entirely in Python, focused on ease of use.
 
-Renders nearly 1000 on-screen triangles at 30 fps *(tested on my ryzen 7, in pygame)*
+Built for pygame to make games with, but all it needs is a window to draw on.
+
+Renders nearly 1000 on-screen triangles at 30 fps *(tested on my ryzen 7)*
+
+Handles Rasterization, Physics, and Collisions. Still in active development, so improvements/features are on the way
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
-FAQ can be found at the bottom
-
 # Installation Guide
 
-My library does not handle the window itself, so first you'll need something like Pygame. Although <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing-Triangles">it doesn't have to be Pygame</a>
+My library does not handle the window itself, so first you'll need something like Pygame.
 
 Download the latest release and extract the zip folder to the same folder as your script, then import it with:
 ```python
