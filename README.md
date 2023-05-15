@@ -15,7 +15,7 @@ Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki"
 
 # Installation Guide
 
-My library does not handle the window itself, so first you'll need something like Pygame.
+First you'll need a display, like pygame, or tkinter or something.
 
 Download the latest release and extract the zip folder to the same folder as your script, then import it with:
 ```python
