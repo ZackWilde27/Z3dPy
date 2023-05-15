@@ -2,6 +2,8 @@
 Zack's Python 3D Engine
 
 ![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
+<br>
+(This GIF doesn't have enough colours, don't mind the dithering)
 
 Z3dPy is a personal project I'm working on, a 3D library written entirely in Python, focused on ease of use.
 
