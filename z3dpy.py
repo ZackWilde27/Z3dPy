@@ -11,6 +11,8 @@
 #
 # - Added FillTrianglePixel() which uses my own technique to convert a triangle to a tuple of pixel coordinates.
 #
+# - Added single-triangle raster functions
+#
 # - Brought back the internal camera, in order to simplify standard cameras
 #
 # - Each mesh's triangle list is now a tuple instead of a list for speed.
@@ -30,8 +32,26 @@
 #
 # - Experimental dynamic lighting/pixel shader
 
+# Tkinter is now built-in, but i'd still recommend pygame for speed/inputs
+try:
+    import tkinter as tk
+except:
+    import Tkinter as tk
+
 import math
 import time
+
+def SetupScreen(wdth, hght):
+    global tK
+    global canvas
+    # Ha.
+    tK = tk.Tk()
+    canvas = tk.Canvas(tK, width=wdth, height=hght, background='black')
+    canvas.pack()
+
+def UpdateScreen():
+    tK.update()
+    canvas.delete("all")
 
 print("Z3dPy v0.1.5")
 
@@ -135,23 +155,18 @@ def MeshGetPos(mesh):
 
 def MeshSetRot(mesh, vector):
     mesh[2] = vector
-    MeshSetMatrix(mesh)
 
 def MeshAddRot(mesh, vector):
     mesh[2] = [mesh[2][0] + vector[0], mesh[2][1] + vector[1], mesh[2][2] + vector[2]]
-    MeshSetMatrix(mesh)
 
 def MeshSubRot(mesh, vector):
     mesh[2] = [mesh[2][0] - vector[0], mesh[2][1] - vector[1], mesh[2][2] - vector[2]]
-    MeshSetMatrix(mesh)
 
 def MeshMulRot(mesh, vector):
     mesh[2] = [mesh[2][0] * vector[0], mesh[2][1] * vector[1], mesh[2][2] * vector[2]]
-    MeshSetMatrix(mesh)
 
 def MeshDivRot(mesh, vector):
     mesh[2] = [mesh[2][0] / vector[0], mesh[2][1] / vector[1], mesh[2][2] / vector[2]]
-    MeshSetMatrix(mesh)
 
 def MeshGetRot(mesh):
     return mesh[2]
@@ -167,9 +182,6 @@ def MeshSetId(mesh, id):
 
 def MeshGetId(mesh):
     return mesh[4]
-
-def MeshSetMatrix(mesh):
-    mesh[5] = [MatrixMakeRotX(mesh[2][0]), MatrixMakeRotY(mesh[2][1]), MatrixMakeRotZ(mesh[2][2])]
 
 # Some stuff I need to declare before the Thing class
 
@@ -601,38 +613,44 @@ def Texture(w, h):
 
 # WhatIs() will take a list and figure out what "object" it is.
 # meant to be used with print() for debugging.
+# If it's not a list, it'll return the built-in type()
 def WhatIs(any):
-    if len(any) == 3:
-        try:
-            test = any[0] + 1
-            return "Vector3"
-        except:
+    try:
+        test = len(any)
+    except:
+        return str(type(any))
+    else:
+        if len(any) == 3:
             try:
-                test = any[0][0] + 1
-                # S for shortened triangle, it only includes the points, and no other information.
-                return "STriangle"
+                test = any[0] + 1
+                return "Vector3"
             except:
-                return "Unknown"
-    if len(any) == 4:
-        return "Vector4"
-    if len(any) == 5:
-        try:
-            test = any[0] + 1
-            return "Hitbox"
-        except:
+                try:
+                    test = any[0][0] + 1
+                    # S for shortened triangle, it only includes the points, and no other information.
+                    return "STriangle"
+                except:
+                    return "Unknown"
+        if len(any) == 4:
+            return "Vector4"
+        if len(any) == 5:
             try:
-                test = any[2][0] + 1
-                return "Mesh"
+                test = any[0] + 1
+                return "Hitbox"
             except:
-                return "VectorUV"
-    if len(any) == 6:
-        return "PhysicsBody"
-    if len(any) == 7:
-        return "Thing"
-    if len(any) == 8:
-        return "Triangle"
-    if len(any) == 14:
-        return "Camera"
+                try:
+                    test = any[2][0] + 1
+                    return "Mesh"
+                except:
+                    return "VectorUV"
+        if len(any) == 6:
+            return "PhysicsBody"
+        if len(any) == 7:
+            return "Thing"
+        if len(any) == 8:
+            return "Triangle"
+        if len(any) == 14:
+            return "Camera"
 
 # WhatIsCode() is the same as WhatIs(), except instead of a string response it's a number
 def WhatIsCode(any):
@@ -711,7 +729,11 @@ def Projection(vector, a, f, fc, nc):
         return vector
 
 def ProjectTriangle(t, a, f, fc, nc):
-    return [Projection(t[0], a, f, fc, nc), Projection(t[1], a, f, fc, nc), Projection(t[2], a, f, fc, nc), t[3], t[4], t[5], t[6], t[7]]
+    if t != None:
+        try:
+            return [Projection(t[0], a, f, fc, nc), Projection(t[1], a, f, fc, nc), Projection(t[2], a, f, fc, nc), t[3], t[4], t[5], t[6], t[7]]
+        except:
+            return [Projection(t[0], a, f, fc, nc), Projection(t[1], a, f, fc, nc), Projection(t[2], a, f, fc, nc)]
 
 #================
 #  
@@ -1209,8 +1231,10 @@ def RasterThings(thingList):
     viewed = []
     for t in thingList:
         for m in t[0]:
-            viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
-    viewed.sort(key=triSortAverage, reverse=True)
+            pos = VectorAdd(MeshGetPos(m), ThingGetPos(t))
+            rot = VectorAdd(MeshGetRot(m), ThingGetRot(t))
+            viewed += RasterPt1(MeshGetTris(m), pos, rot, MeshGetId(m), MeshGetColour(m))
+    viewed.sort(reverse=True, key=triSortAverage)
     finished = RasterPt2(viewed)
     return finished
 
@@ -1254,28 +1278,36 @@ def RasterMeshList(meshList):
     finished = RasterPt2(viewed)
     return finished
 
+internalTris = []
+
+# Raster a single triangle, in hopes I can figure out multi-processing at some point.
+# appends each new triangle to an internal triangle list.
+def RasterTriangle(tri, pos, rot, id, colour):
+    newTri = TriangleAdd(TransformTriangle(tri, rot), pos)
+    if VectorDoP(GetNormal(newTri), iC[10]) > -0.5:
+        newTri = ViewTriangle(newTri)
+        internalTris.append(newTri)
+
 def RasterPt1(tris, pos, rot, id, colour):
     translated = []
     prepared = []
-    #dir = VectorNormalize(VectorSub(iC[10], iC[0]))
-    print(iC[10])
     for tri in TranslateTriangles(TransformTriangles(tris, rot), pos):
-        if VectorDoP(TriangleGetNormal(tri), iC[10]) > -0.5:
+        if VectorDoP(GetNormal(tri), iC[9]) > -0.2:
             prepared.append(tri)
 
     for t in ViewTriangles(prepared):
         for r in TriangleClipAgainstZ(t):
             TriangleSetColour(r, colour)
-            r[7] = id
+            TriangleSetId(r, id)
             translated.append(r)
     return translated
 
 def RasterPt1Static(tris, pos, id, colour):
     translated = []
     prepared = []
-    dir = VectorABS(VectorNormalize(VectorSub(iC[10], iC[0])))
+    dir = VectorABS(VectorNormalize(VectorSub(iC[9], iC[0])))
     for tri in tris:
-        if VectorDoP(TriangleGetNormal(tri), dir) > -0.5:
+        if VectorDoP(TriangleGetNormal(tri), dir) > -0.2:
             prepared.append(tri)
 
     for t in ViewTriangles(TranslateTriangles(prepared, pos)):
@@ -1287,7 +1319,6 @@ def RasterPt1Static(tris, pos, id, colour):
 
 def RasterPt2(tris):
     output = []
-
     for i in ProjectTriangles(tris):
         for s in TriangleClipAgainstScreenEdges(i):
             output.append(s)
@@ -1306,6 +1337,16 @@ def TransformTriangles(tris, rot):
         transformed.append(nt)
         
     return transformed
+
+def TransformTriangle(tri, rot):
+    mX = MatrixMakeRotX(rot[0])
+    mY = MatrixMakeRotY(rot[1])
+    mZ = MatrixMakeRotZ(rot[2])
+    nt = TriMatrixMul(tri, mX)
+    nt = TriMatrixMul(tri, mY)
+    nt = TriMatrixMul(tri, mZ)
+    nt[3] = GetNormal(nt)
+    return nt
         
 def TranslateTriangles(tris, pos):
     translated = []
@@ -1325,6 +1366,13 @@ def ViewTriangles(tris):
             return []
         newTris.append(newTri)
     return newTris
+
+def ViewTriangle(tri):
+    try:
+        return TriMatrixMul(tri, intMatV)
+    except:
+        print("Internal Camera is not set. Use z3dpy.SetInternalCamera() before rastering.")
+        return []
                     
 def ProjectTriangles(tris):
     projected = []
@@ -1343,7 +1391,7 @@ def ProjectTriangles(tris):
 #================
 
 # Pygame
-# Pygame is the fastest at drawing.
+# Pygame is the fastest at drawing, but a third party library.
 
 def PgDrawTriangleRGB(tri, colour, surface, pyg):
     colour = VectorMax(colour, 0)
@@ -1365,19 +1413,19 @@ def PgDrawTriangleS(tri, f, surface, pyg):
     f = max(f, 0)
     pyg.draw.polygon(surface, tuple(VectorMulF(tri[5], f)), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
-# Tkinter
+# Built-in Tkinter
 
-def TkDrawTriangleFill(tri, fillCol, canvas):
+def DrawTriangleFill(tri, fillCol):
     canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], fill=fillCol)
 
-def TkDrawTriangleF(tri, f, canvas):
-    f = max(f, 0)
-    canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], fill="gray" + str(int(f * 100)))
+def DrawTriangleF(tri, f):
+    f = str(math.floor(max(f, 0) * 100))
+    canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], fill="gray" + f)
 
-def TkDrawTriangleOutl(tri, fillCol, canvas):
+def DrawTriangleOutl(tri, fillCol):
     canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], outline=fillCol)
 
-def TkDrawTriangleS(tri, fillCol, canvas):
+def DrawTriangleS(tri, fillCol):
     canvas.create_polygon([(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])], fill=fillCol)
 
 # Flat lighting shader, meant to be put into DrawTriangleRGB's colour
@@ -1414,6 +1462,11 @@ def PgPixelShader(tri, material, screen, pygame):
                 for l in lights:
                     light += VectorDoP(TriangleGetNormal(tri), DirectionBetweenVectors(TriangleGetWPos(tri), l[0]))
                 array[x, y] = (col[0], col[1], col[2])
+
+def TkPixelShader(tri, f):
+    f = str(math.floor(max(f, 0) * 100))
+    for pixel in FillTrianglePixel(tri):
+        canvas.create_line(pixel[0], pixel[1], pixel[0] + 1, pixel[1], fill="gray" + f)
 
 def FillSort(n):
     return int(n[0])
