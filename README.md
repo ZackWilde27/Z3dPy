@@ -5,7 +5,7 @@ Zack's Python 3D Engine
 <br>
 (This GIF doesn't have enough colours, don't mind the dithering)
 
-Z3dPy is a personal project I'm working on, a 3D library written entirely in Python, focused on ease of use.
+Z3dPy is a personal project I'm working on, a 3D module written entirely in Python, focused on ease of use.
 
 Built for pygame to make games with, but all it needs is a window to draw on.
 
