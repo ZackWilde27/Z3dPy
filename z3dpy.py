@@ -4,12 +4,15 @@
 # Function/List Edition
 
 # 0.1.5 Changes
-# *Nightly build. The wiki/examples are based on the current release version, 0.1.4
+# *Nightly build. The wiki/examples are based on the current release version, 0.1.4. Anything labeled as experimental is unfinished
 #
 # - Drawing functions no longer SetInternalCamera() automatically, which will speed things up if you are rendering things in layers,
 # but you now have to call the function manually before rastering. If the camera's not going to move, set it once before the draw loop.
 #
 # - Added FillTrianglePixel() which uses my own technique to convert a triangle to a tuple of pixel coordinates.
+#
+# - Tkinter is now imported by default. Use z3dpy.SetupScreen() at the start of the script, and z3dpy.UpdateScreen() after drawing triangles.
+# although I'd still recommend using pygame for extra speed and inputs
 #
 # - Added single-triangle raster functions
 #
@@ -854,8 +857,8 @@ def TriangleGetVectorNormals(tri):
     try:
         return VectorDivF(VectorAdd(VectorAdd(tri[0][3], tri[1][3]), tri[2][3]), 3)
     except:
-        print("Triangle has no Vector Normals")
-        return [0, 0, 1]
+        print("TriangleGetVectorNormals(): Triangle has no vector normals")
+        return []
 
 #================
 #  
@@ -1217,7 +1220,6 @@ def PhysicsCollisions(thingList):
                 ThingAddVelocity(cols[1], VectorNegate(force))
 
 def sign(f):
-    # I know, but it's fast
     return 1 if f > 0 else -1
 
 #================
@@ -1362,7 +1364,7 @@ def ViewTriangles(tris):
         try:
             newTri = TriMatrixMul(tries, intMatV)
         except:
-            print("Internal Camera is not set. Use z3dpy.SetInternalCamera() before rastering.")
+            print("ViewTriangles(): Internal Camera is not set. Use z3dpy.SetInternalCamera() before rastering.")
             return []
         newTris.append(newTri)
     return newTris
@@ -1371,7 +1373,7 @@ def ViewTriangle(tri):
     try:
         return TriMatrixMul(tri, intMatV)
     except:
-        print("Internal Camera is not set. Use z3dpy.SetInternalCamera() before rastering.")
+        print("ViewTriangle(): Internal Camera is not set. Use z3dpy.SetInternalCamera() before rastering.")
         return []
                     
 def ProjectTriangles(tris):
@@ -1394,11 +1396,11 @@ def ProjectTriangles(tris):
 # Pygame is the fastest at drawing, but a third party library.
 
 def PgDrawTriangleRGB(tri, colour, surface, pyg):
-    colour = VectorMax(colour, 0)
+    colour = VectorMaxF(colour, 0)
     pyg.draw.polygon(surface, tuple(colour), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
 def PgDrawTriangleRGBF(tri, colour, surface, pyg):
-    colour = VectorMax(colour, 0)
+    colour = VectorMaxF(colour, 0)
     pyg.draw.polygon(surface, tuple(VectorMulF(colour, 255)), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
 def PgDrawTriangleF(tri, f, surface, pyg):
@@ -1406,7 +1408,7 @@ def PgDrawTriangleF(tri, f, surface, pyg):
     pyg.draw.polygon(surface, (f, f, f), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
 def PgDrawTriangleOutl(tri, colour, surface, pyg):
-    colour = VectorMax(colour, 0)
+    colour = VectorMaxF(colour, 0)
     pyg.draw.lines(surface, tuple(VectorMulF(colour, 255)), True, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
 def PgDrawTriangleS(tri, f, surface, pyg):
