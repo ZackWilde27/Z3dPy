@@ -633,81 +633,83 @@ def WhatIs(any):
     except:
         return str(type(any))
     else:
-        if len(any) == 3:
-            try:
-                test = any[0] + 1
-                return "Vector3"
-            except:
+        match len(any):
+            case 3:
                 try:
-                    test = any[0][0] + 1
-                    # S for shortened triangle, it only includes the points, and no other information.
-                    return "STriangle"
+                    test = any[0] + 1
+                    return "Vector3"
                 except:
-                    return "Unknown"
-        if len(any) == 4:
-            return "Vector4"
-        if len(any) == 5:
-            try:
-                test = any[0] + 1
-                return "Hitbox"
-            except:
+                    try:
+                        test = any[0][0] + 1
+                        # S for shortened triangle, it only includes the points, and no other information.
+                        return "STriangle"
+                    except:
+                        return "Unknown"
+            case 4:
+                return "Vector4"
+            case 5:
                 try:
-                    test = any[2][0] + 1
-                    return "Mesh"
+                    test = any[0] + 1
+                    return "Hitbox"
                 except:
-                    return "VectorUV"
-        if len(any) == 6:
-            return "PhysicsBody"
-        if len(any) == 7:
-            return "Thing"
-        if len(any) == 8:
-            return "Triangle"
-        if len(any) == 14:
-            return "Camera"
+                    try:
+                        test = any[2][0] + 1
+                        return "Mesh"
+                    except:
+                        return "VectorUV"
+            case 6:
+                return "PhysicsBody"
+            case 7:
+                return "Thing"
+            case 8:
+                return "Triangle"
+            case 14:
+                return "Camera"
 
 # WhatIsInt() is the same as WhatIs(), except instead of a string response it's a number
 def WhatIsInt(any):
-    if len(any) == 3:
-        try:
-            test = any[0] + 1
-            # Vector3
-            return 0
-        except:
+    match len(any):
+        case 3:
             try:
-                test = any[0][0] + 1
-                # STriangle
-                return 1
+                test = any[0] + 1
+                # Vector3
+                return 0
             except:
-                # Unknown
-                return -1
-    if len(any) == 4:
-        # Vector4
-        return 2
-    if len(any) == 5:
-        try:
-            test = any[0] + 1
-            # Hitbox
-            return 3
-        except:
+                try:
+                    test = any[0][0] + 1
+                    # STriangle
+                    return 1
+                except:
+                    # Unknown
+                    return -1
+        case 4:
+            # Vector4
+            return 2
+        case 5:
             try:
-                test = any[2][0] + 1
-                # Mesh
-                return 4
+                test = any[0] + 1
+                # Hitbox
+                return 3
             except:
-                # VectorUV
-                return 5
-    if len(any) == 6:
-        # Physics Body
-        return 6
-    if len(any) == 7:
-        # Thing
-        return 7
-    if len(any) == 8:
-        # Triangle
-        return 8
-    if len(any) == 14:
-        # Camera
-        return 9
+                try:
+                    test = any[2][0] + 1
+                    # Mesh
+                    return 4
+                except:
+                    # VectorUV
+                    return 5
+        case 6:
+            # Physics Body
+            return 6
+        case 7:
+            # Thing
+            return 7
+        case 8:
+            # Triangle
+            return 8
+        case 14:
+            # Camera
+            return 9
 
 # Debug code for creating a basic cube
 def NewCube(scale, x, y, z):
