@@ -23,15 +23,11 @@ Download the latest release and extract the zip folder to the same folder as you
 ```python
 import z3dpy as zp
 ```
-There are two versions of Z3dPy. The function version is used by default, which is 2x faster than object-oriented. If you don't mind sacrificing some speed for ease of programming, you can instead import the OOP version.
-
-```python
-import z3dpyOOP as zp
-```
+I would not recommend cloning the main repo, because it's the nightly build. The wiki/examples are based on the release version.
 
 # Example Program
 
-Basically the 'Hello World' of Z3dPy. I'll be showing you the function version. The OOP version can be found in the wiki.
+Basically the 'Hello World' of Z3dPy.
 
 I'll be using Pygame for my display.
 ```python
@@ -65,9 +61,6 @@ Now we need a mesh to draw
 myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 
 ```
-Now it's time for rastering.
-
-Rastering is taking a 3D triangle and converting it into a 2D triangle on our screen.
 
 There are two functions for rastering: RasterMeshList() and RasterThings(). Things are useful for games, but this demonstration doesn't need those.
 
