@@ -1,13 +1,13 @@
 # -zw
 
-# Z3dPy
-# Function/List Edition
+# Z3dPy v0.1.5
 
-# 0.1.5 Changes
-# *Nightly build. The wiki/examples are based on the current release version, 0.1.4. Anything labeled as experimental is unfinished
+# Change Notes:
 #
 # - Drawing functions no longer SetInternalCamera() automatically, which will speed things up if you are rendering things in layers,
 # but you now have to call the function manually before rastering. If the camera's not going to move, set it once before the draw loop.
+#
+# - Raster functions no longer need the camera as an argument, uses the internal camera
 #
 # - Added FillTrianglePixel() which uses my own technique to convert a triangle to a tuple of pixel coordinates.
 #
@@ -40,21 +40,33 @@ try:
     import tkinter as tk
 except:
     import Tkinter as tk
-
 import math
 import time
 
-def SetupScreen(wdth, hght):
+def SetupScreen(wdth, hght, colour):
     global tK
     global canvas
     # Ha.
     tK = tk.Tk()
-    canvas = tk.Canvas(tK, width=wdth, height=hght, background='black')
+    canvas = tk.Canvas(tK, width=wdth, height=hght, background=colour)
     canvas.pack()
 
 def UpdateScreen():
     tK.update()
     canvas.delete("all")
+
+
+# It's a bit trivial, but I wanted the coding experience to be as similar as possible.
+def PgSetupScreen(wdth, hght, pygame):
+    global intPg
+    intPg = pygame
+    # Python may not propogate these back to the user's script,
+    # needs more testing.
+    intPg.init()
+    return intPg.display.set_mode((wdth, hght))
+
+def PgUpdateScreen():
+    intPg.display.flip()
 
 print("Z3dPy v0.1.5")
 
@@ -274,9 +286,6 @@ def ThingSetRoll(thing, deg):
 
 def ThingSetYaw(thing, deg):
     thing[2][2] = deg
-
-def ThingSetRotV(thing, v):
-    thing[2] = v
 
 def ThingGetRot(thing):
     return thing[2]
@@ -539,9 +548,9 @@ def CameraSetTargetVector(cam, v):
     cam[7] = VectorAdd(cam[0], VectorNormalize(v))
 
 # Set Target First Person: Takes care of rotating vectors, so you just supply a pitch and yaw.
-def CameraSetTargetFP(cam, pitch, yaw):
-    dir = VectorRotateY([0, 0, 1], yaw)
-    dir = VectorRotateX(dir, pitch)
+def CameraSetTargetFP(cam):
+    dir = VectorRotateX([0, 0, 1], CameraGetPitch(cam))
+    dir = VectorRotateY(dir, CameraGetYaw(cam))
     CameraSetTargetVector(cam, dir)
 
 def CameraGetTargetLocation(cam):
@@ -573,9 +582,10 @@ iC = [[0, 0, 0], [0, 0, 0], 90, 720, 1280, 360, 640, 0.1, 1500, [0, 0, 1], [0, 1
 def SetInternalCamera(camera):
     global intMatV
     global iC
+    iC = [CameraGetPos(camera), CameraGetRot(camera), CameraGetFOV(camera), CameraGetScH(camera), CameraGetScW(camera), CameraGetScH(camera) / 2, CameraGetScW(camera) / 2, CameraGetNCl(camera), CameraGetFCl(camera), CameraGetTargetVector(camera), CameraGetUpVector(camera), CameraGetFOV(camera) / 2, 1 / math.tan(CameraGetFOV(camera) / 2), CameraGetScH(camera) / CameraGetScW(camera)]
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intMatV = LookAtMatrix(camera)
-    iC = [CameraGetPos(camera), CameraGetRot(camera), CameraGetFOV(camera), CameraGetScH(camera), CameraGetScW(camera), CameraGetScH(camera) / 2, CameraGetScW(camera) / 2, CameraGetNCl(camera), CameraGetFCl(camera), CameraGetTargetVector(camera), CameraGetUpVector(camera), CameraGetFOV(camera) / 2, 1 / math.tan(CameraGetFOV(camera) / 2), CameraGetScH(camera) / CameraGetScW(camera)]
+    
 
 # Point Lights:
 #
@@ -655,8 +665,8 @@ def WhatIs(any):
         if len(any) == 14:
             return "Camera"
 
-# WhatIsCode() is the same as WhatIs(), except instead of a string response it's a number
-def WhatIsCode(any):
+# WhatIsInt() is the same as WhatIs(), except instead of a string response it's a number
+def WhatIsInt(any):
     if len(any) == 3:
         try:
             test = any[0] + 1
@@ -779,19 +789,21 @@ def VectorMaxF(v, f):
         return [max(v[0], f), max(v[1], f), max(v[2], f), v[3], v[4], v[5]]
     except:
         return [max(v[0], f), max(v[1], f), max(v[2], f)]
-    
-def VectorMin(v1, v2):
+
+# Vector Compare returns wether or not v1 is greater than v2
+def VectorCompare(v1, v2):
     vO = VectorABS(v1)
     vT = VectorABS(v2)
-    if v1[0] + v1[1] + v1[2] > v2[0] + v2[1] + v2[2]:
+    return vO[0] + vO[1] + vO[2] > vT[0] + vT[1] + vT[2]
+    
+def VectorMin(v1, v2):
+    if VectorCompare(v1, v2):
         return v2
     else:
         return v1
     
 def VectorMax(v1, v2):
-    vO = VectorABS(v1)
-    vT = VectorABS(v2)
-    if v1[0] + v1[1] + v1[2] > v2[0] + v2[1] + v2[2]:
+    if VectorCompare(v1, v2):
         return v1
     else:
         return v2
@@ -816,7 +828,7 @@ def VectorGetLength(v):
     return math.sqrt((v[0] * v[0]) + (v[1] * v[1]) + (v[2] * v[2]))
 
 def VectorNormalize(v):
-    l = max(abs(v[0]), abs(v[1]), abs(v[2]))
+    l = abs(VectorGetLength(v))
     if l != 0:
         try:
             return [v[0] / l, v[1] / l, v[2] / l, v[3], v[4], v[5]]
@@ -835,7 +847,11 @@ def DistanceBetweenVectors(v1, v2):
     return math.sqrt(((v2[0] - v1[0]) ** 2) + ((v2[1] - v1[1]) ** 2) + ((v2[2] - v1[2]) ** 2))
 
 def VectorNegate(v):
-    return [v[0] * -1, v[1] * -1, v[2] * -1, v[3], v[4], v[5]]
+    try:
+        test = v[5]
+        return [v[0] * -1, v[1] * -1, v[2] * -1, v[3], v[4], v[5]]
+    except:
+        return [v[0] * -1, v[1] * -1, v[2] * -1]
 
 def VectorABS(v):
     return [abs(v[0]), abs(v[1]), abs(v[2])]
@@ -1103,24 +1119,28 @@ def RayIntersectTriangle(raySt, rayDr, tri):
     else:
         return [False]
 
-def RayIntersectMesh(raySt, rayDr, mesh):
+def RayIntersectMesh(rayStart, rayDr, mesh):
     for t in mesh[0]:
-        hit = RayIntersectTriangle(raySt, rayDr, t)
+        hit = RayIntersectTriangle(rayStart, rayDr, t)
         if hit[0]:
             return hit
     return [False]
 
-def RayIntersectThing(raySt, rayDr, thing):
-    for m in thing[4][0]:
-        hit = RayIntersectMesh(raySt, rayDr, m)
+# Does a ray intersection test with the hitbox
+def RayIntersectThingSimple(rayStart, rayEnd, thing):
+    rayDr = VectorNormalize(VectorSub(rayEnd, rayStart))
+    for t in thing[4][0]:
+        hit = RayIntersectMesh(rayStart, rayDr, t)
         if hit[0]:
             return hit
     return [False]
 
-def RayIntersectThingComplex(raySt, rayDr, thing):
+# Does a ray intersection test with each triangle
+def RayIntersectThingComplex(rayStart, rayEnd, thing):
+    rayDr = VectorNormalize(VectorSub(rayEnd, rayStart))
     for m in thing[0]:
         for t in TranslateTriangles(TransformTriangles(m[0], VectorAdd(m[1], thing[1])), VectorAdd(m[2], thing[2])):
-            inrts = RayIntersectTriangle(raySt, rayDr, t)
+            inrts = RayIntersectTriangle(rayStart, rayDr, t)
             if inrts[0]:
                 return inrts
     return [False]
@@ -1228,6 +1248,8 @@ def sign(f):
 #
 #================
 
+# High-Level Raster Functions
+
 def RasterThings(thingList):
     finished = []
     viewed = []
@@ -1236,7 +1258,19 @@ def RasterThings(thingList):
             pos = VectorAdd(MeshGetPos(m), ThingGetPos(t))
             rot = VectorAdd(MeshGetRot(m), ThingGetRot(t))
             viewed += RasterPt1(MeshGetTris(m), pos, rot, MeshGetId(m), MeshGetColour(m))
-    viewed.sort(reverse=True, key=triSortAverage)
+    viewed.sort(key=triSortAverage, reverse=True)
+    finished = RasterPt2(viewed)
+    return finished
+
+def RasterThingsPointAt(thingList):
+    finished = []
+    viewed = []
+    for t in thingList:
+        for m in t[0]:
+            pos = VectorAdd(MeshGetPos(m), ThingGetPos(t))
+            rot = VectorAdd(MeshGetRot(m), ThingGetRot(t))
+            viewed += RasterPt1(MeshGetTris(m), pos, rot, MeshGetId(m), MeshGetColour(m))
+    viewed.sort(key=triSortAverage, reverse=True)
     finished = RasterPt2(viewed)
     return finished
 
@@ -1258,7 +1292,7 @@ def DebugRasterThings(thingList):
             viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
 
         if t[4] != []:
-            viewed += RasterPt1(MeshGetTris(ThingGetHitboxMesh(t)), ThingGetPos(t), [], -1, [255, 0, 0])
+            viewed += RasterPt1(MeshGetTris(ThingGetHitboxMesh(t)), ThingGetPos(t), [0, 0, 0], -1, [255, 0, 0])
 
         for l in lights:
             viewed += RasterPt1(lightMesh[0], l[0], m[5], -1, [255, 255, 255])
@@ -1286,30 +1320,33 @@ internalTris = []
 # appends each new triangle to an internal triangle list.
 def RasterTriangle(tri, pos, rot, id, colour):
     newTri = TriangleAdd(TransformTriangle(tri, rot), pos)
-    if VectorDoP(GetNormal(newTri), iC[10]) > -0.5:
+    if VectorDoP(GetNormal(newTri), iC[9]) > 0:
         newTri = ViewTriangle(newTri)
         internalTris.append(newTri)
 
 def RasterPt1(tris, pos, rot, id, colour):
     translated = []
     prepared = []
-    for tri in TranslateTriangles(TransformTriangles(tris, rot), pos):
-        if VectorDoP(GetNormal(tri), iC[9]) > -0.2:
+    for tri in TransformTriangles(tris, rot):
+        if VectorDoP(GetNormal(tri), iC[9]) > 0:
             prepared.append(tri)
 
-    for t in ViewTriangles(prepared):
+    for t in ViewTriangles(TranslateTriangles(prepared, pos)):
         for r in TriangleClipAgainstZ(t):
             TriangleSetColour(r, colour)
             TriangleSetId(r, id)
             translated.append(r)
     return translated
 
+def RasterPt1PointAt(tris, pos, target, id, colour):
+    translated = []
+
+
 def RasterPt1Static(tris, pos, id, colour):
     translated = []
     prepared = []
-    dir = VectorABS(VectorNormalize(VectorSub(iC[9], iC[0])))
     for tri in tris:
-        if VectorDoP(TriangleGetNormal(tri), dir) > -0.2:
+        if VectorDoP(TriangleGetNormal(tri), iC[9]) > 0:
             prepared.append(tri)
 
     for t in ViewTriangles(TranslateTriangles(prepared, pos)):
@@ -1326,6 +1363,8 @@ def RasterPt2(tris):
             output.append(s)
     return output
 
+# Low-Level Raster Functions
+
 def TransformTriangles(tris, rot):
     transformed = []
     mX = MatrixMakeRotX(rot[0])
@@ -1339,6 +1378,18 @@ def TransformTriangles(tris, rot):
         transformed.append(nt)
         
     return transformed
+
+def TransformTrianglesPointAt(tris, matrix):
+    transformed = []
+    for t in tris:
+        nt = TriMatrixMul(t, matrix)
+        try:
+            nt[3] = GetNormal(nt)
+        except:
+            nt.append(GetNormal(nt))
+        transformed.append(nt)
+    return transformed
+
 
 def TransformTriangle(tri, rot):
     mX = MatrixMakeRotX(rot[0])
@@ -1393,7 +1444,7 @@ def ProjectTriangles(tris):
 #================
 
 # Pygame
-# Pygame is the fastest at drawing, but a third party library.
+# Pygame is the fastest at drawing, but is installed separately.
 
 def PgDrawTriangleRGB(tri, colour, surface, pyg):
     colour = VectorMaxF(colour, 0)
