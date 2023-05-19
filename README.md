@@ -23,7 +23,7 @@ Download the latest release and extract the zip folder to the same folder as you
 ```python
 import z3dpy as zp
 ```
-I would not recommend cloning the main repo, because it's the nightly build. The wiki/examples are based on the release version.
+The main repo, is the nightly build. The wiki/examples are based on the release version.
 
 # Example Program
 
