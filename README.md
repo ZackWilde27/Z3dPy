@@ -143,7 +143,7 @@ while not done:
 
 Export your mesh as an OBJ file, with no extra information. Make sure to triangulate.
 <br>
-Up axis is -Y, and Forward axis is -Z. In this case I wanted the mesh to face the camera
+Up axis is -Y, and Forward axis is Z.
 
 ![image](https://user-images.githubusercontent.com/115175938/235002154-62bb03ad-13f3-4084-b410-aa0074553865.png)
 
