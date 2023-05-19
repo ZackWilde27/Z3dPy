@@ -7,7 +7,7 @@ Zack's 3D Module for Python
 
 Z3dPy is a personal project I'm working on, a 3D module written entirely in Python, focused on ease of use.
 
-Built for pygame to make games with, but all it needs is a window to draw on.
+Built for pygame to make games with, but tkinter works just fine.
 
 Renders nearly 1000 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
@@ -65,7 +65,10 @@ myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
 There are two functions for rastering: RasterMeshList() and RasterThings(). Things are useful for games, but this demonstration doesn't need those.
 
 ```python
-for tri in zp.RasterMeshList([myMesh], myCamera):
+# Setting the internal camera
+zp.SetInternalCamera(myCamera)
+
+for tri in zp.RasterMeshList([myMesh]):
 
     # RGBF will take a normalized vector convert it to colour
     zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
@@ -88,9 +91,11 @@ while not done:
     clock.tick(30)
     screen.fill("black")
     
+    # Setting the internal camera
+    zp.SetInternalCamera(myCamera)
     
     # Render 3D
-    for tri in zp.RasterMeshList([myMesh], myCamera):
+    for tri in zp.RasterMeshList([myMesh]):
         zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
@@ -128,9 +133,10 @@ while not done:
     clock.tick(30)
     screen.fill("black")
     
+    zp.SetInternalCamera(myCamera)
     
     # Render 3D
-    for tri in zp.RasterMeshList([myMesh], myCamera):
+    for tri in zp.RasterMeshList([myMesh]):
         zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
