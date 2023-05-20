@@ -13,7 +13,7 @@ Built for pygame to make games with, but tkinter works just fine.
 
 Renders nearly 1000 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
-Handles Rasterization, Physics, and Collisions. Still in active development, so improvements/features are on the way
+Handles Rasterization, Physics/Collisions, and Lighting. Still in active development, so improvements/features are on the way
 
 Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
