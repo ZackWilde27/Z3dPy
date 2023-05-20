@@ -58,7 +58,7 @@ myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 2)
 # Z is forward in this case, so it's placed in front of the camera
 ```
 
-Rendering 3D in Z3dPy is done in 3 steps:
+Rendering 3D in Z3dPy takes 3 steps:
 - Set the internal camera
 - Raster the meshes
 - Draw the triangles
