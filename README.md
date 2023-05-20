@@ -1,7 +1,9 @@
 # Z3dPy
 Zack's 3D Module for Python
 
-![engine](https://user-images.githubusercontent.com/115175938/235578934-23defc68-c021-4b05-b169-272e9ac8d3c9.gif)
+
+![enginef](https://github.com/ZackWilde27/Z3dPy/assets/115175938/072e0f64-a536-4ae9-bc7e-60f542c3f950)
+
 <br>
 (This GIF doesn't have enough colours, don't mind the dithering)
 
