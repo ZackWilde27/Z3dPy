@@ -25,125 +25,125 @@ import z3dpy as zp
 ```
 The main repo, is the nightly build. The wiki/examples are based on the release version.
 
-# Example Program
+# Getting Started
 
-Basically the 'Hello World' of Z3dPy.
+![example](https://github.com/ZackWilde27/Z3dPy/assets/115175938/49541f9d-d88c-491c-934f-5e22b65402b2)
 
-I'll be using Pygame for my display.
+We'll import the engine and use pygame for our screen.
+
 ```python
 import z3dpy as zp
 import pygame
 
-# Just some Pygame stuff
+# Just some PyGame stuff
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 ```
 
-First, create a camera with it's location, screen width, and screen height. Make sure it matches the Pygame display.
+Next we create our camera object. width and height should match the output screen
 
 ```python
-
-# Create our camera object (x, y, z, width, height)
+# Create our camera (x, y, z, width, height)
 myCamera = zp.Camera(0, 0, 0, 1280, 720)
-
 ```
 
-By default, cameras are set with an FOV of 90, and the target is pointed along the z axis. These can be changed with functions
+Now we load our mesh, I'll use the built-in susanne.
 
-<br>
-
-Now we need a mesh to draw
+For games it's handy to combine meshes into Things, but this example doesn't need those.
 
 ```python
-
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
-
+myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 2)
+# Z is forward in this case, so it's placed in front of the camera
 ```
 
-There are two functions for rastering: RasterMeshList() and RasterThings(). Things are useful for games, but this demonstration doesn't need those.
+Rendering 3D in Z3dPy is done in 3 steps:
+- Set the internal camera
+- Raster the meshes
+- Draw the triangles
+
+The drawing stage has several different functions depending on the desired shading.
 
 ```python
-# Setting the internal camera
+# Set Internal Camera
 zp.SetInternalCamera(myCamera)
 
+# Raster the meshes
 for tri in zp.RasterMeshList([myMesh]):
 
-    # RGBF will take a normalized vector convert it to colour
+    # Draw the triangles
     zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
-    
-# Update window afterwards
+
+# Also update the display afterwards
 pygame.display.flip()
 ```
 
-Now all that's left is to chuck it in a loop.
+We got one frame, next is to chuck it in a loop.
 
 ```python
-# Raster Loop
-done = False
+# This only needs to be done per frame if the camera's going to move.
+zp.SetInternalCamera(myCamera)
 
-while not done:
-    # more Pygame Stuff
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            done = True    
-    clock.tick(30)
+# Raster Loop
+while True:
+
     screen.fill("black")
     
-    # Setting the internal camera
-    zp.SetInternalCamera(myCamera)
-    
-    # Render 3D
-    for tri in zp.RasterMeshList([myMesh]):
+    for tri in zp.RasterMeshList([myMesh], myCamera):
+
         zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
     
     # Rotate mesh
-    zp.MeshAddRot(myMesh, [2, 5, 1])
+    # MeshAddRot(mesh, vector)
+    zp.MeshAddRot(myMesh, [1, 4, 3])
 ```
 
-Final script:
+Final Script:
 
 ```python
 import z3dpy as zp
 import pygame
 
-# Just some Pygame stuff
+# Just some PyGame stuff
 pygame.init()
-# We'll need to use the width and height for our camera later
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
-# Create our camera object (x, y, z, width, height)
+# Create our camera (x, y, z, width, height)
 myCamera = zp.Camera(0, 0, 0, 1280, 720)
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 5)
+myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 2)
+
+zp.SetInternalCamera(myCamera)
 
 # Raster Loop
 done = False
 
 while not done:
-    # more Pygame Stuff
+    # more PyGame Stuff
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True    
     clock.tick(30)
     screen.fill("black")
     
-    zp.SetInternalCamera(myCamera)
-    
-    # Render 3D
     for tri in zp.RasterMeshList([myMesh]):
+
         zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
     
-    # Rotate mesh
-    zp.MeshAddRot(myMesh, [2, 5, 1])
+    zp.MeshAddRot(myMesh, [1, 4, 3])
 ```
+<br>
+Everything is coloured with it's normal direction, so X is red, Y is green, Z is blue.
+
+<br> 
+To do flat shading, call DrawTriangleF() and put in one of the normal axis
 
 # Exporting Mesh
 
