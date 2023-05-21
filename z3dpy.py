@@ -1,55 +1,34 @@
 # -zw
 
-# Z3dPy v0.1.6
+# Z3dPy v0.1.7
+# *Nightly build, Wiki/examples are based on the release build.
 
 # Change Notes:
 #
-# - Drawing functions no longer SetInternalCamera() automatically, which will speed things up if you are rendering things in layers,
-# but you now have to call the function manually before rastering. If the camera's not going to move, set it once before the draw loop.
+# - Added Baked Lighting. Call BakeLighting(), then replace FlatLighting() with FlatLightingBaked()
 #
-# - Raster functions no longer need the camera as an argument, uses the internal camera
+# - Renamed FillTriangleLine() and FillTrianglePixel() to TriangleToLines() and TriangleToPixels()
 #
-# - Several drawing optimizations, like multiplying each rot matrix into a "world" matrix.
+# - Added object functions for lights and rays
 #
-# - Added How-Does-That-Even-Work Projection. Camera fov and aspect ratio are fixed until FindHowVars() or SetHowVars() is called.
+# - Removed trys and excepts on vector functions since they aren't needed anymore.
 #
-# - Added FillTrianglePixel(), which returns a tuple of pixel coordinates to draw, given a triangle
-#
-# - Added single-triangle raster functions
-#
-# - Brought back the internal camera, in order to simplify standard cameras
-#
-# - Each mesh's triangle list is now a tuple instead of a list for speed.
-#
-# - Added dynamic lighting. Append a PointLight() to the global z3dpy.lights list, then plug FlatLighting() into DrawTriangleRGB()'s colour
-#
-# - Normals are automatically corrected on calculation.
-#
-# - Fixed culling bug resulting from correcting normals automatically.
-#
-# - Added WhatIs() to return the type of list, and WhatIsInt() for returning the type of list as a number.
-#
-# - Added trys and excepts in order to provide friendlier error messages, and make it more adaptable
-#
-# - Added VectorMin(), VectorMinF(), VectorMax(), VectorMaxF() and VectorABS(). 
-# VectorMin() and VectorMax() will determine which one has more absolute magnitude, and return that vector.
-#
-# - To make first person cameras easier, I've added CameraSetTargetFP(). Given a pitch and yaw, it handles all the vector rotation.
-#
-# - Experimental ray collisions. 
+# - Optimized rastering
 #
 
 import math
 import time
 import zpFormulaFinder
 
-print("Z3dPy v0.1.6")
+print("Z3dPy v0.1.7")
 
-#================
+
+#==========================================================================
 #  
 # Variables
 #
-#================
+#==========================================================================
+
 
 # You can reference these at any time to get a global axis.
 globalX = (1, 0, 0)
@@ -71,11 +50,13 @@ rays = []
 stCPos = [0, 0, 0]
 stCRot = [0, 0, 0]
 
-#================
+
+#==========================================================================
 #
-# Object Functions
+# Objects
 #
-#================
+#==========================================================================
+
 
 # Vector:
 # [0] - [2] are the x y and z
@@ -90,11 +71,124 @@ def Vector4(x, y, z, w):
     return [x, y, z, w]
 
 # Triangles:
-#[0] - [2] are the 3 points, [3] is the normal, [4] is a user variable, [5] is colour, [6] is world position,
+#[0] - [2] are the 3 points, [3] is the normal, [4] is shade, [5] is colour, [6] is world position,
 # and [7] is Id
 
 def Triangle(vector1, vector2, vector3):
     return [vector1, vector2, vector3, GetNormal([vector1, vector2, vector3]), 0, (255, 255, 255), TriangleAverage([vector1, vector2, vector3]), 0]
+
+# Meshes:
+# [0] is the tuple of triangles, [1] is the position, [2] is the rotation, [3] is the colour, and [4] is the id
+
+def Mesh(tris, x, y, z):
+    return [tris, [x, y, z], [0, 0, 0], [255, 255, 255], 0]
+
+# Some stuff I need to declare before the Thing class
+
+# Hitbox Object:
+#
+# Stores all the needed info regarding collisions, the type of hitbox, it's scale, and collision id.
+# Only hitboxes with the same collision id will collide.
+#
+# [0] is type, [1] is id, [2] is radius, [3] is height, [4] is hitbox mesh for drawing.
+#
+# Enable collisions with myThing[4] = z3dpy.Hitbox()
+
+def Hitbox(type, id, radius, height):
+    return [type, id, radius, height, LoadMeshScl("engine/mesh/cube.obj", 0, 0, 0, radius, height, radius)]
+
+# Physics Body:
+#
+# Enable physics with myThing[6] = z3dpy.PhysicsBody()
+#
+# [0] is velocity, [1] is acceleration, [2] is mass, [3] is friction, [4] is bounciness, [5] is drag
+
+def PhysicsBody():
+    return [[0, 0, 0], [0, 0, 0], 0.2, 0.2, 0.1, 2]
+
+# Things:
+#
+# The Thing is what you would typically refer to as an object, it has a collection of meshes, and collision data.
+#
+#
+# [0] is the list of meshes, [1] is position, [2] is rotation, [3] is object id, [4] is hitbox, [5] is IsMovable, and [6] is physics body, and [7] is visibility
+#
+# Hitbox and Physics body are empty till you assign them.
+
+def Thing(meshList, x, y, z):
+    return [meshList, [x, y, z], [0, 0, 0], 0, [], True, [], True]
+
+# Cameras:
+#
+# In order to render the triangles, we need information about the camera, like it's position, and fov.
+# Camera rotation is determined by it's target and up vector. By default, the up vector is +Y direction and target is simply the Z direction.
+#
+# For a third person camera, use CameraSetTargetLocation()
+# For a first person camera, use CameraSetTargetVector()
+#
+
+# [0] is position, [1] is rotation, [2] is fov, [3] is screenHeight, [4] is screenWidth, [5] is near clip, [6] is far clip
+# [7] is target location, and [8] is up vector
+
+def Camera(x, y, z, scrW, scrH):
+    return [[x, y, z], [0, 0, 0], 90, scrH, scrW, 0.1, 1500, [0, 0, 1], [0, 1, 0]]
+
+# Internal Camera
+#
+# the internal camera used for rendering. 
+# Set the internal camera to one of your cameras when you want to render from it.
+#
+# [0] is location, [1] is rotation, [2] is fov, [3] is screen height, [4] is screen width, [5] is screen width / 2, [6] is screen height / 2
+# [7] is near clip, [8] is far clip, [9] is target vector, [10] is up vector, [11] is fov / 2, [12] is tan, [13] is aspect ratio
+#
+
+iC = [[0, 0, 0], [0, 0, 0], 90, 720, 1280, 360, 640, 0.1, 1500, [0, 0, 1], [0, 1, 0], 45, (1 / math.tan(45)), 1280 / 720]
+
+def SetInternalCamera(camera):
+    global intMatV
+    global iC
+    iC = [CameraGetPos(camera), CameraGetRot(camera), CameraGetFOV(camera), CameraGetScH(camera), CameraGetScW(camera), CameraGetScH(camera) * 0.5, CameraGetScW(camera) * 0.5, CameraGetNCl(camera), CameraGetFCl(camera), CameraGetTargetVector(camera), CameraGetUpVector(camera), CameraGetFOV(camera) * 0.5, 1 / math.tan(CameraGetFOV(camera) * 0.5), CameraGetScH(camera) / CameraGetScW(camera)]
+    # doing all these calculations once so we can hold on to them for the rest of calculations
+    intMatV = LookAtMatrix(camera)
+
+# Point Lights:
+#
+# Point lights will light up triangles that are inside the radius and facing towards it's location
+#
+# Used for the FlatLighting() shader, which outputs a colour to be plugged into DrawTriangleRGB()
+#
+
+# [0] is position, [1] is strength, [2] is radius
+
+def Light_Point(x, y, z, strength, radius):
+    return [[x, y, z], strength, radius]
+
+
+
+def Light_Sun(direction, strength):
+    return [direction, strength, 1]
+
+# Rays:
+#
+# Used for drawing rays to the screen.
+#
+# [0] is ray start location, [1] is ray end location, [2] is if it's drawn as red.
+
+def Ray(raySt, rayNd):
+    return [raySt, rayNd, True]
+
+
+
+#==========================================================================
+#
+# Object Functions
+#
+# Everything is a list, so these functions are human-friendly ways to set and retrieve variables
+#
+#==========================================================================
+
+
+# TRIANGLES
 
 
 # GetNormal() will calculate a new normal, TriangleGetNormal() will return the stored one.
@@ -128,11 +222,7 @@ def TriangleSetId(tri, id):
     tri[7] = id
 
 
-# Meshes:
-# [0] is the tuple of triangles, [1] is the position, [2] is the rotation, [3] is the colour, and [4] is the id
-
-def Mesh(tris, x, y, z):
-    return [tris, [x, y, z], [0, 0, 0], [255, 255, 255], 0]
+# MESHES
 
 
 def MeshSetTris(mesh, tris):
@@ -178,40 +268,9 @@ def MeshSetId(mesh, id):
 def MeshGetId(mesh):
     return mesh[4]
 
-# Some stuff I need to declare before the Thing class
 
-# Hitbox Object:
-#
-# Stores all the needed info regarding collisions, the type of hitbox, it's scale, and collision id.
-# Only hitboxes with the same collision id will collide.
-#
-# [0] is type, [1] is id, [2] is radius, [3] is height, [4] is hitbox mesh for drawing.
-#
-# Enable collisions with myThing[4] = z3dpy.Hitbox()
+# THINGS
 
-def Hitbox(type, id, radius, height):
-    return [type, id, radius, height, LoadMeshScl("engine/mesh/cube.obj", 0, 0, 0, radius, height, radius)]
-
-# Physics Body:
-#
-# Enable physics with myThing[6] = z3dpy.PhysicsBody()
-#
-# [0] is velocity, [1] is acceleration, [2] is mass, [3] is friction, [4] is bounciness, [5] is drag
-
-def PhysicsBody():
-    return [[0, 0, 0], [0, 0, 0], 0.2, 0.2, 0.1, 2]
-
-# Things:
-#
-# The Thing is what you would typically refer to as an object, it has a collection of meshes, and collision data.
-#
-#
-# [0] is the list of meshes, [1] is position, [2] is rotation, [3] is object id, [4] is hitbox, [5] is IsMovable, and [6] is physics body
-#
-# Hitbox and Physics body are empty till you assign them.
-
-def Thing(meshList, x, y, z):
-    return [meshList, [x, y, z], [0, 0, 0], 0, [], True, []]
 
 def ThingSetPos(thing, vector):
     thing[1] = vector
@@ -395,20 +454,8 @@ def ThingGetBounciness(thing):
     return thing[6][4]
 
 
-# Cameras:
-#
-# In order to render the triangles, we need information about the camera, like it's position, and fov.
-# Camera rotation is determined by it's target and up vector. By default, the up vector is +Y direction and target is simply the Z direction.
-#
-# For a third person camera, use CameraSetTargetLocation()
-# For a first person camera, use CameraSetTargetVector()
-#
+# CAMERAS
 
-# [0] is position, [1] is rotation, [2] is fov, [3] is screenHeight, [4] is screenWidth, [5] is near clip, [6] is far clip
-# [7] is target location, and [8] is up vector
-
-def Camera(x, y, z, scrW, scrH):
-    return [[x, y, z], [0, 0, 0], 90, scrH, scrW, 0.1, 1500, [0, 0, 1], [0, 1, 0]]
 
 def CameraSetPosX(cam, x):
     cam[0] = [x, cam[0][1], cam[0][2]]
@@ -548,50 +595,60 @@ def CameraGetUpVector(cam):
 def CameraGetRightVector(cam):
     return VectorCrP(CameraGetTargetVector(cam), cam[8])
 
-# Internal Camera
-#
-# the internal camera used for rendering. 
-# Set the internal camera to one of your cameras when you want to render from it.
-#
-# [0] is location, [1] is rotation, [2] is fov, [3] is screen height, [4] is screen width, [5] is screen width / 2, [6] is screen height / 2
-# [7] is near clip, [8] is far clip, [9] is target vector, [10] is up vector, [11] is fov / 2, [12] is tan, [13] is aspect ratio
-#
 
-iC = [[0, 0, 0], [0, 0, 0], 90, 720, 1280, 360, 640, 0.1, 1500, [0, 0, 1], [0, 1, 0], 45, (1 / math.tan(90 / 2)), 1280 / 720]
+# LIGHTS
 
-def SetInternalCamera(camera):
-    global intMatV
-    global iC
-    iC = [CameraGetPos(camera), CameraGetRot(camera), CameraGetFOV(camera), CameraGetScH(camera), CameraGetScW(camera), CameraGetScH(camera) / 2, CameraGetScW(camera) / 2, CameraGetNCl(camera), CameraGetFCl(camera), CameraGetTargetVector(camera), CameraGetUpVector(camera), CameraGetFOV(camera) / 2, 1 / math.tan(CameraGetFOV(camera) / 2), CameraGetScH(camera) / CameraGetScW(camera)]
-    # doing all these calculations once so we can hold on to them for the rest of calculations
-    intMatV = LookAtMatrix(camera)
 
-# Point Lights:
-#
-# Point lights will light up triangles that are inside the radius and facing towards it's location
-#
-# Used for the FlatLighting() shader, which outputs a colour to be plugged into DrawTriangleRGB()
-#
+def LightGetPos(light):
+    return light[0]
 
-# [0] is position, [1] is strength, [2] is radius
+def LightSetPos(light, vector):
+    light[0] = vector
 
-def PointLight(x, y, z, strength, radius):
-    return [[x, y, z], strength, radius]
+def LightGetStrength(light):
+    return light[1]
 
-# Rays:
-#
-# Used for drawing rays to the screen.
-#
-# [0] is ray start, [1] is ray direction
+def LightSetStrength(light, str):
+    light[1] = str
 
-def Ray(raySt, rayDr):
-    return [raySt, rayDr]
+def LightGetRadius(light):
+    return light[2]
 
-#================
+def LightSetRadius(light, radius):
+    light[2] = radius
+
+
+# RAYS
+
+
+def RayGetStart(ray):
+    return ray[0]
+
+def RaySetStart(ray, vector):
+    ray[0] = vector
+
+def RayGetDirection(ray):
+    return VectorNormalize(VectorSub(ray[1], ray[0]))
+
+def RayGetEnd(ray):
+    return ray[1]
+
+def RaySetEnd(ray, vector):
+    ray[1] = vector
+
+def RayGetIsRed(ray):
+    return ray[2]
+
+def RaySetIsRed(ray, bool):
+    ray[2] = bool
+
+
+#==========================================================================
 #  
 # Misc Functions
 #
-#================
+#==========================================================================
+
 
 # WhatIs() will take a list and figure out what "object" it is.
 # meant to be used with print() for debugging.
@@ -602,104 +659,76 @@ def WhatIs(any):
     except:
         return str(type(any))
     else:
-        if len(any) == 3:
-            try:
-                test = any[0] + 1
-                return "Vector3"
-            except:
+        match len(any):
+            case 3:
                 try:
-                    test = any[0][0] + 1
-                    # S for shortened triangle, it only includes the points, and no other information.
-                    return "STriangle"
+                    test = any[0] + 1
+                    return "Vector3"
                 except:
-                    return "Unknown"
-        if len(any) == 4:
-            return "Vector4"
-        if len(any) == 5:
-            try:
-                test = any[0] + 1
-                return "Hitbox"
-            except:
+                    try:
+                        test = any[0][0] + 1
+                        # S for shortened triangle, it only includes the points, and no other information.
+                        return "STriangle"
+                    except:
+                        return "Unknown"
+            case 4:
+                return "Vector4"
+            case 5:
                 try:
-                    test = any[2][0] + 1
-                    return "Mesh"
+                    test = any[0] + 1
+                    return "Hitbox"
                 except:
-                    return "VectorUV"
-        if len(any) == 6:
-            return "PhysicsBody"
-        if len(any) == 7:
-            return "Thing"
-        if len(any) == 8:
-            return "Triangle"
-        if len(any) == 14:
-            return "Camera"
+                    try:
+                        test = any[2][0] + 1
+                        return "Mesh"
+                    except:
+                        return "VectorUV"
+            case 6:
+                return "PhysicsBody"
+            case 7:
+                return "Thing"
+            case 8:
+                return "Triangle"
+            case 14:
+                return "Camera"
 
 # WhatIsInt() is the same as WhatIs(), except instead of a string response it's a number
 def WhatIsInt(any):
-    if len(any) == 3:
-        try:
-            test = any[0] + 1
-            # Vector3
-            return 0
-        except:
+    match len(any):
+        case 3:
             try:
-                test = any[0][0] + 1
-                # STriangle
-                return 1
+                test = any[0] + 1
+                # Vector3
+                return 0
             except:
-                # Unknown
-                return -1
-    if len(any) == 4:
-        # Vector4
-        return 2
-    if len(any) == 5:
-        try:
-            test = any[0] + 1
-            # Hitbox
-            return 3
-        except:
+                try:
+                    test = any[0][0] + 1
+                    # STriangle
+                    return 1
+                except:
+                    # Unknown
+                    return -1
+        case 4:
+            # Vector4
+            return 2
+        case 5:
             try:
-                test = any[2][0] + 1
-                # Mesh
-                return 4
+                test = any[0] + 1
+                # Hitbox
+                return 3
             except:
-                # VectorUV
-                return 5
-    if len(any) == 6:
-        # Physics Body
-        return 6
-    if len(any) == 7:
-        # Thing
-        return 7
-    if len(any) == 8:
-        # Triangle
-        return 8
-    if len(any) == 14:
-        # Camera
-        return 9
-
-# Debug code for creating a basic cube
-def NewCube(scale, x, y, z):
-    return Mesh([
-    # North
-    Triangle(Vector(0, 0, 0), Vector(0, scale, 0), Vector(scale, scale, 0)),
-    Triangle(Vector(0, 0, 0), Vector(scale, scale, 0), Vector(scale, 0, 0)),
-    # East
-    Triangle(Vector(scale, 0, 0), Vector(scale, scale, 0), Vector(scale, scale, scale)),
-    Triangle(Vector(scale, 0, 0), Vector(scale, scale, scale), Vector(scale, 0, scale)),
-    # South
-    Triangle(Vector(scale, 0, scale), Vector(scale, scale, scale), Vector(0, scale, scale)),
-    Triangle(Vector(scale, 0, scale), Vector(0, scale, scale), Vector(0, 0, scale)),
-    # West
-    Triangle(Vector(0, 0, scale), Vector(0, scale, scale), Vector(0, scale, 0)),
-    Triangle(Vector(0, 0, scale), Vector(0, scale, 0), Vector(0, 0, 0)),
-    # Top
-    Triangle(Vector(scale, scale, 0), Vector(0, scale, 0), Vector(0, scale, scale)),
-    Triangle(Vector(scale, scale, 0), Vector(0, scale, scale), Vector(scale, scale, scale)),
-    # Bottom
-    Triangle(Vector(scale, 0, 0), Vector(0, 0, 0), Vector(0, 0, scale)),
-    Triangle(Vector(scale, 0, 0), Vector(0, 0, scale), Vector(scale, 0, scale))
-], x, y, z)
+                try:
+                    test = any[2][0] + 1
+                    # Mesh
+                    return 4
+                except:
+                    # VectorUV
+                    return 5
+        case 14:
+            # Camera
+            return 9
+        case _:
+            return len(any)
 
 def Projection(vector, a, f, fc, nc):
     # At the start I went the full formula route instead of matrix form, and
@@ -751,53 +780,31 @@ def HowProjectTriangle(t):
         except:
             return basic
 
-#================
+
+#==========================================================================
 #  
 # Vector Functions
 #
-#================
+#==========================================================================
+
 
 def VectorAdd(v1, v2):
-    out = [v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2]]
-    try:
-        return [out[0], out[1], out[2], v1[3], v1[4], v1[5]]
-    except:
-        return out
+    return [v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2]]  
 
 def VectorSub(v1, v2):
-    out = [v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2]]
-    try:
-        return [out[0], out[1], out[2], v1[3], v1[4], v1[5]]
-    except:
-        return out
+    return [v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2]]
 
 def VectorMul(v1, v2):
-    out = [v1[0] * v2[0], v1[1] * v2[1], v1[2] * v2[2]]
-    try:
-        return [out[0], out[1], out[2], v1[3], v1[4], v1[5]]
-    except:
-        return out
+    return [v1[0] * v2[0], v1[1] * v2[1], v1[2] * v2[2]]
 
 def VectorMulF(v, f):
-    out = [v[0] * f, v[1] * f, v[2] * f]
-    try:
-        return [out[0], out[1], out[2], v[3], v[4], v[5]]
-    except:
-        return out
+    return [v[0] * f, v[1] * f, v[2] * f]
 
 def VectorMinF(v, f):
-    out = [min(v[0], f), min(v[1], f), min(v[2], f)]
-    try:
-        return [out[0], out[1], out[2], v[3], v[4], v[5]]
-    except:
-        return out
+    return [min(v[0], f), min(v[1], f), min(v[2], f)]
 
 def VectorMaxF(v, f):
-    out = [max(v[0], f), max(v[1], f), max(v[2], f)]
-    try:
-        return [out[0], out[1], out[2], v[3], v[4], v[5]]
-    except:
-        return out
+    return [max(v[0], f), max(v[1], f), max(v[2], f)]
 
 # Vector Compare returns wether or not v1 is greater than v2
 def VectorCompare(v1, v2):
@@ -822,16 +829,10 @@ def VectorCrP(v1, v2):
     return [v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2], v1[0] * v2[1] - v1[1] * v2[0]]
 
 def VectorDiv(v1, v2):
-    try:
-        return [v1[0] / v2[0], v1[1] / v2[1], v1[2] / v2[2], v1[3], v1[4], v1[5]]
-    except:
-        return [v1[0] / v2[0], v1[1] / v2[1], v1[2] / v2[2]]
+    return [v1[0] / v2[0], v1[1] / v2[1], v1[2] / v2[2]]
 
 def VectorDivF(v, f):
-    try:
-        return [v[0] / f, v[1] / f, v[2] / f, v[3], v[4], v[5]]
-    except:
-        return [v[0] / f, v[1] / f, v[2] / f]
+    return [v[0] / f, v[1] / f, v[2] / f]
 
 def VectorGetLength(v):
     return math.sqrt((v[0] * v[0]) + (v[1] * v[1]) + (v[2] * v[2]))
@@ -839,13 +840,11 @@ def VectorGetLength(v):
 def VectorNormalize(v):
     l = abs(VectorGetLength(v))
     if l != 0:
-        try:
-            return [v[0] / l, v[1] / l, v[2] / l, v[3], v[4], v[5]]
-        except:
-            return [v[0] / l, v[1] / l, v[2] / l]
+        return [v[0] / l, v[1] / l, v[2] / l]
     return v
 
-# Vector Dot Product compares how similar two *normalized* vectors are, 1 is facing towards eachother, -1 is facing away from eachother. Useful for lighting calculations.
+# Vector Dot Product compares 2 directions. 1 is apposing, -1 is facing the same direction. (or the other way around, not too sure)
+# Useful for lighting calculations.
 def VectorDoP(v1, v2):
     return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2]
 
@@ -856,11 +855,7 @@ def DistanceBetweenVectors(v1, v2):
     return math.sqrt(((v2[0] - v1[0]) ** 2) + ((v2[1] - v1[1]) ** 2) + ((v2[2] - v1[2]) ** 2))
 
 def VectorNegate(v):
-    try:
-        test = v[5]
-        return [v[0] * -1, v[1] * -1, v[2] * -1, v[3], v[4], v[5]]
-    except:
-        return [v[0] * -1, v[1] * -1, v[2] * -1]
+    return [v[0] * -1, v[1] * -1, v[2] * -1]
 
 def VectorABS(v):
     return [abs(v[0]), abs(v[1]), abs(v[2])]
@@ -885,18 +880,17 @@ def TriangleGetVectorNormals(tri):
         print("TriangleGetVectorNormals(): Triangle has no vector normals")
         return []
 
-#================
+
+#==========================================================================
 #  
 # Triangle Functions
 #
-#================
+#==========================================================================
+
 
 def TriangleAdd(t, v):
     basic = [VectorAdd(t[0], v), VectorAdd(t[1], v), VectorAdd(t[2], v)]
-    try:
-        return [basic[0], basic[1], basic[2], t[3], t[4], t[5], t[6], t[7]]
-    except:
-        return Triangle(basic[0], basic[1], basic[2])
+    return [basic[0], basic[1], basic[2], t[3], t[4], t[5], t[6], t[7]]
 
 def TriangleSub(t, v):
     return [VectorSub(t[0], v), VectorSub(t[1], v), VectorSub(t[2], v), t[3], t[4], t[5], t[6], t[7]]
@@ -987,25 +981,27 @@ def TriangleClipAgainstScreenEdges(tri):
                     output.append(s)
     return tuple(output)
 
-#================
+
+#==========================================================================
 #  
 # Mesh Functions
 #
-#================
+#==========================================================================
+
 
 # Load OBJ File
 def LoadMeshScl(filename, x, y, z, sclX, sclY, sclZ):
     try:
         file = open(filename)
     except:
-        return LoadMeshScl("engine/mesh/error.obj", x, y, z, sclX, sclY, sclZ)
+        if filename == "engine/mesh/error.obj":
+            raise Exception("Can't load placeholder mesh. (Is the engine folder missing?)")
+        else:
+            return LoadMeshScl("engine/mesh/error.obj", x, y, z, sclX, sclY, sclZ)
     verts = []
-    vtCount = 0
-    triangles = []
     currentLine = ""
     scaped = True
     output = []
-    buff = []
 
     while scaped:
         currentLine = file.readline()
@@ -1034,11 +1030,13 @@ def LoadMesh(filename, x, y, z):
 
 lightMesh = LoadMesh("engine/mesh/light.obj", 0, 0, 0)
 
-#================
+
+#==========================================================================
 #  
 # Matrix Functions
 #
-#================
+#==========================================================================
+
 
 def TriMatrixMul(t, m):
     try:
@@ -1073,8 +1071,8 @@ def MatrixStuff(pos, target, up):
     return [newForward, newUp, newRight]
 
 def MatrixMakeRotX(deg):
-    rad = deg * 0.0174533
-    return [[1, 0, 0, 0], [0, math.cos(rad / 2), math.sin(rad / 2), 0], [0, -math.sin(rad / 2), math.cos(rad / 2), 0], [0, 0, 0, 1]]
+    rad = (deg * 0.0174533) * 0.5
+    return [[1, 0, 0, 0], [0, math.cos(rad), math.sin(rad), 0], [0, -math.sin(rad), math.cos(rad), 0], [0, 0, 0, 1]]
 
 def MatrixMakeRotY(deg):
     rad = deg * 0.0174533
@@ -1095,11 +1093,13 @@ def LookAtMatrix(camera):
 def MatrixMakeProjection():
     return [[iC[13] * iC[12], 0, 0, 0], [0, iC[12], 0, 0], [0, 0, iC[8] / (iC[8] - iC[7]), 1], [0, 0, (-iC[8] * iC[7]) / (iC[8] - iC[7]), 0]]
 
-#================
+
+#==========================================================================
 #  
 # Ray Functions
 #
-#================
+#==========================================================================
+
 
 def RayIntersectTriangle(raySt, rayDr, tri):
     # Using the Moller Trumbore algorithm
@@ -1126,7 +1126,10 @@ def RayIntersectTriangle(raySt, rayDr, tri):
         #
         # [2] is distance
         #
-        return [True, VectorAdd(raySt, VectorMulF(rayDr, ds)), ds] 
+        Hit = [True, VectorAdd(raySt, VectorMulF(rayDr, ds)), ds]
+        rays.append()
+        return Hit
+        
     else:
         return [False]
 
@@ -1156,11 +1159,13 @@ def RayIntersectThingComplex(rayStart, rayEnd, thing):
                 return inrts
     return [False]
 
-#================
+
+#==========================================================================
 #  
 # Collisions and Physics
 #
-#================
+#==========================================================================
+
 
 # CollisionLoop() will return a list of lists, containing the two things that are colliding.
 # Makes sure that there are no repeats in the list.
@@ -1208,13 +1213,14 @@ def GatherCollisions(thingList):
     return results
 
 def BasicHandleCollisions(things):
-    # [9] is Movable
     if not ThingGetMovable(things[0]):
         if not ThingGetMovable(things[1]):
             return
-        things[1][1] = VectorAdd(things[1][1], VectorNegate(DirectionBetweenVectors(things[1][1], things[0][1])))
+        newPos = VectorNegate(DirectionBetweenVectors(things[1][1], things[0][1]))
+        things[1][1] = VectorAdd(things[1][1], newPos)
     else:
-        things[0][1] = VectorAdd(things[0][1], VectorMulF(VectorNegate(DirectionBetweenVectors(things[0][1], things[1][1])), DistanceBetweenVectors(things[1][1], things[0][1])))
+        newPos = VectorMulF(VectorNegate(DirectionBetweenVectors(things[0][1], things[1][1])), DistanceBetweenVectors(things[1][1], things[0][1]))
+        things[0][1] = VectorAdd(things[0][1], newPos)
 
 def HandlePhysics(thingList, floorHeight):
     global physTime
@@ -1242,22 +1248,26 @@ def PhysicsCollisions(thingList):
             if ThingGetPhysics(cols[1]) != []:
                 toforce = VectorAdd(force, VectorMulF(ThingGetVelocity(cols[1]), ThingGetMass(cols[1])))
                 ThingAddVelocity(cols[0], toforce)
-                ThingAddVelocity(cols[1], VectorNegate(toforce))
+                ThingAddVelocity(cols[1], toforce)
             else:
                 ThingAddVelocity(cols[0], force)
         else:
             if ThingGetPhysics(cols[1]) != []:
                 force = VectorMulF(DirectionBetweenVectors(ThingGetPos(cols[1]), ThingGetPos(cols[0])), ThingGetMass(cols[1]))
-                ThingAddVelocity(cols[1], VectorNegate(force))
+                ThingAddVelocity(cols[1], toforce)
 
 def sign(f):
     return 1 if f > 0 else -1
 
-#================
+
+#==========================================================================
 #  
 # Rastering
 #
-#================
+#==========================================================================
+
+
+# Raster functions return new triangles. Will not overwrite the old triangles.
 
 # High-Level Raster Functions
 
@@ -1275,19 +1285,7 @@ def RasterThings(thingList):
                 viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
         viewed.sort(key=triSortAverage, reverse=True)
         finished = RasterPt2(viewed)
-        return finished
-
-def RasterThingsPointAt(thingList):
-    finished = []
-    viewed = []
-    for t in thingList:
-        for m in t[0]:
-            pos = VectorAdd(MeshGetPos(m), ThingGetPos(t))
-            rot = VectorAdd(MeshGetRot(m), ThingGetRot(t))
-            viewed += RasterPt1(MeshGetTris(m), pos, rot, MeshGetId(m), MeshGetColour(m))
-    viewed.sort(key=triSortAverage, reverse=True)
-    finished = RasterPt2(viewed)
-    return finished
+        return tuple(finished)
 
 def RasterThingsStatic(thingList):
     try:
@@ -1407,7 +1405,7 @@ def TransformTriangles(tris, rot):
         nt = TriMatrixMul(t, mW)
         nt[3] = GetNormal(nt)
         transformed.append(nt)
-    return transformed
+    return tuple(transformed)
 
 def TransformTriangle(tri, rot):
     mW = MatrixMatrixMul(MatrixMakeRotX(rot[0]), MatrixMakeRotY(rot[1]))
@@ -1419,16 +1417,21 @@ def TransformTriangle(tri, rot):
 def TranslateTriangles(tris, pos):
     translated = []
     for tri in tris:
-        tri = TriangleAdd(tri, pos)
-        tri[6] = TriangleAverage(tri)
-        translated.append(tri)
-    return translated
+        ntri = TriangleAdd(tri, pos)
+        ntri[6] = TriangleAverage(ntri)
+        translated.append(ntri)
+    return tuple(translated)
+
+def TranslateTriangle(tri, pos):
+    newTri = TriangleAdd(tri, pos)
+    newTri[6] = TriangleAverage(newTri)
+    return newTri
 
 def ViewTriangles(tris):
     output = []
     for tri in tris:
         output.append(TriMatrixMul(tri, intMatV))
-    return output
+    return tuple(output)
 
 def ViewTriangle(tri):
     return TriMatrixMul(tri, intMatV)
@@ -1436,21 +1439,19 @@ def ViewTriangle(tri):
 def ProjectTriangles(tris):
     projected = []
     for tri in tris:
-        newTri = TriangleAdd(HowProjectTriangle(tri), [1, 1, 0])
-        newTri = TriangleMul(newTri, [iC[6], iC[5], 1])
-        
-        projected.append(newTri)
-                        
-    return projected
+        projected.append(TriangleMul(TriangleAdd(HowProjectTriangle(tri), [1, 1, 0]), [iC[6], iC[5], 1]))
+    return tuple(projected)
 
-#================
+
+#==========================================================================
 #  
 # Drawing/Shaders
 #
-#================
+#==========================================================================
+
 
 # Pygame
-# Pygame is the fastest at drawing, but is installed separately.
+# Pygame is the fastest at drawing, but installed separately.
 
 def PgDrawTriangleRGB(tri, colour, surface, pyg):
     colour = VectorMaxF(colour, 0)
@@ -1473,6 +1474,7 @@ def PgDrawTriangleS(tri, f, surface, pyg):
     pyg.draw.polygon(surface, tuple(VectorMulF(tri[5], f)), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
 # Tkinter
+# Slower, but almost always pre-installed
 
 def TkDrawTriangleFill(tri, fillCol, canvas):
     canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], fill=fillCol)
@@ -1488,17 +1490,32 @@ def TkDrawTriangleS(tri, fillCol, canvas):
     canvas.create_polygon([(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])], fill=fillCol)
 
 # Flat lighting shader, meant to be put into DrawTriangleRGB's colour
-# Takes the direction towards the light and compares that to a corrected normal. Or at least it should in theory. Still working on this one.
+# Takes the direction towards the light and compares that to a corrected normal.
 def FlatLighting(tri):
-    finalColour = [0, 0, 0]
+    return LightingCalc(tri)
+
+def LightingCalc(tri):
+    shading = 0.0
+    intensity = 0.0
     for l in lights:
         lightDir = DirectionBetweenVectors(l[0], TriangleGetWPos(tri))
-        shading = (VectorDoP(lightDir, VectorMul(TriangleGetNormal(tri), [-1, 1, -1])) + 1) / 2
-        intensity = min(DistanceBetweenVectors(TriangleGetWPos(tri), l[0]), l[2]) / l[2]
-        finalColour = VectorMulF(tri[5], shading * (1 - intensity))
+        shading += (VectorDoP(lightDir, VectorMul(TriangleGetNormal(tri), [-1, 1, -1])) + 1) * 0.5
+        intensity += min(DistanceBetweenVectors(TriangleGetWPos(tri), l[0]), l[2]) / l[2]
+    return shading * ((1 - intensity)  ** 2)
 
-    #print(finalColour)
-    return finalColour
+def FlatLightingBaked(tri):
+    return tri[4]
+
+# Baked Lighting:
+# Do the FlatLighting(), and bake it to the triangle's shader variable
+def BakeLighting(things):
+    print("Baking Lighting...")
+    for th in things:
+        for m in th[0]:
+            for t in m[0]:
+                calc = LightingCalc(TranslateTriangle(TransformTriangle(t, VectorAdd(MeshGetRot(m), ThingGetRot(th))), VectorAdd(MeshGetPos(m), ThingGetPos(th))))
+                t[4] = calc
+    print("Lighting Baked!")
 
 def FillSort(n):
     return int(n[0])
@@ -1510,7 +1527,7 @@ def FillSort(n):
 
 # Part One: From P1 to P2
 
-def FillTriangleLine(tri, screen, pygame):
+def TriangleToLines(tri):
     output = []
 
     list = [tri[0], tri[1], tri[2]]
@@ -1526,12 +1543,7 @@ def FillTriangleLine(tri, screen, pygame):
 
                 lStart = (x + list[0][0], (diff3 * x) + list[0][1])
                 lEnd = (x + list[0][0], (slope * x) + list[0][1])
-
-                normal = VectorMulF(list[0][3], (1 - (x / (diff + 1))))
-                normal2 = VectorMulF(list[1][3], (x / (diff + 1)))
-                finalNormal = VectorDivF(VectorAdd(normal, normal2), 2)
-                finalNormal = VectorMax(VectorMulF(finalNormal, 255), 0)
-                pygame.draw.line(screen, finalNormal, lStart, lEnd)
+                output.append((lStart, lEnd))
 
         output += FillTriangleLinePt2(list, slope)
     return tuple(output)
@@ -1551,17 +1563,19 @@ def FillTriangleLinePt2(list, fSlope):
             output.append((lStart, lEnd))
     return output
 
-# FillTrianglePixel()
+# TriangleToPixels()
 # Returns a tuple of pixels to draw on the screen, given a triangle.
 
 # Usage:
+#
 # for tri in RasterThings(things):
-#   for pixel in FillTrianglePixel(tri):
+#   for pixel in TriangleToPixels(tri):
 #       x = pixel[0]
 #       y = pixel[1]
 #       pygame.draw.line(screen, (255, 255, 255), x, y, x + 1, y)
+#
 
-def FillTrianglePixel(tri):
+def TriangleToPixels(tri):
     output = []
     list = [tri[0], tri[1], tri[2]]
     list.sort(key=FillSort)
@@ -1580,7 +1594,7 @@ def FillTrianglePixel(tri):
                 daList.sort()
                 for y in range(daList[0], daList[1]):
 
-                    output.append((x + list[0][0], y))
+                    output.append((int(x + list[0][0]), y))
 
         output += FillTrianglePixelPt2(list, slope, diff)
     return tuple(output)
@@ -1595,5 +1609,16 @@ def FillTrianglePixelPt2(list, fSlope, diff):
                 ranges = [int((slope2 * x) + list[1][1]), int((fSlope * (x + diff)) + list[0][1])]
                 ranges.sort()
                 for y in range(ranges[0], ranges[1]):
-                    output.append((x + list[1][0], y))
+                    output.append((int(x + list[1][0]), y))
     return output
+
+
+def PgPixelShader(tri, bufferArray, screenArray, pygame):
+    z = int((tri[0][2] + tri[1][2] + tri[2][2]) / 3)
+    shade = LightingCalc(tri) * 255
+    for pixel in TriangleToPixels(tri):
+        x = pixel[0]
+        y = pixel[1]
+        if bufferArray[x, y] > z or bufferArray[x, y] == 0:
+            screenArray[x, y] = (shade, shade, shade)
+            bufferArray[x, y] = z
