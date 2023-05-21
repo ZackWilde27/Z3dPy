@@ -4,9 +4,6 @@ Zack's 3D Module for Python
 
 ![enginef](https://github.com/ZackWilde27/Z3dPy/assets/115175938/072e0f64-a536-4ae9-bc7e-60f542c3f950)
 
-<br>
-(This GIF doesn't have enough colours, don't mind the dithering)
-
 Z3dPy is a personal project I'm working on, a 3D module written entirely in Python, focused on ease of use.
 
 Built for pygame to make games with, but tkinter works just fine.
