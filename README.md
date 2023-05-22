@@ -18,7 +18,7 @@ Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki"
 
 First you'll need a display, like pygame, or tkinter or something.
 
-Download the latest release and extract the zip folder to the same folder as your script, then import it with:
+Download the release build and extract the zip folder to the same folder as your script, then import it with:
 ```python
 import z3dpy as zp
 ```
