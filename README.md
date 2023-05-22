@@ -12,7 +12,7 @@ Renders nearly 1000 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
 Handles Rasterization, Physics/Collisions, and Lighting. Still in active development, so improvements/features are on the way
 
-Wiki can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
+Documentation can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
 # Installation Guide
 
