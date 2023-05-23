@@ -11,7 +11,7 @@
 #
 # - Proper ray drawing routine. Rays in the global rays list are rastered with DebugRasterThings()
 #
-# - Lighting is now bug free. World position is now calculated correctly.
+# - Wait nevermind, I'm investigating a new lighting bug.
 #
 # - Renamed FillTriangleLine() and FillTrianglePixel() to TriangleToLines() and TriangleToPixels()
 #
