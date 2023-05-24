@@ -52,7 +52,7 @@ For games it's handy to combine meshes into Things, but this example doesn't nee
 
 ```python
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 2)
+myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 2)
 # Z is forward in this case, so it's placed in front of the camera
 ```
 
@@ -114,7 +114,7 @@ clock = pygame.time.Clock()
 myCamera = zp.Camera(0, 0, 0, 1280, 720)
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMesh = zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 2)
+myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 2)
 
 zp.SetInternalCamera(myCamera)
 
@@ -145,7 +145,7 @@ To do flat shading, call DrawTriangleF() and put in one of the normal axis
 
 # Exporting Mesh
 
-Export your mesh as an OBJ file, with no extra information. Make sure to triangulate.
+Export your mesh as an OBJ file, with no extra information. N-gons will be triangulated automatically.
 <br>
 Up axis is -Y, and Forward axis is Z.
 
