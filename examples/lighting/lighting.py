@@ -3,38 +3,40 @@ import pygame
 import time
 import math
 
+print("")
+print("Controls:")
+print("Arrow Keys to move mesh around")
+print("WASD to move camera")
+
+# PyGame stuff
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
+# Used for FPS
 curr = time.time()
 
-myCamera = zp.Camera(15, -2, -3, 1280, 720)
+# Create the Camera
+myCamera = zp.Camera(0, 0, 0, 1280, 720)
 
-# Find the constants for an FOV of 75
+# Setting the constants for an FOV of 75
+#zp.FindHowVars(75)
 zp.SetHowVars(2.3168437616632214, 1.303224615935562)
 
-print("")
-print("Controls:")
-print("Arrow Keys to move light around")
-print("WASD to move camera")
+# Susanne Mesh
+sus = zp.Thing([zp.NewSusanne()], 0, 0, 4)
 
-sus = zp.Thing([zp.LoadMesh("engine/mesh/susanne.obj", 0, 0, 0)], 13, -2, 4)
-
-# Create a PointLight and append it to the z3dpy.lights list.
-myLight = zp.PointLight(13, -2, 0, 1, 10)
+# Create a PointLight and append it to the z3dpy.lights list
+myLight = zp.Light_Point(0, 0, 2, 1, 25)
 
 zp.lights.append(myLight)
 
-
 # Raster Loop
-stuckInLoop = True
-
-while stuckInLoop:
+while True:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            stuckInLoop = True 
+            pygame.quit()
             
     clock.tick(60)
     
@@ -57,30 +59,35 @@ while stuckInLoop:
         
 
     if keys[pygame.K_UP]:
-        myLight[0][2] += 0.1
+        zp.ThingAddPosZ(sus, -0.1)
     if keys[pygame.K_DOWN]:
-        myLight[0][2] -= 0.1
+        zp.ThingAddPosZ(sus, 0.1)
     if keys[pygame.K_LEFT]:
-        myLight[0][0] -= 0.1
+        zp.ThingAddPosX(sus, -0.1)
     if keys[pygame.K_RIGHT]:
-        myLight[0][0] += 0.1
-
+        zp.ThingAddPosX(sus, 0.1)
+        
+    # The camera always looks forward
     zp.CameraSetTargetVector(myCamera, [0, 0, 1])
 
+    # Each time the camera moves, the view matrix has to be recalculated
     zp.SetInternalCamera(myCamera)
-        
+
+    # Using DebugRasterThings() to draw the light as well
     for tri in zp.DebugRasterThings([sus]):
+        
+        # Debug things will have an ID of -1
         if zp.TriangleGetId(tri) == -1:
             zp.PgDrawTriangleOutl(tri, [1, 0, 0], screen, pygame)
         else:
-            # Plug FlatLighting into DrawTriangleRGB's colour
-            zp.PgDrawTriangleRGB(tri, zp.FlatLighting(tri), screen, pygame)
+            # Plug FlatLighting into DrawTriangleS
+            zp.PgDrawTriangleS(tri, zp.FlatLighting(tri), screen, pygame)
             
     pygame.display.flip()
-    
 
     zp.ThingAddRot(sus, [4, 3, 2])
 
+    # FPS calculation
     pygame.display.set_caption(str(int(1 / (time.time() - curr))) + " FPS")
     curr = time.time()
 

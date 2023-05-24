@@ -1,46 +1,41 @@
 import z3dpy as zp
-import time
-import math
+try:
+    import tkinter as tk
+except:
+    import Tkinter as tk
 
-# Setup the Tk Screen
-zp.SetupScreen(1280, 720)
-
-# Used for FPS calculation later
-currentTime = time.time()
+#Initialize Tkinter
+tK = tk.Tk()
+canvas = tk.Canvas(width=1280, height=720, background="black")
+canvas.pack()
 
 # z3dpy.Camera(x, y, z, scrW, scrH)
 myCamera = zp.Camera(0, 0, 0, 1280, 720)
 
-zp.CameraSetFOV(myCamera, 75)
-
-# Set the view camera
-# the camera doesn't move, no need to do this per frame
-zp.SetInternalCamera(myCamera)
-
 # z3dpy.LoadMesh(filename, x, y, z)
-mesh = zp.LoadMesh("engine/mesh/zack.obj", 0, 0, 0)
+try:
+    susanne = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 0)
+except:
+    # Installed globally, retrieve the built-in mesh from the module
+    susanne = zp.NewSusanne()
 
 # z3dpy.Thing(meshList, x, y, z)
-logo = zp.Thing([mesh], 0, 0, 3.5)
+thing = zp.Thing([susanne], 0, 0, 3)
+
+# Since the camera isn't going to move, we only need to set it once.
+zp.SetInternalCamera(myCamera)
 
 # Raster Loop
-
 while True:
-
+    
     # Render 3D
-    for tri in zp.RasterThings([logo]):
-        normal = zp.TriangleGetNormal(tri)
-        zp.DrawTriangleF(tri, normal[2])
+    for tri in zp.RasterThings([thing]):
+        zp.TkDrawTriangleF(tri, zp.TriangleGetNormal(tri)[2], canvas)
         
     # Update the screen afterwards
-    zp.UpdateScreen()
+    tK.update()
+    canvas.delete("all")
     
     # z3dpy.ThingAddRot(thing, vector)
-    zp.ThingAddRot(logo, [2, 1, 3])
-    
-    # FPS Calculation
-    zp.tK.title(str(math.floor(1 / max(time.time() - currentTime, 0.01))) + " FPS")
-    currentTime = time.time()
-
-    
+    zp.ThingAddRot(thing, [2, 1, 3])
 

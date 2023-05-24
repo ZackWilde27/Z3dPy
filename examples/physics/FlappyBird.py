@@ -3,6 +3,10 @@ import pygame
 import random as rand
 import time
 
+print("")
+print("Controls:")
+print("E to jump")
+
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
@@ -84,6 +88,10 @@ while not done:
 
     if keys[pygame.K_e]:
         zp.ThingSetVelocityY(bird, -12)
+
+    # The physics system causes the bird to slowly inch towards the camera
+    # Pushing it back as a band-aid fix till I figure out the cause
+    zp.ThingSetVelocityZ(bird, 0.2)
 
     # Z3dPy Physics System
     zp.HandlePhysics([bird], 5)

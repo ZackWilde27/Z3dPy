@@ -4,6 +4,12 @@ import pygame
 import z3dpy as zp
 import time
 
+print("")
+print("Controls:")
+print("WASD to move")
+print("Mouse to aim")
+print("R to reset physics demo")
+
 # Pygame stuff
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
@@ -15,13 +21,13 @@ FPCamera = zp.Camera(0, -10, 0, 1280, 720)
 # Setting up How-Does-That-Even-Work Projection
 zp.SetHowVars(2.118671766119488, 1.191752868442212)
 
-myList = []
+gunMetal = zp.LoadMesh("mesh/gunMetal.obj", 0, 0, 0)
+gunWood = zp.LoadMesh("mesh/gunWood.obj", 0, 0, 0)
 
+zp.MeshSetColour(gunMetal, [128, 144, 171])
+zp.MeshSetColour(gunWood, [214, 138, 102])
 
-Gun = zp.Thing([zp.LoadMesh("mesh/gunMetal.obj", 0, 0, 0), zp.LoadMesh("mesh/gunWood.obj", 0, 0, 0)], 0, 0, 0)
-zp.MeshSetColour(Gun[0][0], [128, 144, 171])
-zp.MeshSetColour(Gun[0][1], [214, 138, 102])
-Gun[0][0][4] = 5
+Gun = zp.Thing([gunMetal, gunWood], 0, 0, 0)
 
 world = zp.Thing([zp.LoadMesh("mesh/world4.obj", 0, 0, 0)], 0, 0, 0)
 
@@ -29,39 +35,33 @@ hideout = zp.Thing([zp.LoadMesh("mesh/world4_2.obj", 0, 0, 0)], 0, 0, 0)
 
 world2 = zp.Thing([zp.LoadMesh("mesh/tourus.obj", 0, 0, 0)], -40, 0, -25)
 
-arrow = zp.Thing([zp.LoadMesh("engine/mesh/zack.obj", 0, 0, 0)], 0, 0, 0)
+arrow = zp.Thing([zp.LoadMesh("z3dpy/mesh/zack.obj", 0, 0, 0)], 0, 0, 0)
 
 #
 # Physics Objects
 #
 
-physics1 = zp.Thing([zp.LoadMesh("engine/mesh/cube.obj", 0, 0, 0)], 28, 0, -15)
+physics1 = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj", 0, 0, 0)], 28, 0, -15)
 
-physics2 = zp.Thing([zp.LoadMesh("engine/mesh/cube.obj", 0, 0, 0)], 32, 0, -10)
+physics2 = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj", 0, 0, 0)], 32, 0, -10)
 
-physics3 = zp.Thing([zp.LoadMesh("engine/mesh/cube.obj", 0, 0, 0)], 28, 0, -15)
+physics3 = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj", 0, 0, 0)], 28, 0, -15)
 
-physics4 = zp.Thing([zp.LoadMesh("engine/mesh/cube.obj", 0, 0, 0)], 32, 0, -10)
+physics4 = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj", 0, 0, 0)], 32, 0, -10)
 
+# For things to simulate physics, they need to be given a physics body
 
+zp.ThingSetupPhysics(physics1)
+zp.ThingSetupPhysics(physics2)
+zp.ThingSetupPhysics(physics3)
+zp.ThingSetupPhysics(physics4)
 
-physics1[6] = zp.PhysicsBody()
+# Things also need a hitbox for collisions
 
-physics2[6] = zp.PhysicsBody()
-
-physics3[6] = zp.PhysicsBody()
-
-physics4[6] = zp.PhysicsBody()
-
-
-
-physics1[4] = zp.Hitbox(2, 0, 1, 1)
-
-physics2[4] = zp.Hitbox(2, 0, 1, 1)
-
-physics3[4] = zp.Hitbox(2, 0, 1, 1)
-
-physics4[4] = zp.Hitbox(2, 0, 1, 1)
+zp.ThingSetupHitbox(physics1)
+zp.ThingSetupHitbox(physics2)
+zp.ThingSetupHitbox(physics3)
+zp.ThingSetupHitbox(physics4)
 
 zp.ThingSetFriction(physics1, 0.1)
 zp.ThingSetFriction(physics2, 0.1)
@@ -89,19 +89,15 @@ ResetPhysicsDemo()
 
 zp.gravityDir = [0, 15, 0]
 
+# List of things to draw
+myList = []
 
 myList.append(Gun)
-
 myList.append(physics1)
-
 myList.append(physics2)
-
 myList.append(physics3)
-
 myList.append(physics4)
-
 myList.append(world2)
-
 myList.append(hideout)
 
 stuckInLoop = True
@@ -115,12 +111,15 @@ mouseTrue = True
 
 while stuckInLoop:
     for event in pygame.event.get():
+        
         if event.type == pygame.QUIT:
             stuckInLoop = True
+            
         if event.type == pygame.ACTIVEEVENT:
             pygame.mouse.set_pos([640, 360])
             mouseTrue = not mouseTrue
             pygame.mouse.set_visible(not mouseTrue)
+            
     clock.tick(30)
     # Filling with a sky colour
     screen.fill("#317FC4")
@@ -147,8 +146,12 @@ while stuckInLoop:
     if mouseTrue:
         check = pygame.mouse.get_rel()
         zp.CameraSetYaw(FPCamera, zp.CameraGetYaw(FPCamera) + -check[0] * 0.5)
-        zp.CameraSetPitch(FPCamera, max(min(zp.CameraGetPitch(FPCamera) + -check[1] * 0.5, 160), -160))
-        weaponDrag = min(max(int(weaponDrag + check[0] * 0.2), -wpnDrgMax), wpnDrgMax)
+        newPitch = zp.CameraGetPitch(FPCamera) + -check[1] * 0.5
+        newPitch = min(newPitch, 160)
+        zp.CameraSetPitch(FPCamera, max(newPitch, -160))
+        newDrag = int(weaponDrag + check[0] * 0.2)
+        newDrag = max(newDrag, -wpnDrgMax)
+        weaponDrag = min(newDrag, wpnDrgMax)
         
         pygame.mouse.set_pos([640, 360])
 
