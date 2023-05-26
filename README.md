@@ -27,7 +27,7 @@ import z3dpy as zp
 
 ![example](https://github.com/ZackWilde27/Z3dPy/assets/115175938/49541f9d-d88c-491c-934f-5e22b65402b2)
 
-We'll import the engine and use PyGame for the screen. Tkinter version can be found <a>here</a> *hold on, copying link*
+We'll import the engine and use PyGame for the screen. Tkinter version can be found <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Tkinter">here</a>
 
 ```python
 import z3dpy as zp
