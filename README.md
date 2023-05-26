@@ -40,14 +40,14 @@ screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 ```
 
-Next we create our camera object. width and height should match the output screen
+Next we create a camera object. width and height should match the output screen.
 
 ```python
 # Create our camera (x, y, z, width, height)
 myCamera = zp.Camera(0, 0, 0, 1280, 720)
 ```
 
-Now we load our mesh, I'll use the built-in susanne.
+Now we load a mesh, I'll use the built-in susanne.
 
 For games it's handy to combine meshes into Things, but this example doesn't need those.
 
@@ -57,12 +57,12 @@ myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 2)
 # Z is forward in this case, so it's placed in front of the camera
 ```
 
-Rendering 3D in Z3dPy takes 3 steps:
+Rendering 3D is done in 3 stages:
 - Set the internal camera
 - Raster the meshes
 - Draw the triangles
 
-The drawing stage has several different functions depending on the desired shading.
+The drawing stage has <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing-Triangles">several different functions</a> depending on the desired shading.
 
 ```python
 # Set Internal Camera
@@ -72,13 +72,14 @@ zp.SetInternalCamera(myCamera)
 for tri in zp.RasterMeshList([myMesh]):
 
     # Draw the triangles
+    # Colouring the triangles with their normal value.
     zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
 
 # Also update the display afterwards
 pygame.display.flip()
 ```
 
-We got one frame, next is to chuck it in a loop.
+Lastly, chuck it in a loop.
 
 ```python
 # This only needs to be done per frame if the camera's going to move.
@@ -146,20 +147,8 @@ To do flat shading, call DrawTriangleF() and put in one of the normal axis
 
 # Exporting Mesh
 
-Export your mesh as an OBJ file, with no extra information. N-gons will be triangulated automatically.
+Export your mesh as an OBJ file, with no extra information. N-gons will be triangulated automatically when importing.
 <br>
 Up axis is -Y, and Forward axis is Z.
 
 ![image](https://user-images.githubusercontent.com/115175938/235002154-62bb03ad-13f3-4084-b410-aa0074553865.png)
-
-# FAQ
-
-I don't get asked questions, but I've compiled a list of mistakes that I've made before
-
-### TypeError: can only concatenate list (not "int") to list
-
-When drawing a thing with one mesh, this usually means forgetting to put the meshes in a list: z3dpy.Thing([myMesh], x, y, z)
-
-### There aren't any errors, but it's a black screen
-
-If you are drawing the screen using DrawTriangleRGB, keep in mind that it's expecting 0-255, so a normalized vector (0-1) will remain black. Use DrawTriangleRGBF() instead, or use a VectorMulF() and multiply it by 255
