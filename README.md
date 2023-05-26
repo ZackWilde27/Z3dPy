@@ -6,7 +6,7 @@ Zack's 3D Module for Python
 
 Z3dPy is a personal project I'm working on, a 3D module written entirely in Python, focused on ease of use.
 
-Built for pygame to make games with, but tkinter works just fine.
+You'll need a display window, I recommend PyGame for it's speed, but tkinter works just fine.
 
 Renders nearly 1000 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
