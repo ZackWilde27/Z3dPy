@@ -35,6 +35,7 @@ import pygame
 
 # Just some PyGame stuff
 pygame.init()
+# I'll pick 720p
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 ```
