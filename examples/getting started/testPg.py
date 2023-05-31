@@ -10,14 +10,12 @@ clock = pygame.time.Clock()
 myCamera = zp.Camera(0, 0, 0, 1280, 720)
 
 # z3dpy.LoadMesh(filename, x, y, z)
-try:
-    susanne = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 0)
-except:
-    # Installed globally, retrieve the built-in mesh from the module
-    susanne = zp.NewSusanne()
+susanne = zp.LoadMesh("z3dpy/mesh/z3dpy.obj", 0, 0, 0)
 
 # z3dpy.Thing(meshList, x, y, z)
 thing = zp.Thing([susanne], 0, 0, 3)
+
+zp.AddThing(thing)
 
 # Since the camera isn't going to move, we only need to set it once.
 zp.SetInternalCamera(myCamera)
@@ -33,8 +31,8 @@ while True:
     screen.fill("black")
 
     # Render 3D
-    for tri in zp.RasterThings([thing]):
-        zp.PgDrawTriangleF(tri, zp.TriangleGetNormal(tri)[2], screen, pygame)
+    for tri in zp.Raster():
+        zp.PgDrawTriF(tri, zp.TriGetNormal(tri)[2], screen, pygame)
 
     # Update the screen afterwards
     pygame.display.flip()

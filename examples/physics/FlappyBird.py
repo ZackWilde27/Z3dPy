@@ -26,7 +26,7 @@ zp.gravityDir = [0, 15, 0]
 bird = zp.Thing([birdBody, birdBeak], 0, 0, 5)
 
 # Setting up Physics Body
-bird[6] = zp.PhysicsBody()
+zp.ThingSetupPhysics(bird)
 
 planeMesh = zp.LoadMesh("mesh/plane.obj", 0, 0, 0)
 
@@ -49,7 +49,6 @@ pipe = zp.Thing([pipeMesh, otherPipeMesh], 10, 0, 5)
 
 # Setting up hitbox
 pipe[4] = zp.Hitbox(2, 0, 1, 1)
-zp.ThingSetCollision(pipe, 2, 1, 15, 0)
 
 
 # Pipe Pair
@@ -89,9 +88,7 @@ while not done:
     if keys[pygame.K_e]:
         zp.ThingSetVelocityY(bird, -12)
 
-    # The physics system causes the bird to slowly inch towards the camera
-    # Pushing it back as a band-aid fix till I figure out the cause
-    zp.ThingSetVelocityZ(bird, 0.2)
+    zp.ThingSetPosZ(bird, 5)
 
     # Z3dPy Physics System
     zp.HandlePhysics([bird], 5)
@@ -100,9 +97,10 @@ while not done:
         Reset()
         
 
-    # Locking Camera to Bird kinda
-    if zp.CameraGetPos(myCamera)[1] > zp.ThingGetPos(bird)[1]:
-        zp.CameraSubPos(myCamera, [0, 0.25, 0])
+    # Smoothly following the bird
+    comp = zp.ThingGetPosY(bird) - zp.CameraGetPos(myCamera)[1]
+    if abs(comp) > 0.1:
+        zp.CameraSubPos(myCamera, [0, -comp * 0.25, 0])
     else:
         zp.CameraSetPosY(myCamera, zp.ThingGetPosY(bird))
     zp.CameraSetPosX(myCamera, zp.ThingGetPosX(bird))

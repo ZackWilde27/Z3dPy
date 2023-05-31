@@ -33,8 +33,6 @@ zp.SetInternalCamera(myCamera)
 zp.BakeLighting([zack])
 
 print("")
-print("WASD to move camera")
-print("")
 print("L to switch between static and dynamic lighting")
 
 stuckInLoop = True
@@ -50,15 +48,6 @@ while stuckInLoop:
     # Input
     keys = pygame.key.get_pressed()
 
-    if keys[pygame.K_w]:
-        zp.CameraSetPos(myCamera, zp.VectorAdd(zp.CameraGetPos(myCamera), zp.CameraGetTargetVector(myCamera)))
-    if keys[pygame.K_s]:
-        zp.CameraSetPos(myCamera, zp.VectorSub(zp.CameraGetPos(myCamera), zp.CameraGetTargetVector(myCamera)))
-    if keys[pygame.K_a]:
-        zp.CameraSetPos(myCamera, zp.VectorAdd(zp.CameraGetPos(myCamera), zp.CameraGetRightVector(myCamera)))
-    if keys[pygame.K_d]:
-        zp.CameraSetPos(myCamera, zp.VectorSub(zp.CameraGetPos(myCamera), zp.CameraGetRightVector(myCamera)))
-
     if keys[pygame.K_l]:
         if slowDown < 0:
             slowDown = 10
@@ -67,9 +56,9 @@ while stuckInLoop:
 
     for tri in zp.RasterThings([zack]):
         if static:
-            zp.PgDrawTriangleS(tri, zp.FlatLightingBaked(tri), screen, pygame)
+            zp.PgDrawTriFLB(tri, screen, pygame)
         else:
-            zp.PgDrawTriangleS(tri, zp.FlatLighting(tri), screen, pygame)
+            zp.PgDrawTriFL(tri, screen, pygame)
 
     pygame.display.flip()
 

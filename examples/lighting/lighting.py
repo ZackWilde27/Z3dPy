@@ -26,6 +26,8 @@ zp.SetHowVars(2.3168437616632214, 1.303224615935562)
 # Susanne Mesh
 sus = zp.Thing([zp.NewSusanne()], 0, 0, 4)
 
+zp.AddThing(sus)
+
 # Create a PointLight and append it to the z3dpy.lights list
 myLight = zp.Light_Point(0, 0, 2, 1, 25)
 
@@ -59,9 +61,9 @@ while True:
         
 
     if keys[pygame.K_UP]:
-        zp.ThingAddPosZ(sus, -0.1)
-    if keys[pygame.K_DOWN]:
         zp.ThingAddPosZ(sus, 0.1)
+    if keys[pygame.K_DOWN]:
+        zp.ThingAddPosZ(sus, -0.1)
     if keys[pygame.K_LEFT]:
         zp.ThingAddPosX(sus, -0.1)
     if keys[pygame.K_RIGHT]:
@@ -74,14 +76,21 @@ while True:
     zp.SetInternalCamera(myCamera)
 
     # Using DebugRasterThings() to draw the light as well
-    for tri in zp.DebugRasterThings([sus]):
-        
-        # Debug things will have an ID of -1
-        if zp.TriangleGetId(tri) == -1:
-            zp.PgDrawTriangleOutl(tri, [1, 0, 0], screen, pygame)
+    for tri in zp.DebugRaster():
+        try:
+            test = zp.TriGetId(tri)
+        except:
+            print(tri)
+            print(len(tri))
         else:
-            # Plug FlatLighting into DrawTriangleS
-            zp.PgDrawTriangleS(tri, zp.FlatLighting(tri), screen, pygame)
+        
+            # Debug things will have an ID of -1
+            if zp.TriGetId(tri) == -1:
+                zp.PgDrawTriangleOutl(tri, [1, 0, 0], screen, pygame)
+            else:
+                #print(tri)
+                # Plug FlatLighting into DrawTriangleS
+                zp.PgDrawTriangleS(tri, zp.FlatLighting(tri), screen, pygame)
             
     pygame.display.flip()
 
