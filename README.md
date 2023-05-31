@@ -59,7 +59,7 @@ myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 2)
 
 Rendering 3D is done in 3 stages:
 - Set the internal camera
-- Raster the meshes
+- Rastering
 - Draw the triangles
 
 The drawing stage has <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing-Triangles">several different functions</a> depending on the desired shading.
@@ -68,7 +68,7 @@ The drawing stage has <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing
 # Set Internal Camera
 zp.SetInternalCamera(myCamera)
 
-# Raster the meshes
+# Rastering
 for tri in zp.RasterMeshList([myMesh]):
 
     # Draw the triangles
