@@ -73,7 +73,7 @@ for tri in zp.RasterMeshList([myMesh]):
 
     # Draw the triangles
     # Colouring the triangles with their normal value.
-    zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
+    zp.PgDrawTriRGBF(tri, zp.TriGetNormal(tri), screen, pygame)
 
 # Also update the display afterwards
 pygame.display.flip()
@@ -92,7 +92,7 @@ while True:
     
     for tri in zp.RasterMeshList([myMesh], myCamera):
 
-        zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
+        zp.PgDrawTriRGBF(tri, zp.TriGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
     
@@ -133,7 +133,7 @@ while not done:
     
     for tri in zp.RasterMeshList([myMesh]):
 
-        zp.PgDrawTriangleRGBF(tri, zp.TriangleGetNormal(tri), screen, pygame)
+        zp.PgDrawTriRGBF(tri, zp.TriGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
     
@@ -147,7 +147,7 @@ To do flat shading, call DrawTriangleF() and put in one of the normal axis
 
 # Exporting Mesh
 
-Export your mesh as an OBJ file, with no extra information. N-gons will be triangulated automatically when importing.
+Export your mesh as an OBJ file, with no extra information. Anything that isn't a triangle will be triangulated automatically.
 <br>
 Up axis is -Y, and Forward axis is Z.
 
