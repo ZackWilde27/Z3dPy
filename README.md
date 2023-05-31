@@ -1,10 +1,7 @@
 # Z3dPy
-Zack's 3D Module for Python
-
-
 ![enginef](https://github.com/ZackWilde27/Z3dPy/assets/115175938/072e0f64-a536-4ae9-bc7e-60f542c3f950)
 
-Z3dPy is a personal project I'm working on, a 3D module written entirely in Python, focused on ease of use.
+Z3dPy is a software renderer written entirely in Python, built into a module focused on ease of use.
 
 You'll need a display window, I recommend PyGame for it's speed, but tkinter works just fine.
 
