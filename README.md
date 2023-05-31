@@ -90,7 +90,7 @@ while True:
 
     screen.fill("black")
     
-    for tri in zp.RasterMeshList([myMesh], myCamera):
+    for tri in zp.RasterMeshList([myMesh]):
 
         zp.PgDrawTriRGBF(tri, zp.TriGetNormal(tri), screen, pygame)
 
