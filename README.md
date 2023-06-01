@@ -118,13 +118,13 @@ myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 2)
 zp.SetInternalCamera(myCamera)
 
 # Raster Loop
-done = False
 
-while not done:
+while True:
     # more PyGame Stuff
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            done = True    
+            pygame.quit()
+    # Make sure FPS stays the same across various machines.
     clock.tick(30)
     screen.fill("black")
     
@@ -140,7 +140,7 @@ while not done:
 Everything is coloured with it's normal direction, so X is red, Y is green, Z is blue.
 
 <br> 
-To do flat shading, call DrawTriangleF() and put in one of the normal axis
+To do flat shading, call DrawTriF() and put in one of the normal axis
 
 # Exporting Mesh
 
