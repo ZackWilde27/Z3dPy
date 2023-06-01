@@ -30,7 +30,7 @@ We'll import the engine and use PyGame for the screen. Tkinter version can be fo
 import z3dpy as zp
 import pygame
 
-# Just some PyGame stuff
+# PyGame stuff
 pygame.init()
 # I'll pick 720p
 screen = pygame.display.set_mode((1280, 720))
@@ -104,7 +104,7 @@ Final Script:
 import z3dpy as zp
 import pygame
 
-# Just some PyGame stuff
+# PyGame stuff
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
