@@ -3,7 +3,7 @@
 
 Z3dPy is a software renderer written entirely in Python, built into a module focused on ease of use.
 
-You'll need a display window, I recommend PyGame for it's speed, but tkinter works just fine.
+You'll need a display window, I recommend PyGame for it's speed, but tkinter works fine.
 
 Renders nearly 1000 on-screen triangles at 30 fps *(tested on my ryzen 7)*
 
