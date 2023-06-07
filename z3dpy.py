@@ -8,7 +8,11 @@
 # ANIMATED MESHES
 #
 # - Added animated meshes: Call LoadAniMesh() instead of LoadMesh().
+#
 # AniMeshes have functions for changing the frame number, like AniMeshGetFrame() and AniMeshIncFrame()
+#
+# All animeshes of a thing can be incremented with ThingIncFrames(thing)
+#
 # *Not supported with C++ rendering right now
 #
 #
@@ -16,10 +20,14 @@
 #
 # - The global things list is now in layers. AddThing() will default to the third layer, but you can now specify.
 # Layers make sure that certain things draw over others, regardless of depth.
-# Make sure to specify how many layers you need at the start: z3dpy.layers = ([], [], [], [])
+#
+# The default configuration has 2 background layers, the default layer, and 1 top layer.
+# If you need more than 4 layers, re-create the layers tuple at the start: z3dpy.layers = ([], [], [], [], [], ...)
 #
 #
 # RENDERING
+#
+# - Fixed default how-projection variables causing distortion
 #
 # - DebugRasterThings() is back, moved DebugRaster() to it's own function.
 #
@@ -28,18 +36,24 @@
 #
 # - Added z3dpyfast, the C++ extension. To use the faster raster functions. Call CAddThing() instead of AddThing(), and CRaster() instead of Raster().
 #
-# - Triangle Clip functions and View function are still in the works, so right now it's only a slight improvement.
+# Triangle Clip functions and View function are still in the works, so right now it's only a slight improvement.
 #
 #
 # RAYS (Experimental)
 #
-# - Working on ray collision code, got it very close to working. Use RayIntersectTri(), RayIntersectThingSimple(), or RayIntersectThingComplex()
+# - Working on ray collision code, got it very close to working. Use RayIntersectTri(tri), RayIntersectThingSimple(thing), or RayIntersectThingComplex(thing)
+#
+# Simple will check for ray collisions with the triangles of the hitbox.
+#
+# Complex will check for ray collisions with the triangles of the meshes
 #
 #
 # LIGHTING (Experimental)
 #
 # - BakeLighting() now has an optional bool argument to specify Expensive lighting calculations, which draws a ray from the triangle to each light source
 # and checks for collisions to create shadows.
+#
+# As it's dependent on ray collision code, it's also experimental
 #
 #
 # MISC
@@ -50,10 +64,18 @@
 #
 
 import math
-import random as rand
+
+# Time for delta-time calculations related to physics
 import time
-# My C++ Extension
-import z3dpyfast
+
+# Rand for finding how-projection variables
+import random as rand
+
+# My C++ Extension for speed.
+try:
+    import z3dpyfast
+except:
+    print("Can't load z3dpyfast, going without.")
 
 print("Z3dPy v0.2.1")
 
@@ -143,7 +165,7 @@ def Vector4(x, y, z, w):
 def VectorUV(x, y, z):
     return [x, y, z, [0, 0, 0], [0, 0]]
 
-# Triangles:
+# Triangles / Tris:
 #[0] - [2] are the 3 points, [3] is the normal, [4] is the center point in world space, [5] is the baked shade, [6] is colour (added during rastering), ,
 # and [7] is Id (added during rastering)
 
@@ -164,12 +186,63 @@ def Mesh(tris, x, y, z):
 
 def NOP(var):
     return
-# a basic mesh, with special things for AniMeshes
+
+# Frames:
+# a simplified mesh, for AniMeshes
+#
+# Each Frame has a function, which is normally NOP/No operation
+#
+# To define AI tied to animations, replace NOP with your own function
+
+# Usage:
+'''
+def AIFunction():
+    if PlayerIsTHEGordanFreeman():
+        return
+    else:
+        AttackPlayer()
+
+enemyMesh = z3dpy.LoadAniMesh("filename.obj")
+
+
+
+AniMeshSetFrameFunc(enemyMesh, 30, AIFunction)
+# On the 30th frame of animation, it'll perform AIFunction() during Raster.
+
+# It's a bit like Doom's AI.
+
+
+
+enemy = z3dpy.Thing([enemyMesh], 0, 5, 2)
+
+# Then during the draw loop...
+# Increment the animation each frame, or not, depending on usage.
+
+z3dpy.ThingIncFrames(enemy)
+'''
+
 def Frame(tris, iNext, Function=NOP):
     return [tris, iNext, Function]
 
+# AniMeshSetFrameFunc(aniMesh, 30, AIFunction)
+
+# iFrame is the frame that the function should be run on.
+
+def AniMeshSetFrameFunc(aniMesh, iFrame, function):
+    aniMesh[0][iFrame][2] = function
+
+# ThingSetFrameFunc(thing, 0, 30, AIFunction)
+
+# iAniMesh is the index of the animesh to change
+
+# iFrame is the frame that the function should be run on.
+
+def ThingSetFrameFunc(thing, iAniMesh, iFrame, function):
+    thing[0][iAniMesh][iFrame][2] = function
+
+
 # AniMeshes:
-# Same as Mesh except animated: [0] is a list of "frames", and [5] is frame number.
+# Same as Mesh except animated: [0] is a list of frames, and [5] is frame number.
 #
 def AniMesh(frames, x, y, z):
     return [frames, [x, y, z], [0, 0, 0], [255, 255, 255], 0, 0, 0]
@@ -277,6 +350,91 @@ def Light_Point(x, y, z, FStrength, fRadius, vColour=(255, 255, 255)):
 def Ray(raySt, rayNd):
     return [raySt, rayNd]
 
+# Terrains / Trains:
+#
+# Z3dPy's terrain system, floor in the physics function. Needs to be baked beforehand.
+#
+# [x][y] is the height at that particular location.
+
+# Usage:
+#
+# # Creating a 10x10 plane
+# myTerrain = z3dpy.Train(10, 10)
+#
+# # Placing points
+# myTerrain[2][8] = 45.8
+#
+# # BakeTrain will blend between points, creating a smooth hill around the new point.
+# BakeTrain(myTerrain)
+#
+
+
+def Train(x, y):
+    output = []
+    for g in range(0, x):
+        output.append([])
+        for h in range(0, y):
+            output[g].append(0)
+    return output
+
+def BakeTrain(train, sharpness=0.1):
+    
+    points = []
+
+    scX = len(train)
+    scY = len(train[0])
+
+    print("Gathering Points...")
+    # Gathering non-empty points
+    for x in range(len(train)):
+        for y in range(len(train[0])):
+            if train[x][y] != 0:
+                points.append((x, y))
+
+    print("Baking Terrain...")
+    # My version of a flood-fill
+    for point in points:
+        doneYet = False
+        curPs = [point]
+        newCurPs = []
+        curY = train[point[0]][point[1]]
+        while not doneYet:
+            if curY - sharpness <= 0:
+                doneYet = True
+            for curP in curPs:
+                rem = False
+                if curP[0] < scX:
+                    if train[curP[0] + 1][curP[1]] < curY - sharpness:
+                        train[curP[0] + 1][curP[1]] = curY - sharpness
+                        newCurPs.append((curP[0] + 1, curP[1]))
+                        rem = True
+                if curP[0] > 0:
+                    if train[curP[0] - 1][curP[1]] < curY - sharpness:
+                        train[curP[0] - 1][curP[1]] = curY - sharpness
+                        newCurPs.append((curP[0] - 1, curP[1]))
+                        rem = True
+                if curP[1] < scY:
+                    if train[curP[0]][curP[1] + 1] < curY - sharpness:
+                        train[curP[0]][curP[1] + 1] = curY - sharpness
+                        newCurPs.append((curP[0], curP[1] + 1))
+                        rem = True
+                if curP[1] > 0:
+                    if train[curP[0]][curP[1] - 1] < curY - sharpness:
+                        train[curP[0]][curP[1] - 1] = curY - sharpness
+                        newCurPs.append((curP[0], curP[1] - 1))
+                        rem = True
+                if rem:
+                    curY = curY - sharpness
+                    curPs += newCurPs
+    print("Done!")
+
+
+
+        
+
+    
+
+
 # Textures:
 #
 # Textures are a matrix/list of lists, to form a grid of colours.
@@ -286,6 +444,8 @@ def Ray(raySt, rayNd):
 def TestTexture():
     # A red and blue 2x2 checker texture
     return (((255, 0, 0), (0, 0, 255)), ((0, 0, 255), (255, 0, 0)))
+
+
 
 #==========================================================================
 #
@@ -1944,28 +2104,32 @@ def ProjectTris(tris):
 # Handy shortcuts for drawing to a PyGame or Tkinter screen.
 
 # Usage:
-#
-# for tri in RasterThings(things):
-#
-#   PyGame:
-#
-#   PgDrawTriRGB(tri, [255, 213, 0], screen, pygame)
-#   or
-#   PgDrawTriRGBF(tri, [1, 0.75, 0], screen, pygame)
-#   or
-#   PgDrawTriS(tri, 0.8, screen, pygame)
-#
-# RGBF can be used to colour a triangle with it's normal value
-#   PgDrawTriRGBF(tri, TriangleGetNormal(tri), screen, pygame)
-#
-#   Tkinter:
-#
-#   TkDrawTriRGB(tri, [255, 213, 0], canvas)
-#   or
-#   TkDrawTriRGBF(tri, [1, 0.75, 0], canvas)
-#   or
-#   TkDrawTriS(tri, 0.8, canvas)
-#
+'''
+for tri in z3dpy.Raster():
+
+    # PyGame:
+
+    z3dpy.PgDrawTriRGB(tri, [255, 213, 0], surface, pygame)
+    # or
+    z3dpy.PgDrawTriRGBF(tri, [1, 0.75, 0], surface, pygame)
+    # or
+    z3dpy.PgDrawTriS(tri, 0.8, surface, pygame)
+    # or
+    z3dpy.PgDrawTriFL(tri, surface, pygame)
+
+    # Tkinter:
+
+    z3dpy.TkDrawTriRGB(tri, [255, 213, 0], canvas)
+    # or
+    z3dpy.TkDrawTriRGBF(tri, [1, 0.75, 0], canvas)
+    # or
+    z3dpy.TkDrawTriS(tri, 0.8, canvas)
+    # or
+    z3dpy.TkDrawTriFL(tri, canvas)
+
+    # So for example:
+    z3dpy.PgDrawTriRGBF(tri, z3dpy.TriGetNormal(tri), screen, pygame)
+'''
 
 # Pygame
 # Pygame is the fastest at drawing, but installed separately.
@@ -2359,9 +2523,8 @@ def PgPixelShader(tri, pixelArray):
 
 # I've already calculated the constants for an FOV of 90: 
 # To recalculate, use FindHowVars(). Although it's a bit slow, so do this once at the start.
-howX = 1.0975459978374298
-howY = 0.6173470654658898
-
+howX = 0.56249968159
+howY = 1.0
 
 def FindHowVars(fov):
     global howX
