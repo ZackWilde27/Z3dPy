@@ -1,83 +1,132 @@
 # -zw
+'''
 
-# Z3dPy v0.2.1
-# *Nightly build, wiki/examples are based on the release version
+Z3dPy v0.2.2
 
-# Change Notes:
-#
-# ANIMATED MESHES
-#
-# - Added animated meshes: Call LoadAniMesh() instead of LoadMesh().
-#
-# AniMeshes have functions for changing the frame number, like AniMeshGetFrame() and AniMeshIncFrame()
-#
-# All animeshes of a thing can be incremented with ThingIncFrames(thing)
-#
-# *Not supported with C++ rendering right now
-#
-#
-# LAYERS
-#
-# - The global things list is now in layers. AddThing() will default to the third layer, but you can now specify.
-# Layers make sure that certain things draw over others, regardless of depth.
-#
-# The default configuration has 2 background layers, the default layer, and 1 top layer.
-# If you need more than 4 layers, re-create the layers tuple at the start: z3dpy.layers = ([], [], [], [], [], ...)
-#
-#
-# RENDERING
-#
-# - Fixed default how-projection variables causing distortion
-#
-# - DebugRasterThings() is back, moved DebugRaster() to it's own function.
-#
-#
-# C++ (Experimental)
-#
-# - Added z3dpyfast, the C++ extension. To use the faster raster functions. Call CAddThing() instead of AddThing(), and CRaster() instead of Raster().
-#
-# Triangle Clip functions and View function are still in the works, so right now it's only a slight improvement.
-#
-#
-# RAYS (Experimental)
-#
-# - Working on ray collision code, got it very close to working. Use RayIntersectTri(tri), RayIntersectThingSimple(thing), or RayIntersectThingComplex(thing)
-#
-# Simple will check for ray collisions with the triangles of the hitbox.
-#
-# Complex will check for ray collisions with the triangles of the meshes
-#
-#
-# LIGHTING (Experimental)
-#
-# - BakeLighting() now has an optional bool argument to specify Expensive lighting calculations, which draws a ray from the triangle to each light source
-# and checks for collisions to create shadows.
-#
-# As it's dependent on ray collision code, it's also experimental
-#
-#
-# MISC
-#
-# - Vastly improved the efficiency of FindHowVars()
-#
-# - Added more documentation here
-#
+Change Notes:
 
+C++
+
+- Added z3dpyfast, the raster functions re-written as a C++ extension.
+To use the faster raster functions. Call CAddThing() instead of AddThing(), and CRaster() instead of Raster().
+
+
+ANIMATED MESHES
+
+- Added animated meshes: Call LoadAnimMesh() instead of LoadMesh(). 
+
+Exporting objs as animations will create a file for each frame, numbered. To load these, specify the name without the number
+
+If my list of files was anim1.obj, anim2.obj, and so on, put in anim.obj
+
+AniMeshes have functions for changing the frame number, like AnimMeshGetFrame(animesh) and AnimMeshIncFrame(animesh)
+
+All animeshes of a thing can be incremented with ThingIncFrames(thing)
+
+Loop/Jump points can be made with AnimMeshSetFrameNext(aniMesh, iFrame, iNext). When iFrame is played, it'll jump to iNext afterwards
+
+- AnimMeshes also support AI (That has a different meaning these days, I'm talking traditional AI)
+Add a function to a specific frame of the animation with AnimMeshSetFrameFunc(aniMesh, iFrame, function)
+
+
+LAYERS
+
+- The global things list is now in layers. AddThing() will default to the third layer, but you can now specify.
+Layers make sure that certain things draw over others, regardless of depth.
+
+The default configuration has 2 background layers, the default layer, and 1 top layer.
+If you need more than 4 layers, re-create the layers tuple at the start: z3dpy.layers = ([], [], [], [], [], ...)
+
+
+TRAINS
+
+- New terrain system to make replacing the flat floor of HandlePhysics() a lot easier. 
+
+Create a terrain with myTrain = z3dpy.Train(iWidth, iLength)
+
+Adjust height at certain locations with myTrain[x][y] = fHeight
+
+Bake the terrain with z3dpy.BakeTrain(train). 
+Baking trains will blur points into smooth hills, which can be adjusted with optional iPasses, FStrength, and fAmplitude arguments: z3dpy.BakeTrain(train, 3, 0.5, 1.5)
+
+Once it's baked, use HandlePhysicsTrain(things, train) instead of HandlePhysicsFloor(things, floorHeight)
+
+Keep in mind it's an invisible floor, meant to be matched to the environment, but it can be debug-drawn with DebugRaster(train)
+
+
+PHYSICS
+
+- HandlePhysics() has been replaced with HandlePhysicsFloor(things, floorHeight)
+
+- Added HandlePhysicsTrain(things, train)
+
+- Added ThingStop(), which will zero out velocity
+
+
+RENDERING
+
+- Updated default projection variables to match new system.
+
+- Added dots, a way of debug-drawing specific points in world space.
+Append any vector to the z3dpy.dots list and it'll be drawn with DebugRaster()
+
+- DebugRaster()'s first argument is now a train to draw, it'll draw each point as a dot.
+If you aren't using trains, put in []
+
+- FindHowVars() now has an optional argument for aspect ratio
+Put height over width as a fraction, so 16:9 is 9/16, and 21:9 is 9/21.
+If unsure, you can also put raw screen height and width in the fraction: like 1080/1920.
+
+- Ultimately decided to remove DebugRasterThings() as having both requires either duplicate code or less efficiency.
+
+
+RAYS
+
+- Added ray collisions. Use RayIntersectTri(ray, tri), RayIntersectThingSimple(ray, thing), or RayIntersectThingComplex(ray, thing)
+
+Usage:
+hit = RayIntersectThingSimple(myRay, thing)
+# Hit: 0 is wether or not it hit, 1 is location, 2 is distance, 3 is normal of hit.
+if hit[0]:
+    print(hit[1])
+
+Simple will check for ray collisions with the triangles of the hitbox.
+
+Complex will check for ray collisions with the triangles of the meshes
+
+- Added RayGetLength(ray) -> float
+
+
+EXPENSIVE LIGHTING (Experimental)
+
+- BakeLighting(things, isExpens) now has an optional bool argument to specify Expensive lighting calculations, which creates a ray from the triangle to each light source
+and checks for collisions to create shadows.
+
+World position is slightly offset from actual position (still working on that), so shadows may look incorrect in some places.
+
+
+MISC
+
+- Vastly improved the efficiency of FindHowVars()
+
+- Added more documentation here
+
+'''
 import math
 
 # Time for delta-time calculations related to physics
 import time
 
-# Rand for finding how-projection variables
+# Rand for finding projection constants
 import random as rand
 
 # My C++ Extension for speed.
 try:
     import z3dpyfast
 except:
-    print("Can't load z3dpyfast, going without.")
+    print("Can't load z3dpyfast. Copy the version for your OS to the same folder as z3dpy.py")
 
-print("Z3dPy v0.2.1")
+print("Z3dPy v0.2.2")
 
 
 
@@ -115,6 +164,10 @@ def AddThing(thing, iLayer=2):
     # corrosponds to it's new index
     thing[6] = len(layers[iLayer])
     layers[iLayer].append(thing)
+
+def AddThings(things, iLayer=2):
+    for thing in things:
+        AddThing(thing, iLayer)
 
 def CAddThing(thing):
     # Same thing but for C++
@@ -172,8 +225,6 @@ def VectorUV(x, y, z):
 def Tri(vector1, vector2, vector3):
     return [vector1, vector2, vector3, GetNormal([vector1, vector2, vector3]), TriAverage([vector1, vector2, vector3]), 0.0]
 
-    
-
 # Meshes:
 # [0] is the tuple of triangles, [1] is the position, [2] is the rotation, [3] is the colour, [4] is the shader id, [5] is always -1, and [6] is the user variable
 #
@@ -184,62 +235,21 @@ def Mesh(tris, x, y, z):
     return [tris, [x, y, z], [0, 0, 0], [255, 255, 255], 0, -1, 0]
 
 
-def NOP(var):
+def NOP():
     return
 
 # Frames:
 # a simplified mesh, for AniMeshes
 #
-# Each Frame has a function, which is normally NOP/No operation
+# Each Frame has a function, which is normally NOP
 #
 # To define AI tied to animations, replace NOP with your own function
+#
+# Frames also have an index indicating the next frame to go to, which is normally -1 for no change.
+#
 
-# Usage:
-'''
-def AIFunction():
-    if PlayerIsTHEGordanFreeman():
-        return
-    else:
-        AttackPlayer()
-
-enemyMesh = z3dpy.LoadAniMesh("filename.obj")
-
-
-
-AniMeshSetFrameFunc(enemyMesh, 30, AIFunction)
-# On the 30th frame of animation, it'll perform AIFunction() during Raster.
-
-# It's a bit like Doom's AI.
-
-
-
-enemy = z3dpy.Thing([enemyMesh], 0, 5, 2)
-
-# Then during the draw loop...
-# Increment the animation each frame, or not, depending on usage.
-
-z3dpy.ThingIncFrames(enemy)
-'''
-
-def Frame(tris, iNext, Function=NOP):
+def Frame(tris, iNext=-1, Function=NOP):
     return [tris, iNext, Function]
-
-# AniMeshSetFrameFunc(aniMesh, 30, AIFunction)
-
-# iFrame is the frame that the function should be run on.
-
-def AniMeshSetFrameFunc(aniMesh, iFrame, function):
-    aniMesh[0][iFrame][2] = function
-
-# ThingSetFrameFunc(thing, 0, 30, AIFunction)
-
-# iAniMesh is the index of the animesh to change
-
-# iFrame is the frame that the function should be run on.
-
-def ThingSetFrameFunc(thing, iAniMesh, iFrame, function):
-    thing[0][iAniMesh][iFrame][2] = function
-
 
 # AniMeshes:
 # Same as Mesh except animated: [0] is a list of frames, and [5] is frame number.
@@ -247,7 +257,45 @@ def ThingSetFrameFunc(thing, iAniMesh, iFrame, function):
 def AniMesh(frames, x, y, z):
     return [frames, [x, y, z], [0, 0, 0], [255, 255, 255], 0, 0, 0]
 
-# Some stuff I need to declare before the Thing class
+# Usage:
+'''
+# Assuming that frame 0-30 is a walk animation and 31-60 is an attack animation
+
+def AIFunction():
+    # I'll make up some AI function real quick:
+    if PlayerIsTHEGordanFreeman():
+        return
+    else:
+        AniMeshSetFrame(enemyMesh, 31)
+        AttackPlayer()
+
+
+enemyMesh = z3dpy.LoadAniMesh("filename.obj")
+
+
+# On the 29th frame of animation, it'll perform AIFunction().
+AniMeshSetFrameFunc(enemyMesh, 29, AIFunction)
+
+# FrameNext is well, the frame that comes next.
+# Keep in mind it will override anything the function does.
+AniMeshSetFrameNext(enemyMesh, 30, 0)
+
+AniMeshSetFrameNext(enemyMesh, 60, 31)
+
+# If the function doesn't set the frame to 31, the frame 30 will loop back to 0.
+# and once it's in the attack animation, frame 60 will loop back to 31
+
+# Inspired by Doom.
+
+
+enemy = z3dpy.Thing([enemyMesh], 0, 5, 2)
+
+
+# Then during the draw loop, increment the animation.
+z3dpy.ThingIncFrames(enemy)
+
+'''
+
 
 # Hitbox Object:
 #
@@ -256,14 +304,14 @@ def AniMesh(frames, x, y, z):
 #
 # [0] is type, [1] is id, [2] is radius, [3] is height, [4] is hitbox mesh for drawing.
 #
-# Enable collisions with myThing[4] = z3dpy.Hitbox()
+# Enable collisions with z3dpy.ThingSetupHitbox(myThing)
 
 def Hitbox(type = 2, id = 0, radius = 1, height = 1):
     return [type, id, radius, height, LoadMesh("z3dpy/mesh/cube.obj", 0, 0, 0, radius, height, radius)]
 
 # Physics Body:
 #
-# Enable physics with myThing[6] = z3dpy.PhysicsBody()
+# Enable physics with z3dpy.ThingSetupPhysics(myThing)
 #
 # [0] is velocity, [1] is acceleration, [2] is mass, [3] is friction, [4] is bounciness
 #
@@ -275,7 +323,7 @@ def Hitbox(type = 2, id = 0, radius = 1, height = 1):
 # Bounciness is supposed to be 0-1, 1 means it'll bounce with no loss of speed, 0 means it won't bounce.
 # this applies when hitting the ground, or hitting things that don't have physics.
 #
-# Drag is now a global variable, representing general air resistance.
+# Drag is now a global variable, representing air resistance.
 
 def PhysicsBody():
     return [[0, 0, 0], [0, 0, 0], 0.2, 0.2, 0.5]
@@ -328,6 +376,7 @@ def SetInternalCamera(camera):
     iC = [CameraGetPos(camera), CameraGetRot(camera), CameraGetScH(camera), CameraGetScW(camera), CameraGetScH(camera) * 0.5, CameraGetScW(camera) * 0.5, CameraGetNCl(camera), CameraGetFCl(camera), CameraGetTargetVector(camera), CameraGetUpVector(camera)]
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intMatV = LookAtMatrix(camera)
+    z3dpyfast.CSetInternalCamera(iC)
 
 # Lights:
 #
@@ -343,97 +392,138 @@ def Light_Point(x, y, z, FStrength, fRadius, vColour=(255, 255, 255)):
 
 # Rays:
 #
-# Used for drawing rays to the screen.
+# Used for debug drawing rays in world space, or ray collisions.
 #
 # [0] is ray start location, [1] is ray end location
 
 def Ray(raySt, rayNd):
     return [raySt, rayNd]
 
-# Terrains / Trains:
+# Usage:
+'''
+# Assuming imported as zp
+
+myRay = zp.Ray(zp.CameraGetPos(myCam), zp.ThingGetPos(thatTree))
+
+# Add the ray to the global list to get drawn
+zp.rays.append(myRay)
+
+# and/or you could do a collision check
+hit = zp.RayIntersectThingComplex(myRay, myCharacter)
+
+if hit[0]:
+    # Hit
+    location = hit[1]
+    distance = hit[2]
+    normal = hit[3]
+    print(location, distance, normal)
+else:
+    # No Hit
+    print("Nope")
+'''
+
+
+
+# Dots:
 #
-# Z3dPy's terrain system, floor in the physics function. Needs to be baked beforehand.
+# Dots is a list of vectors that will be drawn as points with DebugRaster().
 #
-# [x][y] is the height at that particular location.
+
+dots = []
 
 # Usage:
-#
-# # Creating a 10x10 plane
-# myTerrain = z3dpy.Train(10, 10)
-#
-# # Placing points
-# myTerrain[2][8] = 45.8
-#
-# # BakeTrain will blend between points, creating a smooth hill around the new point.
-# BakeTrain(myTerrain)
-#
+'''
 
+# Start with a vector.
+myVector = [0, 0, 0]
+
+# Append it to the global list
+z3dpy.dots.append(Vector)
+
+# or take a vector from something
+
+z3dpy.dots.append(z3dpy.ThingGetPos(myCharacter))
+
+# The dot list stores a reference so the dot will update with the vector you gave it
+
+# Now when debug rastering, it'll be drawn as a small dot.
+
+
+for tri in DebugRaster():
+    match z3dpy.TriGetId(tri):
+        case -1:
+            # Debug things
+            z3dpy.PgDrawTriOutl(tri, [1, 0, 0], screen, pygame)
+        case _:
+            # Everything else
+            z3dpy.PgDrawTriFLB(tri, screen, pygame)
+            
+'''
+
+
+
+# Terrains / Trains:
+#
+# Z3dPy's terrain system to easily replace the flat floor of HandlePhysics(). Needs to be baked beforehand.
+#
+# [x][y] is the height at that particular location.
+#
+# Keep in mind it's an invisible floor, meant to match the environment rather than being drawn.
 
 def Train(x, y):
     output = []
     for g in range(0, x):
         output.append([])
         for h in range(0, y):
-            output[g].append(0)
+            output[g].append(0.0)
     return output
 
-def BakeTrain(train, sharpness=0.1):
-    
-    points = []
+# Usage:
+'''
+# Creating a flat 10x10 plane
+myTerrain = z3dpy.Train(10, 10)
 
+# Changing height at certain points
+myTerrain[2][8] = 3.2
+myTerrain[7][3] = -5.1
+
+# BakeTrain uses blurring to smooth the terrain
+BakeTrain(myTerrain)
+
+# Optional passes, strength, and amplitude argument (by default, 1, 1.0, and 1.0)
+BakeTrain(myTerrain, 3, 0.5, 1.5)
+'''
+
+def BakeTrain(train, passes=1, strength=1.0, amplitude=1.0):
     scX = len(train)
     scY = len(train[0])
+    print("Baking Train...")
+    # Blurring to smooth
+    for p in range(passes):
+        for x in range(scX):
+            for y in range(scY):
+                mx = x + 1
+                mx = min(mx, scX - 1)
+                mn = x - 1
+                mn = max(mn, 1)
+                my = y + 1
+                my = min(my, scY - 1)
+                ny = y - 1 
+                ny = max(ny, 1)
 
-    print("Gathering Points...")
-    # Gathering non-empty points
-    for x in range(len(train)):
-        for y in range(len(train[0])):
-            if train[x][y] != 0:
-                points.append((x, y))
+                # Faking a gaussian blur by de-valuing edges manually
+                pnt0 = train[x][y]
+                pnt1 = train[mx][y] * 0.8 * strength
+                pnt2 = train[mn][y] * 0.8 * strength
+                pnt3 = train[x][my] * 0.8 * strength
+                pnt4 = train[x][ny] * 0.8 * strength
+                pnt5 = train[mx][my] * 0.6 * strength
+                pnt6 = train[mx][ny] * 0.6 * strength
+                pnt7 = train[mn][my] * 0.6 * strength
+                pnt8 = train[mn][ny] * 0.6 * strength
+                train[x][y] = (sum((pnt0, pnt1, pnt2, pnt3, pnt4, pnt5, pnt6, pnt7, pnt8)) / 9) * amplitude
 
-    print("Baking Terrain...")
-    # My version of a flood-fill
-    for point in points:
-        doneYet = False
-        curPs = [point]
-        newCurPs = []
-        curY = train[point[0]][point[1]]
-        while not doneYet:
-            if curY - sharpness <= 0:
-                doneYet = True
-            for curP in curPs:
-                rem = False
-                if curP[0] < scX:
-                    if train[curP[0] + 1][curP[1]] < curY - sharpness:
-                        train[curP[0] + 1][curP[1]] = curY - sharpness
-                        newCurPs.append((curP[0] + 1, curP[1]))
-                        rem = True
-                if curP[0] > 0:
-                    if train[curP[0] - 1][curP[1]] < curY - sharpness:
-                        train[curP[0] - 1][curP[1]] = curY - sharpness
-                        newCurPs.append((curP[0] - 1, curP[1]))
-                        rem = True
-                if curP[1] < scY:
-                    if train[curP[0]][curP[1] + 1] < curY - sharpness:
-                        train[curP[0]][curP[1] + 1] = curY - sharpness
-                        newCurPs.append((curP[0], curP[1] + 1))
-                        rem = True
-                if curP[1] > 0:
-                    if train[curP[0]][curP[1] - 1] < curY - sharpness:
-                        train[curP[0]][curP[1] - 1] = curY - sharpness
-                        newCurPs.append((curP[0], curP[1] - 1))
-                        rem = True
-                if rem:
-                    curY = curY - sharpness
-                    curPs += newCurPs
     print("Done!")
-
-
-
-        
-
-    
-
 
 # Textures:
 #
@@ -540,17 +630,27 @@ def MeshSetId(mesh, iId):
 def MeshGetId(mesh):
     return mesh[4]
 
-def AniMeshGetFrame(mesh):
-    return mesh[5]
+def AnimMeshGetFrame(animMesh):
+    return animMesh[5]
 
-def AniMeshSetFrame(mesh, iFrame):
-    mesh[5] = iFrame
+def AnimMeshSetFrame(animMesh, iFrame):
+    animMesh[5] = iFrame
 
-def AniMeshIncFrame(mesh):
-    mesh[5] = (mesh[5] + 1) % len(mesh[0])
+def AnimMeshIncFrame(animMesh):
+    animMesh[5] = (animMesh[5] + 1) % len(animMesh[0])
 
-def AniMeshDecFrame(mesh):
-    mesh[5] -= 1
+def AnimMeshDecFrame(animMesh):
+    animMesh[5] -= 1
+
+# AniMeshSetFrameFunc sets the function to be executed on a particular frame of animation
+# iFrame is the frame that the function should be run on.
+# Keep in mind that there can only be one function per frame.
+def AnimMeshSetFrameFunc(animMesh, iFrame, function):
+    animMesh[0][iFrame][2] = function
+
+# AniMeshSetFrameNext sets the frame that will come after iFrame
+def AnimMeshSetFrameNext(animMesh, iFrame, iNext):
+    animMesh[0][iFrame][1] = iNext
 
 
 # THINGS
@@ -632,10 +732,17 @@ def ThingGetRoll(thing):
 def ThingGetYaw(thing):
     return thing[2][1]
 
+# ThingIncFrames will increment frame counter of each AniMesh in the Thing.
 def ThingIncFrames(thing):
     for m in thing[0]:
-        if AniMeshGetFrame(m) != -1:
-            AniMeshIncFrame(m)
+        if AnimMeshGetFrame(m) != -1:
+            AnimMeshIncFrame(m)
+
+# ThingSetFrameFunc(thing, 0, 30, AIFunction)
+# iAniMesh is the index of the animesh to change
+# iFrame is the frame that the function should be run on.
+def ThingSetFrameFunc(thing, iAniMesh, iFrame, function):
+    thing[0][iAniMesh][iFrame][2] = function
 
 # Object Id is meant for the draw loop, so you can check a triangle's id to see what mesh it came from.
 
@@ -757,6 +864,11 @@ def ThingSetBounciness(thing, bnc):
 
 def ThingGetBounciness(thing):
     return thing[4][4]
+
+# ThingStop resets velocity and acceleration to 0. 
+def ThingStop(thing):
+    thing[4][1] = [0, 0, 0]
+    thing[4][0] = [0, 0, 0]
 
 
 # CAMERAS
@@ -955,6 +1067,9 @@ def RaySetStart(ray, vector):
 
 def RayGetDirection(ray):
     return VectorNormalize(VectorSub(ray[1], ray[0]))
+
+def RayGetLength(ray):
+    return VectorGetLength(VectorSub(ray[1], ray[0]))
 
 def RayGetEnd(ray):
     return ray[1]
@@ -1295,9 +1410,9 @@ def VectorIntersectPlane(pPos, pNrm, lSta, lEnd):
     ad = VectorDoP(lSta, pNrm)
     bd = VectorDoP(lEnd, pNrm)
     t = (-plane_d - ad) / (bd - ad)
-    lineStartToEnd = VectorSub(lEnd, lSta)
-    lineToIntersect = VectorMulF(lineStartToEnd, t)
-    return VectorAdd(lSta, lineToIntersect)
+    lineStartToEnd = VectorUVSub(lEnd, lSta)
+    lineToIntersect = VectorUVMulF(lineStartToEnd, t)
+    return VectorUVAdd(lSta, lineToIntersect)
 
 def ShortestPointToPlane(point, plNrm, plPos):
     return VectorDoP(plNrm, point) - VectorDoP(plNrm, plPos)
@@ -1329,8 +1444,8 @@ def TriClipAgainstPlane(tri, pPos, pNrm):
         return [tri[:6]]
 
     if len(insideP) == 1 and len(outsideP) == 2:
-        outT = [insideP[0], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[1]), VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0]), tri[3], tri[4], tri[5]]
-        return [outT]
+        outT1 = [insideP[0], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[1]), VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0]), tri[3], tri[4], tri[5]]
+        return [outT1]
 
     if len(insideP) == 2 and len(outsideP) == 1:
         outT1 = [insideP[0], insideP[1], VectorIntersectPlane(pPos, pNrm, insideP[1], outsideP[0]), tri[3], tri[4], tri[5]]
@@ -1358,20 +1473,22 @@ def triSortClosest(n):
     return min(n[0][2], n[1][2], n[2][2])
 
 def TriClipAgainstZ(tri):
-    return TriClipAgainstPlane(tri, [0, 0, 0], [0, 0, 1])
+    return TriClipAgainstPlane(tri, [0.0, 0.0, 0.1], [0.0, 0.0, 1.0])
 
 def TriClipAgainstScreenEdges(tri):
     output = []
-    for t in TriClipAgainstPlane(tri, [0, 0, 0], [0, 1, 0]):
-        for r in TriClipAgainstPlane(t, [0, iC[2] - 1, 0], [0, -1, 0]):
-            for i in TriClipAgainstPlane(r, [0, 0, 0], [1, 0, 0]):
-                for s in TriClipAgainstPlane(i, [iC[3] - 1, 0, 0], [-1, 0, 0]):
+    for t in TriClipAgainstPlane(tri, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]):
+        for r in TriClipAgainstPlane(t, [0.0, iC[2] - 1.0, 0.0], [0.0, -1.0, 0.0]):
+            for i in TriClipAgainstPlane(r, [0.0, 0.0, 0.0], [1.0, 0.0, 0.0]):
+                for s in TriClipAgainstPlane(i, [iC[3] - 1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]):
                     output.append(s)
     return tuple(output)
 
 def CTriClipAgainstSE(tri):
     return z3dpyfast.CTriClipAgainstScreenEdges(tri)
 
+# Something is wrong with specifically Z clipping and I haven't figured it out yet,
+# so Python version should be used instead.
 def CTriClipAgainstZ(tri):
     return z3dpyfast.CTriClipAgainstZ(tri)
 
@@ -1464,7 +1581,6 @@ def LoadMesh(filename, x = 0, y = 0, z = 0, sclX = 1, sclY = 1, sclZ = 1):
     return Mesh(tuple(output), x, y, z)
 
 def LoadAnimMesh(filename, x=0, y=0, z=0, sclX=1, sclY=1, sclZ=1):
-    meshes = []
     looking = True
     a = 0
     st = 0
@@ -1476,7 +1592,7 @@ def LoadAnimMesh(filename, x=0, y=0, z=0, sclX=1, sclY=1, sclZ=1):
         except:
             a += 1
             if a > 100:
-                print("Could not find any frames. Is this an AniMesh?")
+                print("Could not find any frames. Is the obj exported as animation?")
         else:
             test.close()
             st = a
@@ -1492,18 +1608,18 @@ def LoadAnimMesh(filename, x=0, y=0, z=0, sclX=1, sclY=1, sclZ=1):
         else:
             test.close()
             a += 1
-    
             
-    print("Frames: " + str(nd - st))
     newMsh = AniMesh([], x, y, z)
     for f in range(st, nd):
-        newFrm = Frame(LoadMesh(filename[:-4] + str(f) + ".obj", 0, 0, 0, sclX, sclY, sclZ)[0], f)
+        newFrm = Frame(LoadMesh(filename[:-4] + str(f) + ".obj", 0, 0, 0, sclX, sclY, sclZ)[0])
         
         newMsh[0].append(newFrm)
 
     return newMsh
 
-lightMesh = LoadMesh("z3dpy/mesh/light.obj", 0, 0, 0)
+lightMesh = LoadMesh("z3dpy/mesh/light.obj")
+
+dotMesh = LoadMesh("z3dpy/mesh/dot.obj")
 
 def NewCube(x=0, y=0, z=0):
     return LoadMesh("z3dpy/mesh/cube.obj", x, y, z)
@@ -1594,7 +1710,7 @@ def PointAtMatrix(pos, target, up):
 
 def LookAtMatrix(camera):
     temp = MatrixStuff(CameraGetPos(camera), CameraGetTargetLocation(camera), CameraGetUpVector(camera))
-    return ((temp[2][0], temp[1][0], temp[0][0], 0), (temp[2][1], temp[1][1], temp[0][1], 0), (temp[2][2], temp[1][2], temp[0][2], 0), (-VectorDoP(CameraGetPos(camera), temp[2]), -VectorDoP(CameraGetPos(camera), temp[1]), -VectorDoP(CameraGetPos(camera), temp[0]), 1))
+    return ((temp[2][0], temp[1][0], temp[0][0], 0.0), (temp[2][1], temp[1][1], temp[0][1], 0.0), (temp[2][2], temp[1][2], temp[0][2], 0.0), (-VectorDoP(CameraGetPos(camera), temp[2]), -VectorDoP(CameraGetPos(camera), temp[1]), -VectorDoP(CameraGetPos(camera), temp[0]), 1.0))
 
 def MatrixMakeProjection(fov):
     a = iC[2] / iC[3]
@@ -1611,6 +1727,8 @@ def MatrixMakeProjection(fov):
 
 
 def RayIntersectTri(ray, tri):
+    deadzone = 0.0000001
+    deadzone = 0.1
     # Using the Moller Trumbore algorithm
     if len(rays) < 100:
         rays.append(ray)
@@ -1621,7 +1739,7 @@ def RayIntersectTri(ray, tri):
     e2 = VectorSub(tri[2], tri[0])
     h = VectorCrP(rayDr, e2)
     a = VectorDoP(e1, h)
-    if a < -0.0000001 or a > 0.0000001:
+    if a < -deadzone or a > deadzone:
         f = 1.0 / a
         o = VectorSub(raySt, tri[0])
         ds = VectorDoP(o, h) * f
@@ -1636,7 +1754,7 @@ def RayIntersectTri(ray, tri):
             return (False,)
 
         l = VectorDoP(e2, q) * f
-        if l > 0.0000001 and l < 1.0:
+        if l > deadzone and l < RayGetLength(ray):
             # Hit
             #
             # [0] is wether or not it hit
@@ -1776,21 +1894,34 @@ def DeltaCalc():
     delta = time.time() - physTime
     physTime = time.time()
 
-def HandlePhysics(thingList, floorHeight = 0):
+def HandlePhysics(thing, floorHeight=0):
+    if ThingGetMovable(thing) and ThingGetPhysics(thing) != []:
+        ThingAddVelocity(thing, ThingGetAcceleration(thing))
+        # Drag
+        ThingSetVelocity(thing, VectorSub(ThingGetVelocity(thing), [airDrag * sign(ThingGetVelocityX(thing)), airDrag * sign(ThingGetVelocityY(thing)), airDrag * sign(ThingGetVelocityZ(thing))]))
+        for axis in ThingGetVelocity(thing):
+            if abs(axis) <= 0.1:
+                axis = 0
+        # Gravity
+        ThingAddVelocity(thing, VectorMulF(gravityDir, 0.05))
+        ThingAddPos(thing, VectorMulF(ThingGetVelocity(thing), delta))
+        if ThingGetPosY(thing) >= floorHeight:
+            ThingSetPosY(thing, floorHeight)
+            GroundBounce(thing)
+
+def HandlePhysicsFloor(thingList, fFloorHeight=0):
     for t in thingList:
-        if ThingGetMovable(t) and ThingGetPhysics(t) != []:
-            ThingAddVelocity(t, ThingGetAcceleration(t))
-            # Drag
-            ThingSetVelocity(t, VectorSub(ThingGetVelocity(t), [airDrag * sign(ThingGetVelocityX(t)), airDrag * sign(ThingGetVelocityY(t)), airDrag * sign(ThingGetVelocityZ(t))]))
-            for axis in ThingGetVelocity(t):
-                if abs(axis) <= 0.1:
-                    axis = 0
-            # Gravity
-            ThingAddVelocity(t, VectorMulF(gravityDir, 0.05))
-            ThingAddPos(t, VectorMulF(ThingGetVelocity(t), delta))
-            if ThingGetPosY(t) >= floorHeight:
-                ThingSetPosY(t, floorHeight)
-                GroundBounce(t)
+        HandlePhysics(t, fFloorHeight)
+
+def HandlePhysicsTrain(thingList, train):
+    for t in thingList:
+        if ThingGetPosX(t) > 0.0 and ThingGetPosX(t) < len(train):
+            if ThingGetPosZ(t) > 0.0 and ThingGetPosZ(t) < len(train[0]):
+                trainX = math.floor(ThingGetPosX(t))
+                trainY = math.floor(ThingGetPosZ(t))
+                HandlePhysics(t, train[trainX][trainY])
+                continue
+        HandlePhysics(t, 0.0)
 
 def PhysicsBounce(thing):
     d = VectorPureDirection(ThingGetVelocity(thing))
@@ -1882,15 +2013,9 @@ def CRasterThings(things, fnSortKey=triSortAverage, bSortReverse=True):
     viewed = []
     for t in things:
         for m in t[0]:
-            viewed += RasterCPt1(t[6], VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
+            viewed += RasterCPt1(t[6], VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m), AnimMeshGetFrame(m))
     viewed.sort(key=fnSortKey, reverse=bSortReverse)
     return RasterPt2(viewed)
-
-def DebugRaster(fnSortKey=triSortAverage, bSortReverse=True):
-    finished = []
-    for layer in layers:
-        finished += DebugRasterThings(layer, fnSortKey, bSortReverse)
-    return finished
 
 # RasterThings()
 # Supply your own list of things to draw.
@@ -1912,10 +2037,13 @@ def RasterThings(thingList, sortKey=triSortAverage, sortReverse=True):
         for t in thingList:
             if t[5]:
                 for m in t[0]:
-                    if AniMeshGetFrame(m) == -1:
+                    if AnimMeshGetFrame(m) == -1:
                         viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
                     else:
-                        viewed += RasterPt1(MeshGetTris(m[0][AniMeshGetFrame(m)]), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
+                        viewed += RasterPt1(MeshGetTris(m[0][AnimMeshGetFrame(m)]), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
+                        m[0][AnimMeshGetFrame(m)][2]()
+                        if m[0][AnimMeshGetFrame(m)][1] != -1:
+                            AnimMeshSetFrame(m[0][AnimMeshGetFrame(m)][1])
             else:
                 for m in t[0]:
                     viewed += RasterPt1Static(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), MeshGetId(m), MeshGetColour(m))
@@ -1948,7 +2076,7 @@ def RasterMeshList(meshList, sortKey=triSortAverage, sortReverse=True):
 
 # Draws things, as well as hitboxes, and any lights/rays you give it. 
 # Triangles from debug objects will have an id of -1
-def DebugRasterThings(things, sortKey=triSortAverage, sortReverse=True):
+def DebugRaster(train=[], sortKey=triSortAverage, sortReverse=True):
     try:
         test = intMatV[0][0]
     except:
@@ -1957,18 +2085,27 @@ def DebugRasterThings(things, sortKey=triSortAverage, sortReverse=True):
     else:
         finished = []
         viewed = []
-        for t in things:
-            for m in t[0]:
-                viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
+        for layer in layers:
+            for t in layer:
+                for m in t[0]:
+                    viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
 
-            if t[4] != []:
-                viewed += RasterPt1(MeshGetTris(ThingGetHitboxMesh(t)), ThingGetPos(t), [0, 0, 0], -1, [255, 0, 0])
+                if ThingGetHitboxMesh(t) != []:
+                    viewed += RasterPt1(MeshGetTris(ThingGetHitboxMesh(t)), ThingGetPos(t), [0, 0, 0], -1, [255, 0, 0])
 
         for l in lights:
-            viewed += RasterPt1Static(MeshGetTris(lightMesh), LightGetPos(l), -1, [255, 255, 255])
+            viewed += RasterPt1Static(MeshGetTris(lightMesh), LightGetPos(l), -1, [255, 0, 0])
+
+        for d in dots:
+            viewed += RasterPt1Static(MeshGetTris(dotMesh), d, -1, [255, 0, 0])
 
         for r in rays:
-            viewed += RasterPt1Static([Tri(RayGetStart(r), VectorAdd(RayGetStart(r), [0, 0.001, 0]), RayGetEnd(r))], [0, 0, 0], -1, [255, 0, 0])
+            viewed += RasterPt1Static([Tri(RayGetStart(r) + [[0, 0, 0], [0, 0]], VectorAdd(RayGetStart(r), [0, 0.001, 0]) + [[0, 0, 0], [0, 0]], RayGetEnd(r) + [[0, 0, 0], [0, 0]])], [0, 0, 0], -1, [255, 0, 0])
+
+        if train != []:
+            for x in range(len(train)):
+                for y in range(len(train[0])):
+                    viewed += RasterPt1Static(MeshGetTris(dotMesh), [x, train[x][y], y], -1, [255, 0, 0])
 
         viewed.sort(key = sortKey, reverse=sortReverse)
         finished += RasterPt2(viewed)
@@ -1987,9 +2124,9 @@ def RasterPt1(tris, pos, rot, id, colour):
             translated.append(r)
     return translated
 
-def RasterCPt1(ind, pos, rot, id, colour):
+def RasterCPt1(ind, pos, rot, id, colour, frm):
     translated = []
-    for t in ViewTris(z3dpyfast.CRaster(ind, pos, rot)):
+    for t in ViewTris(z3dpyfast.CRasterPt1(ind, pos, rot, frm)):
         for r in TriClipAgainstZ(t):
             r.append(colour)
             r.append(id)
@@ -2014,6 +2151,15 @@ def RasterPt2(tris):
     output = []
     for i in ProjectTris(tris):
         for s in TriClipAgainstScreenEdges(i):
+            s.append(i[6])
+            s.append(i[7])
+            output.append(s)
+    return output
+
+def RasterCPt2(tris):
+    output = []
+    for i in tris:
+        for s in z3dpyfast.CRasterPt2(i):
             s.append(i[6])
             s.append(i[7])
             output.append(s)
@@ -2521,15 +2667,17 @@ def PgPixelShader(tri, pixelArray):
 # Wrote a script to brute-force finding a single multiplier that could do most of the projection.
 # I call it: How-Does-That-Even-Work Projection
 
-# I've already calculated the constants for an FOV of 90: 
-# To recalculate, use FindHowVars(). Although it's a bit slow, so do this once at the start.
+# I've already calculated the constants for an FOV of 90, at 16:9: 
+# To recalculate, use FindHowVars(fFov). It's quite speedy now, but nevertheless should be done once at the start.
+
 howX = 0.56249968159
 howY = 1.0
 
-def FindHowVars(fov):
+# Optional aspect ratio argument: put height over width as a fraction, so for 16:9 put in 9/16, 4:3 is 3/4, 21:9 is 9/21, and so on.
+def FindHowVars(fFov, asp=9/16):
     global howX
     global howY
-    found = CalculateCam(fov, 500, 9/16)
+    found = CalculateCam(fFov, 500, asp)
     howX = found[0]
     howY = found[1]
 
