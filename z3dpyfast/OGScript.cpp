@@ -42,6 +42,9 @@ typedef struct {
     std::vector <Triangle> tris;
 } Mesh;
 
+typedef struct {
+    std::vector <Mesh> frames;
+} AniMesh;
 
 typedef struct {
     std::vector<Mesh> meshes;
@@ -62,11 +65,14 @@ std::vector<Light_Point> lights = {};
 Vector3 CamTrg = { 0.f, 0.f, 1.f };
 Vector3 CamPos = { 0.f, 0.f, 0.f };
 
-// So here's the plan.
-// Python gives C++ the position and rotation as variables during raster,
-// so only the meshes need to be stored, and Python can pass an index instead of
-// an entire list of triangles.
 std::vector<Thing> things = {};
+std::vector<AniMesh> animeshes = {};
+
+double howX = 0.56249968159;
+double howY = 1.0;
+
+double scrW = 1280.0;
+double scrH = 720.0;
 
 static Vector3 VectorAdd(Vector3 v1, Vector3 v2)
 {
@@ -101,6 +107,11 @@ static double VectorDoP(Vector3 v1, Vector3 v2)
 static Vector3 VectorCrP(Vector3 v1, Vector3 v2)
 {
     return { (v1.y * v2.z) - (v1.z * v1.y), (v1.z * v2.x) - (v1.x * v2.z), (v1.x * v2.y) - (v1.y * v2.x) };
+}
+
+static VectorUV VectorUVMulF(VectorUV in, float f)
+{
+    return { in.x * f, in.y * f, in.z * f, in.u, in.v };
 }
 
 // Converter Functions
@@ -181,7 +192,7 @@ static Vector3 VectorNormalize(Vector3 v)
     {
         return { v.x / l, v.y / l, v.z / l };
     }
-    return v;
+    return { v.x, v.y, v.z };
 }
 
 static float DistanceBetweenVectors(Vector3 v1, Vector3 v2)
@@ -268,21 +279,15 @@ static void ThingsRemoveItem(int index)
 
 BasicTri MatrixStuff(Vector3 pos, Vector3 target, Vector3 up)
 {
-    BasicTri output;
     Vector3 newFwd = VectorSub(target, pos);
     newFwd = VectorNormalize(newFwd);
-    
 
     Vector3 a = VectorMulF(newFwd, VectorDoP(up, newFwd));
     Vector3 newUp = VectorSub(up, a);
     newUp = VectorNormalize(newUp);
 
     Vector3 newRght = VectorCrP(newUp, newFwd);
-    
-    output.p1 = newFwd;
-    output.p2 = newUp;
-    output.p3 = newRght;
-    return output;
+    return { newFwd, newUp, newRght };
 }
 
 Matrix MakeLookMat(Vector3 pos, Vector3 target, Vector3 up)
@@ -331,40 +336,25 @@ Vector3 Vector4ToVector3(Vector4 v)
 
 Vector3 Vector3MatrixMul(Vector3 v, Matrix m)
 {
-    Vector4 output;
+    Vector3 output;
     output.x = v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + m.m[3][0];
     output.y = v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + m.m[3][1];
     output.z = v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + m.m[3][2];
-    output.w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + m.m[3][3];
-    return Vector4ToVector3(output);
+    double w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + m.m[3][3];
+    if (w != 0.0)
+        return { output.x / w, output.y / w, output.z / w };
+    return output;
 }
 
 VectorUV VectorUVMatrixMul(VectorUV v, Matrix m)
 {
-    VectorUV output;
-    Vector3 basic;
-    basic.x = v.x;
-    basic.y = v.y;
-    basic.z = v.z;
-    Vector3 result = Vector3MatrixMul(basic, m);
-    output.x = result.x;
-    output.y = result.y;
-    output.z = result.z;
-    output.u = v.u;
-    output.v = v.v;
-    return output;
+    Vector3 result = Vector3MatrixMul({ v.x, v.y, v.z }, m);
+    return { result.x, result.y, result.z, v.u, v.v };
 }
 
 static Triangle TriangleAdd(Triangle tri, Vector3 pos)
 {
-    Triangle output;
-    output.p1 = VectorUVAdd(tri.p1, pos);
-    output.p2 = VectorUVAdd(tri.p2, pos);
-    output.p3 = VectorUVAdd(tri.p3, pos);
-    output.normal = tri.normal;
-    output.wpos = tri.wpos;
-    output.shade = tri.shade;
-    return output;
+    return { VectorUVAdd(tri.p1, pos), VectorUVAdd(tri.p2, pos), VectorUVAdd(tri.p3, pos), tri.normal, tri.wpos, tri.shade };
 }
 
 // Modifies the input vector of triangles.
@@ -375,7 +365,7 @@ static std::vector<Triangle> TranslateTriangles(std::vector <Triangle> inTris, V
     for (const Triangle tri : inTris)
     {
         ntri = TriangleAdd(tri, pos);
-        ntri.wpos = TriangleAverage(tri);
+        ntri.wpos = TriangleAverage(ntri);
         output.push_back(ntri);
     }
     return output;
@@ -383,14 +373,7 @@ static std::vector<Triangle> TranslateTriangles(std::vector <Triangle> inTris, V
 
 static Triangle TriMatrixMul(Triangle tri, Matrix m)
 {
-    Triangle output;
-    output.p1 = VectorUVMatrixMul(tri.p1, m);
-    output.p2 = VectorUVMatrixMul(tri.p2, m);
-    output.p3 = VectorUVMatrixMul(tri.p3, m);
-    output.normal = tri.normal;
-    output.shade = tri.shade;
-    output.wpos = tri.wpos;
-    return output;
+    return { VectorUVMatrixMul(tri.p1, m), VectorUVMatrixMul(tri.p2, m), VectorUVMatrixMul(tri.p3, m), tri.normal, tri.wpos, tri.shade };
 }
 
 static Vector3 GetNormal(Triangle tri)
@@ -450,6 +433,30 @@ static Triangle ViewTriangle(Triangle tri, Matrix m)
     return TriMatrixMul(tri, m);
 }
 
+
+
+static VectorUV HowProjection(VectorUV in)
+{
+    if (in.z != 0.0)
+        return { (in.x * howX) / in.z, (in.y * howY) / in.z, 1.0, in.u, in.v };
+    return in;
+}
+
+static Triangle HowProjectTri(Triangle in)
+{
+    return { HowProjection(in.p1), HowProjection(in.p2), HowProjection(in.p3), in.normal, in.wpos, in.shade };
+}
+
+
+static Triangle ProjectTriangle(Triangle tri)
+{
+    Triangle output;
+    output = TriangleAdd(HowProjectTri(tri), { 1.0, 1.0, 0.0 });
+    output.p1 = VectorUVMulF(output.p1, scrW);
+    output.p2 = VectorUVMulF(output.p1, scrH);
+    return output;
+}
+
 static Vector3 VectorIntersectPlane(Vector3 pPos, Vector3 pNrm, Vector3 lSta, Vector3 lEnd)
 {
     pNrm = VectorNormalize(pNrm);
@@ -467,8 +474,7 @@ static float ShortestPointToPlane(Vector3 point, Vector3 plNrm, Vector3 plPos)
     return VectorDoP(plNrm, point) - VectorDoP(plNrm, plPos);
 }
 
-double scrW = 1280.0;
-double scrH = 720.0;
+
 
 static std::vector<Triangle> TriClipAgainstPlane(Triangle tri, Vector3 pPos, Vector3 pNrm)
 {
@@ -478,15 +484,15 @@ static std::vector<Triangle> TriClipAgainstPlane(Triangle tri, Vector3 pPos, Vec
     float d2 = ShortestPointToPlane(VUVToV3(tri.p2), pNrm, pPos);
     float d3 = ShortestPointToPlane(VUVToV3(tri.p3), pNrm, pPos);
 
-    if (d1 >= 0)
+    if (d1 >= 0.f)
         insideP.push_back(tri.p1);
     else
         outsideP.push_back(tri.p1);
-    if (d2 >= 0)
+    if (d2 >= 0.f)
         insideP.push_back(tri.p2);
     else
         outsideP.push_back(tri.p2);
-    if (d3 >= 0)
+    if (d3 >= 0.f)
         insideP.push_back(tri.p3);
     else
         outsideP.push_back(tri.p3);
@@ -501,14 +507,7 @@ static std::vector<Triangle> TriClipAgainstPlane(Triangle tri, Vector3 pPos, Vec
 
     if (iS == 1 && oS == 2)
     {
-        Triangle t1;
-        t1.p1 = insideP[0];
-        t1.p2 = V3ToVUV(VectorIntersectPlane(pPos, pNrm, VUVToV3(insideP[0]), VUVToV3(outsideP[1])), tri.p2.u, tri.p2.v);
-        t1.p3 = V3ToVUV(VectorIntersectPlane(pPos, pNrm, VUVToV3(insideP[0]), VUVToV3(outsideP[0])), tri.p3.u, tri.p3.v);
-        t1.normal = tri.normal;
-        t1.wpos = tri.wpos;
-        t1.shade = tri.shade;
-        return { t1 };
+        return { { insideP[0], V3ToVUV(VectorIntersectPlane(pPos, pNrm, VUVToV3(insideP[0]), VUVToV3(outsideP[1])), tri.p2.u, tri.p2.v), V3ToVUV(VectorIntersectPlane(pPos, pNrm, VUVToV3(insideP[0]), VUVToV3(outsideP[0])), tri.p3.u, tri.p3.v), tri.normal, tri.wpos, tri.shade } };
     }
 
     if (iS == 2 && oS == 1)
@@ -582,7 +581,7 @@ static PyObject* CTriClipAgainstZ(PyObject* self, PyObject* args)
     std::vector<Triangle> out;
     in = PyTriToCTri(inTri);
 
-    out = TriClipAgainstPlane(in, { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 1.0 });
+    out = TriClipAgainstPlane(in, { 0.0, 0.0, 0.1 }, { 0.0, 0.0, 1.0 });
     int nd = out.size();
     if (nd > 0)
     {
@@ -612,22 +611,23 @@ static void CSetInternalCamera(PyObject* self, PyObject* args)
     CamPos = PyVectorToVector3(PyList_GetItem(inCam, 0));
     scrW = PyFloat_AsDouble(PyList_GetItem(inCam, 3));
     scrH = PyFloat_AsDouble(PyList_GetItem(inCam, 2));
-    CamTrg = PyVectorToVector3(PyList_GetItem(inCam, 6));
+    CamTrg = PyVectorToVector3(PyList_GetItem(inCam, 8));
     matV = MakeLookMat(CamPos, CamTrg, { 0.f, 1.f, 0.f });
 }
 
-static PyObject* CRasterIndex(PyObject* self, PyObject* args)
+static PyObject* CRasterPt1(PyObject* self, PyObject* args)
 {
     int pyInd;
+    int frm;
     PyObject* ppos, * prot;
     Vector3 pos, rot;
 
-    if (!PyArg_ParseTuple(args, "iOO", &pyInd, &ppos, &prot))
+    if (!PyArg_ParseTuple(args, "iOOi", &pyInd, &ppos, &prot, &frm))
         return NULL;
 
     pos = PyVectorToVector3(ppos);
     rot = PyVectorToVector3(prot);
-    Triangle transformed, translated;
+    Triangle transformed, translated, viewed, projected;
     std::vector<Triangle> rastered;
     Matrix mW;
 
@@ -638,9 +638,9 @@ static PyObject* CRasterIndex(PyObject* self, PyObject* args)
     Vector3 nrmTrg = VectorNormalize(VectorSub(CamTrg, CamPos));
 
     // Rastering
-    for (const Thing thing : things)
+    if (frm == -1)
     {
-        for (const Mesh mesh : thing.meshes)
+        for (const Mesh mesh : things[pyInd].meshes)
         {
             for (const Triangle tri : mesh.tris)
             {
@@ -650,12 +650,32 @@ static PyObject* CRasterIndex(PyObject* self, PyObject* args)
                 {
                     translated = TriangleAdd(transformed, pos);
                     translated.wpos = TriangleAverage(translated);
-                    //viewed = TriMatrixMul(tri, matV);
-                    rastered.push_back(translated);
+                    for (const Triangle tr : TriClipAgainstPlane(translated, { 0.0, 0.0, 0.1 }, { 0.0, 0.0, 1.0 }))
+                    {
+                        rastered.push_back(tr);
+                    }
                 }
             }
         }
     }
+    else
+    {
+        for (const Triangle tri : animeshes[pyInd].frames[frm].tris)
+        {
+            transformed = TransformTriangle(tri, mW);
+            transformed.normal = GetNormal(transformed);
+            if (VectorDoP(transformed.normal, nrmTrg) > -0.4)
+            {
+                translated = TriangleAdd(transformed, pos);
+                translated.wpos = TriangleAverage(translated);
+                for (const Triangle tr : TriClipAgainstPlane(translated, { 0.0, 0.0, 0.1 }, { 0.0, 0.0, 1.0 }))
+                {
+                    rastered.push_back(tr);
+                }
+            }
+        }
+    }
+    
 
     // Converting C triangle to Python list
     PyObject* newList = PyList_New(rastered.size());
@@ -675,6 +695,45 @@ static PyObject* CRasterIndex(PyObject* self, PyObject* args)
     }
     return newList;
 }
+
+static PyObject* CRasterPt2(PyObject* self, PyObject* args)
+{
+    int frm;
+    PyObject* ptri;
+
+    if (!PyArg_ParseTuple(args, "O", &ptri))
+        return NULL;
+
+    Triangle in = PyTriToCTri(ptri);
+    Triangle projected;
+    std::vector<Triangle> out;
+
+    Vector3 nrmTrg = VectorNormalize(VectorSub(CamTrg, CamPos));
+
+    projected = ProjectTriangle(in);
+    out.push_back(projected);
+
+    // Converting C triangle to Python triangle
+    PyObject* newList = PyList_New(out.size());
+    PyObject* triList;
+    int size = out.size();
+    for (int b = 0; b < size; b++)
+    {
+        // Converting C vector to Python list
+        triList = PyList_New(6);
+        PyList_SetItem(triList, 0, VectorUVToPyList(out[b].p1));
+        PyList_SetItem(triList, 1, VectorUVToPyList(out[b].p2));
+        PyList_SetItem(triList, 2, VectorUVToPyList(out[b].p3));
+        PyList_SetItem(triList, 3, Vector3ToPyList(out[b].normal));
+        PyList_SetItem(triList, 4, Vector3ToPyList(out[b].wpos));
+        PyList_SetItem(triList, 5, PyFloat_FromDouble(out[b].shade));
+
+        PyList_SetItem(newList, b, triList);
+    }
+    return newList;
+}
+
+
 
 static PyObject* AddLight(PyObject* self, PyObject* args)
 {
@@ -702,7 +761,7 @@ static PyObject* CheapFlatLighting(PyObject* self, PyObject* args)
     if (lights.size() != 0)
     {
         float shading = 0.f;
-        float intensity = 0.f;
+        double intensity = 0.f;
         Vector3 pos;
         Vector3 nrm;
         pos = { *px, *py, *pz };
@@ -715,7 +774,7 @@ static PyObject* CheapFlatLighting(PyObject* self, PyObject* args)
                 Vector3 lightDir = DirectionBetweenVectors(l.pos, pos);
                 
                 float dis = dist / l.radius;
-                intensity = dis * dis;
+                intensity = (double)dis * (double)dis;
                 shading += VectorDoP(lightDir, nrm) * (1 - intensity) * l.strength;
                 shading = std::min(shading, 1.f);
                 shading = std::max(shading, 0.f);
@@ -733,27 +792,54 @@ static PyObject* CAddThing(PyObject* self, PyObject* args)
     {
         return NULL;
     }
-    PyObject* oM, *oTr, *trList;
+    PyObject* oM, *oTr, *trList, *frList;
     Thing nT;
     int xS = PyList_GET_SIZE(pyMeshes);
     Mesh nM;
+    AniMesh aM;
     for (int x = 0; x < xS; x++)
     {
-        oM = PyList_GetItem(pyMeshes, x);
         nM.tris = {};
-        trList = PyList_GetItem(oM, 0);
-
-        Py_ssize_t yS = PyList_GET_SIZE(trList);
-        for (Py_ssize_t y = 0; y < yS; y++)
+        oM = PyList_GetItem(pyMeshes, x);
+        int frm = PyLong_AsLong(PyList_GetItem(oM, 5));
+        if (frm == -1)
         {
-            oTr = PyTuple_GetItem(trList, y);
-            nM.tris.push_back({ PyVectorToVectorUV(PyList_GetItem(oTr, 0)), PyVectorToVectorUV(PyList_GetItem(oTr, 1)), PyVectorToVectorUV(PyList_GetItem(oTr, 2)), PyVectorToVector3(PyList_GetItem(oTr, 3)), PyVectorToVector3(PyList_GetItem(oTr, 4)), PyFloat_AsDouble(PyList_GetItem(oTr, 5)) });
+            trList = PyList_GetItem(oM, 0);
+
+            Py_ssize_t yS = PyList_GET_SIZE(trList);
+            for (Py_ssize_t y = 0; y < yS; y++)
+            {
+                oTr = PyTuple_GetItem(trList, y);
+                nM.tris.push_back({ PyVectorToVectorUV(PyList_GetItem(oTr, 0)), PyVectorToVectorUV(PyList_GetItem(oTr, 1)), PyVectorToVectorUV(PyList_GetItem(oTr, 2)), PyVectorToVector3(PyList_GetItem(oTr, 3)), PyVectorToVector3(PyList_GetItem(oTr, 4)), PyFloat_AsDouble(PyList_GetItem(oTr, 5)) });
+            }
+            nT.meshes.push_back(nM);
+            Py_ssize_t rt = things.size();
+            things.push_back(nT);
+            return PyLong_FromSsize_t(rt);
         }
-        nT.meshes.push_back(nM);
+        else
+        {
+            aM.frames = {};
+            frList = PyList_GetItem(oM, 0);
+            int yZ = PyList_GET_SIZE(frList);
+            for (int z = 0; z < yZ; z++)
+            {
+                trList = PyList_GetItem(frList, z);
+                int yS = PyList_GET_SIZE(trList);
+                for (int y = 0; y < yS; y++)
+                {
+                    oTr = PyTuple_GetItem(trList, y);
+                    nM.tris.push_back({ PyVectorToVectorUV(PyList_GetItem(oTr, 0)), PyVectorToVectorUV(PyList_GetItem(oTr, 1)), PyVectorToVectorUV(PyList_GetItem(oTr, 2)), PyVectorToVector3(PyList_GetItem(oTr, 3)), PyVectorToVector3(PyList_GetItem(oTr, 4)), PyFloat_AsDouble(PyList_GetItem(oTr, 5)) });
+                }
+                aM.frames.push_back(nM);
+            }
+            Py_ssize_t rt = animeshes.size();
+            animeshes.push_back(aM);
+            return PyLong_FromSsize_t(rt);
+        }
+        
     }
-    Py_ssize_t rt = things.size();
-    things.push_back(nT);
-    return PyLong_FromSsize_t(rt);
+    
 }
 
 static PyObject* CTriToPixels(PyObject* self, PyObject* args)
@@ -837,14 +923,14 @@ static PyObject* CTriToPixels(PyObject* self, PyObject* args)
 
 static PyMethodDef z3dpyfast_methods[] = {
     { "CAddThing", (PyCFunction)CAddThing, METH_VARARGS, nullptr },
-    { "CRaster", (PyCFunction)CRasterIndex, METH_VARARGS, nullptr },
+    { "CRasterPt1", (PyCFunction)CRasterPt1, METH_VARARGS, nullptr },
+    { "CRasterPt2", (PyCFunction)CRasterPt2, METH_VARARGS, nullptr },
     { "CAddLight", (PyCFunction)AddLight, METH_VARARGS, nullptr },
     { "CFlatLighting", (PyCFunction)CheapFlatLighting, METH_VARARGS, nullptr },
     { "CTriClipAgainstScreenEdges", (PyCFunction)CTriClipAgainstScreenEdges, METH_VARARGS, nullptr },
     { "CTriClipAgainstZ", (PyCFunction)CTriClipAgainstZ, METH_VARARGS, nullptr },
     { "CSetInternalCamera", (PyCFunction)CSetInternalCamera, METH_VARARGS, nullptr },
     { "CTriToPixels", (PyCFunction)CTriToPixels, METH_VARARGS, nullptr },
-    //{ "Template", (PyCFunction)TemplateMatrix, METH_VARARGS, nullptr },
     { nullptr, nullptr, 0, nullptr }
 };
 
