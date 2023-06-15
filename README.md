@@ -1,13 +1,13 @@
 # Z3dPy
 ![enginef](https://github.com/ZackWilde27/Z3dPy/assets/115175938/072e0f64-a536-4ae9-bc7e-60f542c3f950)
 
-Z3dPy is a software renderer written mostly in Python, (with extentions for speed), built into a module focused on ease of use.
+Z3dPy is a 3D software renderer written entirely in Python, built into a module focused on ease of use. Now with an extension to speed up rendering.
+
+Still in active development.
 
 You'll need a display window, I recommend PyGame for it's speed, but tkinter works fine.
-
-Renders nearly 1000 on-screen triangles at 30 fps *(tested on my ryzen 7, pure python rendering)*
-
-Handles Rasterization, Physics/Collisions, and Lighting. Still in active development.
+ 
+Handles drawing triangles, but also features physics/collisions, rays, lights, etc.
 
 Documentation can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
@@ -144,7 +144,7 @@ To do flat shading, call DrawTriF() and put in one of the normal axis
 
 # Exporting Mesh
 
-Export your mesh as an OBJ file, with no extra information. Anything that isn't a triangle will be triangulated automatically.
+Export your mesh as an OBJ file, with no extra information. N-gons are triangulated automatically.
 <br>
 Up axis is -Y, and Forward axis is Z.
 
