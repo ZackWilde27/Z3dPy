@@ -1,13 +1,13 @@
 # Z3dPy
 ![enginef](https://github.com/ZackWilde27/Z3dPy/assets/115175938/072e0f64-a536-4ae9-bc7e-60f542c3f950)
 
-Z3dPy is a 3D software renderer written entirely in Python, built into a module focused on ease of use. Now with an extension to speed up rendering.
+Z3dPy is my open-source 3D software renderer written entirely in Python. (Now with an extension to speed up rendering.)
 
-Still in active development.
+Still in active development
 
 You'll need a display window, I recommend PyGame for it's speed, but tkinter works fine.
- 
-Handles drawing triangles, but also features physics/collisions, rays, lights, etc.
+
+Handles all the math for drawing, as well as lighting, rays/collisions, and basic physics.
 
 Documentation can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
