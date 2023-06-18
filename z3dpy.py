@@ -1,118 +1,39 @@
 # -zw
 '''
 
-Z3dPy v0.2.2
+Z3dPy v0.2.3
+# *Nightly version, wiki/examples are based on the release version.
 
 Change Notes:
 
-C++
-
-- Added z3dpyfast, the raster functions re-written as a C++ extension.
-To use the faster raster functions. Call CAddThing() instead of AddThing(), and CRaster() instead of Raster().
-
-
-ANIMATED MESHES
-
-- Added animated meshes: Call LoadAnimMesh() instead of LoadMesh(). 
-
-Exporting objs as animations will create a file for each frame, numbered. To load these, specify the name without the number
-
-If my list of files was anim1.obj, anim2.obj, and so on, put in anim.obj
-
-AniMeshes have functions for changing the frame number, like AnimMeshGetFrame(animesh) and AnimMeshIncFrame(animesh)
-
-All animeshes of a thing can be incremented with ThingIncFrames(thing)
-
-Loop/Jump points can be made with AnimMeshSetFrameNext(aniMesh, iFrame, iNext). When iFrame is played, it'll jump to iNext afterwards
-
-- AnimMeshes also support AI (That has a different meaning these days, I'm talking traditional AI)
-Add a function to a specific frame of the animation with AnimMeshSetFrameFunc(aniMesh, iFrame, function)
-
-
-LAYERS
-
-- The global things list is now in layers. AddThing() will default to the third layer, but you can now specify.
-Layers make sure that certain things draw over others, regardless of depth.
-
-The default configuration has 2 background layers, the default layer, and 1 top layer.
-If you need more than 4 layers, re-create the layers tuple at the start: z3dpy.layers = ([], [], [], [], [], ...)
-
-
-TRAINS
-
-- New terrain system to make replacing the flat floor of HandlePhysics() a lot easier. 
-
-Create a terrain with myTrain = z3dpy.Train(iWidth, iLength)
-
-Adjust height at certain locations with myTrain[x][y] = fHeight
-
-Bake the terrain with z3dpy.BakeTrain(train). 
-Baking trains will blur points into smooth hills, which can be adjusted with optional iPasses, FStrength, and fAmplitude arguments: z3dpy.BakeTrain(train, 3, 0.5, 1.5)
-
-Once it's baked, use HandlePhysicsTrain(things, train) instead of HandlePhysicsFloor(things, floorHeight)
-
-Keep in mind it's an invisible floor, meant to be matched to the environment, but it can be debug-drawn with DebugRaster(train)
-
-
 PHYSICS
 
-- HandlePhysics() has been replaced with HandlePhysicsFloor(things, floorHeight)
+- BasicHandleCollisions() has been completely overhauled, and is now fairly robust.
+Takes two things that are colliding, the oth, and the pivot, and moves the oth out of the pivot's hitbox.
 
-- Added HandlePhysicsTrain(things, train)
+- PhysicsCollisions() has also had upgrades behind the scenes, and now when a physics thing meets a non-physics thing, it'll use BasicHandleCollisions() to separate, along with bouncing.
 
-- Added ThingStop(), which will zero out velocity
+- Renamed gravityDir to just gravity
 
+PGPIXELSHADER
 
-RENDERING
+- Working on PgPixelShader(), it's nearly there, still figuring out some bugs
 
-- Updated default projection variables to match new system.
+- Textures have a transparency bool, pixels that are False won't be drawn.
 
-- Added dots, a way of debug-drawing specific points in world space.
-Append any vector to the z3dpy.dots list and it'll be drawn with DebugRaster()
+- Performance is still a big issue, and I don't know how it could be solved,
+as the bottle-neck is drawing to the screen.
 
-- DebugRaster()'s first argument is now a train to draw, it'll draw each point as a dot.
-If you aren't using trains, put in []
+VECTORS
 
-- FindHowVars() now has an optional argument for aspect ratio
-Put height over width as a fraction, so 16:9 is 9/16, and 21:9 is 9/21.
-If unsure, you can also put raw screen height and width in the fraction: like 1080/1920.
+- Added VectorZero(vector, threshold), which will return a vector where each axis below the threshold is 0
 
-- Ultimately decided to remove DebugRasterThings() as having both requires either duplicate code or less efficiency.
+TRIS
 
-
-RAYS
-
-- Added ray collisions. Use RayIntersectTri(ray, tri), RayIntersectThingSimple(ray, thing), or RayIntersectThingComplex(ray, thing)
-
-Usage:
-hit = RayIntersectThingSimple(myRay, thing)
-# Hit: 0 is wether or not it hit, 1 is location, 2 is distance, 3 is normal of hit.
-if hit[0]:
-    print(hit[1])
-
-Simple will check for ray collisions with the triangles of the hitbox.
-
-Complex will check for ray collisions with the triangles of the meshes
-
-- Added RayGetLength(ray) -> float
-
-
-EXPENSIVE LIGHTING (Experimental)
-
-- BakeLighting(things, isExpens) now has an optional bool argument to specify Expensive lighting calculations, which creates a ray from the triangle to each light source
-and checks for collisions to create shadows.
-
-World position is slightly offset from actual position (still working on that), so shadows may look incorrect in some places.
-
-
-MISC
-
-- Vastly improved the efficiency of FindHowVars()
-
-- Added more documentation here
+- Added TriGetP1(tri), TriGetP2(tri), and TriGetP3(tri)
+I'd still recommend the good ol' tri[0], tri[1] and tri[2], but the functions are easier to read.
 
 '''
-import math
 
 # Time for delta-time calculations related to physics
 import time
@@ -124,9 +45,12 @@ import random as rand
 try:
     import z3dpyfast
 except:
-    print("Can't load z3dpyfast. Copy the version for your OS to the same folder as z3dpy.py")
+    print("Can't load z3dpyfast. If you need it's functions, refer to the wiki.")
 
-print("Z3dPy v0.2.2")
+# Math for, well...
+import math
+
+print("Z3dPy v0.2.3")
 
 
 
@@ -147,42 +71,20 @@ physTime = time.time()
 
 delta = 0.3
 
-gravityDir = [0, 9.8, 0]
+gravity = [0, 9.8, 0]
 
 airDrag = 0.02
 
 # Internal list of lights, for both FlatLighting(), and DebugRaster()
 lights = []
 
+# Internal list of textures, for PgPixelShader()
+textures = []
+
 # Global things list, now in layers
 # If you need more layers, create a new tuple like so
 # z3dpy.layers = ([], [], [], [], [], ...)
 layers = ([], [], [], [])
-
-def AddThing(thing, iLayer=2):
-    # Setting the internal id to the length of the list, which
-    # corrosponds to it's new index
-    thing[6] = len(layers[iLayer])
-    layers[iLayer].append(thing)
-
-def AddThings(things, iLayer=2):
-    for thing in things:
-        AddThing(thing, iLayer)
-
-def CAddThing(thing):
-    # Same thing but for C++
-    thing[6] = z3dpyfast.CAddThing(thing[0])
-    layers[2].append(thing)
-
-
-# If you don't specify the layer, looks for it in the default layer.
-def RemoveThing(thing, iLayer=2):
-    global layers
-    if len(layers[iLayer]) == 1:
-        layers[iLayer] = []
-        return
-    dex = thing[6]
-    layers[iLayer] = layers[iLayer][:dex] + layers[iLayer][dex + 1:]
 
 # Global list of rays for drawing with DebugRaster()
 rays = []
@@ -313,7 +215,7 @@ def Hitbox(type = 2, id = 0, radius = 1, height = 1):
 #
 # Enable physics with z3dpy.ThingSetupPhysics(myThing)
 #
-# [0] is velocity, [1] is acceleration, [2] is mass, [3] is friction, [4] is bounciness
+# [0] is velocity, [1] is acceleration, [2] is mass, [3] is friction, [4] is bounciness, [5] is rot velocity, and [6] is rot acceleration
 #
 # Mass does not have to be 0-1, but I've found small values work better.
 #
@@ -326,7 +228,7 @@ def Hitbox(type = 2, id = 0, radius = 1, height = 1):
 # Drag is now a global variable, representing air resistance.
 
 def PhysicsBody():
-    return [[0, 0, 0], [0, 0, 0], 0.2, 0.2, 0.5]
+    return [[0, 0, 0], [0, 0, 0], 1500, 15, 0.5, [0, 0, 0], [0, 0, 0]]
 
 # Things:
 #
@@ -376,7 +278,10 @@ def SetInternalCamera(camera):
     iC = [CameraGetPos(camera), CameraGetRot(camera), CameraGetScH(camera), CameraGetScW(camera), CameraGetScH(camera) * 0.5, CameraGetScW(camera) * 0.5, CameraGetNCl(camera), CameraGetFCl(camera), CameraGetTargetVector(camera), CameraGetUpVector(camera)]
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intMatV = LookAtMatrix(camera)
-    z3dpyfast.CSetInternalCamera(iC)
+    try:
+        z3dpyfast.CSetInternalCamera(iC)
+    except:
+        return
 
 # Lights:
 #
@@ -528,12 +433,13 @@ def BakeTrain(train, passes=1, strength=1.0, amplitude=1.0):
 # Textures:
 #
 # Textures are a matrix/list of lists, to form a grid of colours.
+# Transparency is a bool. It won't draw pixels that are False transparency.
 
 # Pixels can be accessed or changed with myTexture[x][y].
 
 def TestTexture():
-    # A red and blue 2x2 checker texture
-    return (((255, 0, 0), (0, 0, 255)), ((0, 0, 255), (255, 0, 0)))
+    # A red and blue 4x4 checker texture
+    return (((255, 0, 0, True), (255, 20, 0, True), (0, 38, 255, True), (0, 62, 255, True)), ((213, 4, 24, True), (255, 20, 47, True), (16, 39, 225, True), (28, 62, 255, True)), ((0, 38, 255, True), (0, 62, 255, True), (255, 0, 0, True), (255, 20, 0, True)), ((16, 39, 225, True), (28, 62, 255, True), (213, 4, 24, True), (255, 20, 47, True)))
 
 
 
@@ -548,6 +454,16 @@ def TestTexture():
 # The majority of these functions have no speed cost.
 
 # TRIANGLES
+
+# Functions for each point
+def TriGetP1(tri):
+    return tri[0]
+
+def TriGetP2(tri):
+    return tri[1]
+
+def TriGetP3(tri):
+    return tri[2]
 
 # TriGetNormal() will return the current normal, while GetNormal() will calculate a new one.
 def TriGetNormal(tri):
@@ -654,6 +570,31 @@ def AnimMeshSetFrameNext(animMesh, iFrame, iNext):
 
 
 # THINGS
+
+def AddThing(thing, iLayer=2):
+    # Setting the internal id to the length of the list, which
+    # corrosponds to it's new index
+    thing[6] = len(layers[iLayer])
+    layers[iLayer].append(thing)
+
+def AddThings(things, iLayer=2):
+    for thing in things:
+        AddThing(thing, iLayer)
+
+def CAddThing(thing):
+    # Same thing but for C++
+    thing[6] = z3dpyfast.CAddThing(thing[0])
+    layers[2].append(thing)
+
+
+# If you don't specify the layer, looks for it in the default layer.
+def RemoveThing(thing, iLayer=2):
+    global layers
+    if len(layers[iLayer]) == 1:
+        layers[iLayer] = []
+        return
+    dex = thing[6]
+    layers[iLayer] = layers[iLayer][:dex] + layers[iLayer][dex + 1:]
 
 
 def ThingSetPos(thing, vector):
@@ -864,6 +805,24 @@ def ThingSetBounciness(thing, bnc):
 
 def ThingGetBounciness(thing):
     return thing[4][4]
+
+def ThingSetRotVelocity(thing, vector):
+    thing[4][5] = vector
+
+def ThingAddRotVelocity(thing, vector):
+    thing[4][5] = VectorAdd(thing[4][5], vector)
+
+def ThingGetRotVelocity(thing):
+    return thing[4][5]
+
+def ThingSetRotAccel(thing, vector):
+    thing[4][6] = vector
+
+def ThingAddRotAccel(thing, vector):
+    thing[4][6] = VectorAdd(thing[4][6], vector)
+
+def ThingGetRotAccel(thing):
+    return thing[4][6]
 
 # ThingStop resets velocity and acceleration to 0. 
 def ThingStop(thing):
@@ -1266,8 +1225,6 @@ def VectorUVDiv(v1, v2):
 def VectorUVDivF(v1, f):
     return VectorDivF(v1, f) + [v1[3], v1[4]]
 
-
-
 #==========================================================================
 #  
 # Vector functions
@@ -1367,10 +1324,7 @@ def DirectionBetweenVectors(v1, v2):
 
 # Give it a vector and it'll return a vector where the strongest axis is 1 and the others are 0
 def VectorPureDirection(v):
-    output = []
-    for axis in VectorNormalize(v):
-        output.append(1.0 if axis == 1.0 else 0.0)
-    return output
+    return VectorZero(VectorNormalize(v), 1.0)
 
 def VectorRotateX(vec, deg):
     return Vec3MatrixMul(vec, MatrixMakeRotX(deg))
@@ -1380,6 +1334,9 @@ def VectorRotateY(vec, deg):
 
 def VectorRotateZ(vec, deg):
     return Vec3MatrixMul(vec, MatrixMakeRotZ(deg))
+
+def VectorZero(vec, thresh):
+    return [0 if axis <= thresh else axis for axis in vec]
 
 
 #==========================================================================
@@ -1639,6 +1596,12 @@ def NewArrow(x=0, y=0, z=0):
 def NewSphere(x=0, y=0, z=0):
     return LoadMesh("z3dpy/mesh/sphere.obj", x, y, z)
 
+def MeshUniqPoints(mesh):
+    output = []
+    for tri in MeshGetTris(mesh):
+        output.append((tri[0], tri[1], tri[2]))
+    return set(output)
+
 
 #==========================================================================
 #  
@@ -1727,9 +1690,8 @@ def MatrixMakeProjection(fov):
 
 
 def RayIntersectTri(ray, tri):
-    deadzone = 0.0000001
-    deadzone = 0.1
     # Using the Moller Trumbore algorithm
+    deadzone = 0.1
     if len(rays) < 100:
         rays.append(ray)
     rayDr = RayGetDirection(ray)
@@ -1778,10 +1740,9 @@ def RayIntersectMesh(ray, mesh):
 
 # Does a ray intersection test with the hitbox
 def RayIntersectThingSimple(ray, thing):
-    for t in thing[4][0]:
-        hit = RayIntersectMesh(ray, t)
-        if hit[0]:
-            return hit
+    hit = RayIntersectMesh(ray, ThingGetHitboxMesh(thing))
+    if hit[0]:
+        return hit
     return (False,)
 
 # Does a ray intersection test with each triangle
@@ -1819,9 +1780,9 @@ def RayIntersectThingComplex(ray, thing):
 def GatherCollisions(thingList):
     results = []
     for me in range(0, len(thingList)):
-        if thingList[me][4] != []:
+        if thingList[me][3] != []:
             for thm in range(0, len(thingList)):
-                if thingList[thm][4] != []:
+                if thingList[thm][3] != []:
 
                     # In order of speed
                     if thm != me:
@@ -1846,16 +1807,16 @@ def GatherCollisions(thingList):
                                     case 2:
                                         # Cube
                                         # Just a bunch of range checks
-                                        thR = ThingGetHitboxRadius(thingList[thm])
-                                        thH = ThingGetHitboxHeight(thingList[thm])
-                                        if abs(myPos[0] - thPos[0]) <= thR:
-                                            if abs(myPos[1] - thPos[1]) <= thH:
-                                                if abs(myPos[2] - thPos[2]) <= thR:
+                                        rad = ThingGetHitboxRadius(thingList[me]) + ThingGetHitboxRadius(thingList[thm])
+                                        hgt = ThingGetHitboxHeight(thingList[me]) + ThingGetHitboxHeight(thingList[thm])
+                                        if abs(myPos[0] - thPos[0]) <= rad:
+                                            if abs(myPos[1] - thPos[1]) <= hgt:
+                                                if abs(myPos[2] - thPos[2]) <= rad:
                                                     results.append([thingList[me], thingList[thm]])
     return results
 
 # BasicHandleCollisions()
-# Takes a list of two things colliding, and moves the one that isMovable away from the second.
+# Takes 2 things: the other, and the pivot. The other will get manually placed out of the pivot's hitbox.
 
 # Usage:
 #
@@ -1867,15 +1828,57 @@ def GatherCollisions(thingList):
 #       BasicHandleCollisions(collision)
 #
 
-def BasicHandleCollisions(things):
-    if not ThingGetMovable(things[0]):
-        if not ThingGetMovable(things[1]):
-            return
-        newPos = VectorNegate(DirectionBetweenVectors(things[1][1], things[0][1]))
-        things[1][1] = VectorAdd(things[1][1], newPos)
-    else:
-        newPos = VectorMulF(VectorNegate(DirectionBetweenVectors(things[0][1], things[1][1])), DistanceBetweenVectors(things[1][1], things[0][1]))
-        things[0][1] = VectorAdd(things[0][1], newPos)
+def BasicHandleCollisions(oth, pivot):
+    if ThingGetPosY(oth) + ThingGetHitboxHeight(oth) < (ThingGetPosY(pivot) - ThingGetHitboxHeight(pivot)) + gravity[1] * 0.05:
+        # Floor
+        print("Floor1")
+        ThingSetVelocityY(oth, 0)
+        ThingSetPosY(oth, ThingGetPosY(pivot) - ThingGetHitboxHeight(pivot) - ThingGetHitboxHeight(oth))
+        GroundBounce(oth)
+        return
+    
+    if ThingGetPosX(oth) + ThingGetHitboxRadius(oth) < (ThingGetPosX(pivot) - ThingGetHitboxRadius(pivot)) + 0.5:
+        # +X Wall Collision
+        print("+X")
+        ThingSetPosX(oth, ThingGetPosX(pivot) - ThingGetHitboxRadius(pivot) - ThingGetHitboxRadius(oth) - 0.04)
+        PhysicsBounce(oth)
+        return
+    
+    if ThingGetPosX(oth) - ThingGetHitboxRadius(oth) > (ThingGetPosX(pivot) + ThingGetHitboxRadius(pivot)) - 0.5:
+        # -X Wall Collision
+        print("-X")
+        ThingSetPosX(oth, ThingGetPosX(pivot) + ThingGetHitboxRadius(pivot) + ThingGetHitboxRadius(oth) + 0.04)
+        PhysicsBounce(oth)
+        return
+    
+    if ThingGetPosZ(oth) + ThingGetHitboxRadius(oth) < (ThingGetPosX(pivot) - ThingGetHitboxRadius(pivot)) + 0.5:
+        # +Z Wall Collision
+        print("+Z")
+        ThingSetPosZ(oth, ThingGetPosZ(pivot) - ThingGetHitboxRadius(pivot) - ThingGetHitboxRadius(oth))    
+        PhysicsBounce(oth)
+        return
+    
+    if ThingGetPosZ(oth) - ThingGetHitboxRadius(oth) > (ThingGetPosZ(pivot) + ThingGetHitboxRadius(pivot)) - 0.5:
+        # -Z Wall Collision
+        print("-Z")
+        ThingSetPosZ(oth, ThingGetPosZ(pivot) + ThingGetHitboxRadius(pivot) + ThingGetHitboxRadius(oth))
+        PhysicsBounce(oth)
+        return
+    
+    if ThingGetPosY(oth) - ThingGetHitboxHeight(oth) > (ThingGetPosY(pivot) + ThingGetHitboxHeight(pivot)) - 0.5:
+        # Ceiling Collision
+        print("Ceil")
+        ThingSetVelocityY(oth, 0)
+        ThingSetPosY(oth, ThingGetPosY(pivot) + ThingGetHitboxHeight(pivot) + ThingGetHitboxHeight(oth))
+        return
+
+    # Defaults to
+    # Floor Collision
+    print("Floor2")
+    ThingSetVelocityY(oth, 0)
+    ThingSetPosY(oth, ThingGetPosY(pivot) - ThingGetHitboxHeight(pivot) - ThingGetHitboxHeight(oth))
+    GroundBounce(oth)
+
 
 # HandlePhysics()
 # Sets the position of each thing based on it's physics calculations.
@@ -1899,29 +1902,37 @@ def HandlePhysics(thing, floorHeight=0):
         ThingAddVelocity(thing, ThingGetAcceleration(thing))
         # Drag
         ThingSetVelocity(thing, VectorSub(ThingGetVelocity(thing), [airDrag * sign(ThingGetVelocityX(thing)), airDrag * sign(ThingGetVelocityY(thing)), airDrag * sign(ThingGetVelocityZ(thing))]))
-        for axis in ThingGetVelocity(thing):
-            if abs(axis) <= 0.1:
-                axis = 0
+        ThingSetRotVelocity(thing, VectorSub(ThingGetRotVelocity(thing), [airDrag * sign(ThingGetRotVelocity(thing)[0]), airDrag * sign(ThingGetRotVelocity(thing)[1]), airDrag * sign(ThingGetRotVelocity(thing)[2])]))
         # Gravity
-        ThingAddVelocity(thing, VectorMulF(gravityDir, 0.05))
+        ThingAddVelocity(thing, VectorMulF(gravity, 0.05))
+        # Applying Velocities
         ThingAddPos(thing, VectorMulF(ThingGetVelocity(thing), delta))
-        if ThingGetPosY(thing) >= floorHeight:
-            ThingSetPosY(thing, floorHeight)
+        ThingAddRot(thing, VectorMulF(ThingGetRotVelocity(thing), delta))
+        if ThingGetPosY(thing) >= floorHeight - (ThingGetHitboxHeight(thing) * 0.5):
+            ThingSetPosY(thing, floorHeight - (ThingGetHitboxHeight(thing) * 0.5))
             GroundBounce(thing)
 
-def HandlePhysicsFloor(thingList, fFloorHeight=0):
-    for t in thingList:
-        HandlePhysics(t, fFloorHeight)
+def HandlePhysicsFloor(fFloorHeight=0):
+    for layer in layers:
+        for t in layer:
+            HandlePhysics(t, fFloorHeight)
 
-def HandlePhysicsTrain(thingList, train):
-    for t in thingList:
-        if ThingGetPosX(t) > 0.0 and ThingGetPosX(t) < len(train):
-            if ThingGetPosZ(t) > 0.0 and ThingGetPosZ(t) < len(train[0]):
-                trainX = math.floor(ThingGetPosX(t))
-                trainY = math.floor(ThingGetPosZ(t))
-                HandlePhysics(t, train[trainX][trainY])
-                continue
-        HandlePhysics(t, 0.0)
+def HandlePhysicsTrain(train):
+    for layer in layers:
+        for t in layer:
+            if ThingGetPosX(t) > 0.0 and ThingGetPosX(t) < len(train):
+                if ThingGetPosZ(t) > 0.0 and ThingGetPosZ(t) < len(train[0]):
+                    trainX = math.floor(ThingGetPosX(t))
+                    trainY = math.floor(ThingGetPosZ(t))
+                    dx = ThingGetPosX(t) - trainX
+                    dy = ThingGetPosZ(t) - trainY
+                    h1 = train[trainX][trainY]
+                    h2 = h1 - train[trainX + 1][trainY]
+                    h3 = h1 - train[trainX][trainY + 1]
+                    h4 = h1 + (((h2 * dx) + (h3 * dy)) * 0.5)
+                    HandlePhysics(t, h4)
+                    continue
+            HandlePhysics(t, 0.0)
 
 def PhysicsBounce(thing):
     d = VectorPureDirection(ThingGetVelocity(thing))
@@ -1954,23 +1965,21 @@ def GroundBounce(thing):
 def PhysicsCollisions(thingList):
     for cols in GatherCollisions(thingList):
         if ThingGetPhysics(cols[0]) != []:
-            myforce = VectorMulF(VectorMulF(ThingGetVelocity(cols[0]), ThingGetMass(cols[0])), ThingGetFriction(cols[1]))
             if ThingGetPhysics(cols[1]) != []:
+                myforce = VectorMulF(VectorMulF(ThingGetVelocity(cols[0]), ThingGetMass(cols[0])), ThingGetFriction(cols[1]))
                 thforce = VectorMulF(VectorMulF(ThingGetVelocity(cols[1]), ThingGetMass(cols[1])), ThingGetFriction(cols[0]))
                 toforce = VectorAdd(myforce, thforce)
                 ThingAddVelocity(cols[0], toforce)
                 ThingAddVelocity(cols[1], VectorNegate(toforce))
             else:
-                ThingAddVelocity(cols[0], toforce)
-                PhysicsBounce(cols[0])
+                BasicHandleCollisions(cols[0], cols[1])
+            
         else:
             # Assuming that if we ended up here, this one has to have physics.
-            force = VectorMulF(VectorMulF(DirectionBetweenVectors(ThingGetPos(cols[1]), ThingGetPos(cols[0])), ThingGetMass(cols[1])), ThingGetFriction(cols[0]))
-            ThingAddVelocity(cols[1], force)
-            PhysicsBounce(cols[0])
+            BasicHandleCollisions(cols[1], cols[0])
 
 def sign(f):
-    return 1 if f >= 0 else -1
+    return 1 if f > 0 else -1 if f < 0 else 0
 
 #==========================================================================
 #  
@@ -2518,40 +2527,6 @@ def FillTriangleLinePt2(list, fSlope):
 #       v = uv[1]
 #
 
-def UVCalcPt1(uv1, uv2, uv3, Fx, Fx2, stage):
-    match stage:
-        case 0:
-            # Meant to be multiplied by 0-1 for interpolation
-            # From P1 to P2
-            uvD1 = uv2[0] - uv1[0]
-            uvD2 = uv2[1] - uv1[1]
-        case 1:
-            # From P2 to P3
-            uvD1 = uv3[0] - uv2[0]
-            uvD2 = uv3[1] - uv2[1]
-    # Figure out the UV points for the vertical line we are about to draw
-    UVstX = Fx * uvD1 + uv1[0]
-    UVstY = Fx * uvD2 + uv1[1]
-
-    # From P1 to P3
-    uvD3 = uv3[0] - uv1[0]
-    uvD4 = uv3[1] - uv1[1]
-
-    UVndX = Fx2 * uvD3 + uv1[0]
-    UVndY = Fx2 * uvD4 + uv1[1]
-                
-    # And the differences for interpolation
-    uvDy = UVndY - UVstY
-    uvDx = UVndX - UVstX
-    return [uvDx, uvDy, UVstX, UVstY, UVndX, UVndY]
-
-
-def UVCalcPt2(Fy, uvDx, uvDy, UVstX, UVstY):
-    # Figure out the UV for the current pixel along the line.
-    uvY = Fy * uvDy + UVstY      
-    uvX = Fy * uvDx + UVstX
-    return [uvX, uvY]
-
 # Lots of comments because something is broken, and
 # so far I haven't found the issue, maybe there's someone who can.
 def TriToPixels(tri):
@@ -2568,12 +2543,128 @@ def TriToPixels(tri):
         # multiplied by 0-1 to get a screen X, along the P1-P2 line (normalized, make sure to add back P1's X)
         diff = list[1][0] - list[0][0]
 
-        uv1 = list[0][4]
-        uv2 = list[1][4]
-        uv3 = list[2][4]
+        # If this side's flat, no need.
+        if diff != 0:
+            diffY = list[1][1] - list[0][1]
+            # x * diff3 takes a screen x and results in a screen y, on the P1-P2 line (normalized, make sure to add back P1's Y)
+            diff3 = diffY / diff
+
+            for x in range(int(diff) + 1):
+
+                range1 = int(diff3 * x + list[0][1])
+                range2 = int(slope * x + list[0][1])
+
+                fX = int(x + list[0][0])
+
+                sgn = 1 if range1 < range2 else -1
+                for y in range(range1, range2, sgn): 
+                    # Pixel:
+                    # [0] is the screen x, [1] is the screen y, [2] is the UV
+                    output.append((fX, y))
+
+        output += FillTrianglePixelPt2(list, slope, diff)
+    return output
+
+def FillTrianglePixelPt2(list, fSlope, diff):
+    output = []
+    if list[2][0] != list[1][0]:
+        diff2 = list[2][0] - list[1][0]
+        if diff2 != 0:
+            slope2 = (list[2][1] - list[1][1]) / diff2
+
+            for x in range(int(diff2)):
+                # Repeat the same steps except for this side now.
+                range1 = int(slope2 * x + list[1][1])
+                range2 = int(fSlope * (x + diff) + list[0][1])
+
+                fX = int(x + list[1][0])
+
+                sgn = 1 if range1 < range2 else -1
+
+                for y in range(range1, range2, sgn):
+
+                    output.append((fX, y))
+    return output
+
+# PgPixelShader()
+# Calculates texturing (or at least it's supposed to, working on it), converts the triangle to pixels, then draws them to the screen via a PyGame PixelArray.
+
+# Being a software renderer written in Python, looping through each pixel of the triangle is not feasible.
+# It's only for PyGame because it's already bad enough with the extra speed pygame has.
+
+# So right now it's a showcase effect that doesn't render in real time.
+# There may be a way to get acceptable performance by compiling it.
+
+# Usage:
+#
+# screenArray = pygame.PixelArray(screen)
+#
+# for tri in RasterThings(things):
+#   PgPixelShader(tri, screenArray)
+#
+txtr = TestTexture()
+
+# UVCalcPt1()
+# Fx is normalized X from either P1 - P2 or P2 - P3 depending on stage
+# Fx2 is normalized X from P1 to P3
+# stage is a bool, determines which side of the triangle is being drawn,
+
+def UVCalcPt1(uv1, uv2, uv3, Fx, Fx2, bStage1):
+    if bStage1:
+        # Meant to be multiplied by 0-1 for interpolation
+        # From P1 to P2
+        uvD1 = uv2[0] - uv1[0]
+        uvD2 = uv2[1] - uv1[1]
+        # Figure out the UV points for the vertical line we are about to draw
+        UVstX = Fx * uvD1 + uv1[0]
+        UVstY = Fx * uvD2 + uv1[1]
+    else:
+        # From P2 to P3
+        uvD1 = uv3[0] - uv2[0]
+        uvD2 = uv3[1] - uv2[1]
+        UVstX = Fx * uvD1 + uv2[0]
+        UVstY = Fx * uvD2 + uv2[1]
+    
+    # From P1 to P3
+    uvD3 = uv3[0] - uv1[0]
+    uvD4 = uv3[1] - uv1[1]
+
+    UVndX = Fx2 * uvD3 + uv1[0]
+    UVndY = Fx2 * uvD4 + uv1[1]
+                
+    # differences for interpolation
+    uvDy = UVndY - UVstY
+    uvDx = UVndX - UVstX
+    return (uvDx, uvDy, UVstX, UVstY)
+
+
+def UVCalcPt2(Fy, uvDx, uvDy, UVstX, UVstY):
+    # Figure out the UV for the current pixel along the line.
+    uvY = Fy * uvDy + UVstY      
+    uvX = Fy * uvDx + UVstX
+    return (uvX, uvY)
+
+# Lots of comments because something is broken, and
+# so far I haven't found the issue, maybe there's someone who can.
+def PgPixelShader(tri, pixelArray, pygame):
+    list = [tri[0], tri[1], tri[2]]
+    list.sort(key=FillSort)
+
+    diffX = list[2][0] - list[0][0]
+
+    if diffX != 0:
+        # x * slope takes a screen X and turns it into a screen Y, along the P1-P3 line
+        slope = (list[2][1] - list[0][1]) / diffX
+
+        # multiplied by 0-1 to get a screen X, along the P1-P2 line (normalized, make sure to add back P1's X)
+        diff = list[1][0] - list[0][0]
 
         # If this side's flat, no need.
         if diff != 0:
+
+            uv1 = list[0][4]
+            uv2 = list[1][4]
+            uv3 = list[2][4]
 
             diffY = list[1][1] - list[0][1]
             # x * diff3 takes a screen x and results in a screen y, on the P1-P2 line (normalized, make sure to add back P1's Y)
@@ -2586,11 +2677,13 @@ def TriToPixels(tri):
 
                 # Converting screen x to 0-1
                 # Normalized between P1 and P2
-                nX = (x / (int(diff) + 1))
+                nX = (x / diff)
                 # Normalized between P1 and P3
                 nX2 = (x / diffX)
 
-                UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, 0)
+                UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, True)
+
+                fX = int(x + list[0][0])
 
                 sgn = 1 if range1 < range2 else -1
                 for y in range(range1, range2, sgn):
@@ -2600,63 +2693,55 @@ def TriToPixels(tri):
                         
                     # Pixel:
                     # [0] is the screen x, [1] is the screen y, [2] is the UV
-                    output.append((x + int(list[0][0]), y, UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])))
+                    if fX > 0 and fX < iC[3]:
+                        if y > 0 and y < iC[2]:
+                            if pixelArray[fX, y] == 0:
+                                fUVs = UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])
+                                rU = int(fUVs[0] * len(txtr))
+                                rV = int(fUVs[1] * len(txtr[0]))
+                                u = int(abs(rU)) % len(txtr)
+                                v = int(abs(rV)) % len(txtr[0])
+                                colour = txtr[u][v]
+                                pixelArray[fX, y] = colour
 
-        output += FillTrianglePixelPt2(list, slope, diff, diffX)
-    return output
+        PgPixelShaderPt2(list, slope, diff, diffX, pixelArray, pygame)
 
-def FillTrianglePixelPt2(list, fSlope, diff, diffX):
+def PgPixelShaderPt2(list, fSlope, diff, diffX, pixelArray, pygame):
     output = []
     if list[2][0] != list[1][0]:
-        diff2 = int(list[2][0] - list[1][0])
+        diff2 = list[2][0] - list[1][0]
         if diff2 != 0:
             slope2 = (list[2][1] - list[1][1]) / diff2
             uv1 = list[0][4]
             uv2 = list[1][4]
             uv3 = list[2][4]
 
-            for x in range(diff2 + 1):
-                ranges = [int((slope2 * x) + list[1][1]), int((fSlope * (x + diff)) + list[0][1])]
+            for x in range(int(diff2)):
                 # Repeat the same steps except for this side now.
+                range1 = int(slope2 * x + list[1][1])
+                range2 = int(fSlope * (x + diff) + list[0][1])
+                
                 nX = x / diff2
-                nX2 = (x + (diff)) / diffX
-                UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, 1)
-                sgn = 1 if ranges[0] < ranges[1] else -1
-                for y in range(ranges[0], ranges[1], sgn):
-                    nY = ((y - ranges[0]) / (ranges[1] - ranges[0]))
-                    output.append((int(x + list[1][0]), y, UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])))
-    return output
+                nX2 = (x + diff) / diffX
+                UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, False)
+                fX = int(x + list[1][0])
 
-# PgPixelShader()
-# Calculates texturing (or at least it's supposed to, working on it), converts the triangle to pixels, then draws them to the screen via a PyGame PixelArray.
+                sgn = 1 if range1 < range2 else -1
 
-# Being a software renderer written in Python, looping through each pixel of the triangle is not feasible.
-# It's only for PyGame because it's already bad enough with the extra speed that pygame has (even before adding any UV calc).
+                for y in range(range1, range2, sgn):
 
-# There may be a way to get acceptable performance by compiling it.
+                    nY = (y - range1) / (range2 - range1)
 
-# Usage:
-#
-# screenArray = pygame.PixelArray(screen)
-#
-# for tri in RasterThings(things):
-#   PgPixelShader(tri, screenArray)
-#
-txtr = TestTexture()
-
-def PgPixelShader(tri, pixelArray):
-    for pixel in TriToPixels(tri):
-        if pixel[0] > 0:
-            if pixel[1] > 0:
-                if pixelArray[pixel[0], pixel[1]] == 0:
-                    rU = int(pixel[2][0] * len(txtr))
-                    rV = int(pixel[2][1] * len(txtr[0]))
-                    u = abs(rU) % len(txtr)
-                    v = abs(rV) % len(txtr[0])
-                    colour = txtr[int(u)][int(v)]
-
-                    pixelArray[rU, rV] = (255, 255, 255)
-                    pixelArray[pixel[0], pixel[1]] = colour
+                    if fX > 0 and fX < iC[3]:
+                        if y > 0 and y < iC[2]:
+                            if pixelArray[fX, y] == 0:
+                                fUVs = UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])
+                                rU = int(fUVs[0] * len(txtr))
+                                rV = int(fUVs[1] * len(txtr[0]))
+                                u = int(abs(rU)) % len(txtr)
+                                v = int(abs(rV)) % len(txtr[0])
+                                colour = txtr[u][v]
+                                pixelArray[fX, y] = colour
 
 #==========================================================================
 #  
