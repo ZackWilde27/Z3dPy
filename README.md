@@ -20,6 +20,17 @@ Download the release build and extract the zip folder to the same folder as your
 import z3dpy as zp
 ```
 
+## C++ Extension
+To install the C++ extension, go into the z3dpyfast folder, and find the pre-compiled version for your OS, or compile the source for your machine
+
+![image](https://github.com/ZackWilde27/Z3dPy/assets/115175938/fbe7069c-e533-4514-a83c-6ecd8d33755b)
+
+Copy the version for your os to the root folder, alongside z3dpy.py
+
+![image](https://github.com/ZackWilde27/Z3dPy/assets/115175938/26eecc13-8075-46aa-b6fe-de91893af1a7)
+
+![image](https://github.com/ZackWilde27/Z3dPy/assets/115175938/9781ab39-e646-4f7a-bd1e-dd70de04dc1a)
+
 # Getting Started
 
 ![example](https://github.com/ZackWilde27/Z3dPy/assets/115175938/49541f9d-d88c-491c-934f-5e22b65402b2)
