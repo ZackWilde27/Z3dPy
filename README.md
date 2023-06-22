@@ -41,7 +41,7 @@ Next we create a camera object. width and height should match the output screen.
 
 ```python
 # Create our camera (x, y, z, width, height)
-myCamera = zp.Camera(0, 0, 0, 1280, 720)
+myCamera = zp.Cam(0, 0, 0, 1280, 720)
 ```
 
 Now we load a mesh, I'll use the built-in susanne.
@@ -63,7 +63,7 @@ The drawing stage has <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing
 
 ```python
 # Set Internal Camera
-zp.SetInternalCamera(myCamera)
+zp.SetInternalCam(myCamera)
 
 # Rastering
 for tri in zp.RasterMeshList([myMesh]):
@@ -80,7 +80,7 @@ Lastly, chuck it in a loop.
 
 ```python
 # This only needs to be done per frame if the camera's going to move.
-zp.SetInternalCamera(myCamera)
+zp.SetInternalCam(myCamera)
 
 # Raster Loop
 while True:
@@ -110,12 +110,12 @@ screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
 # Create our camera (x, y, z, width, height)
-myCamera = zp.Camera(0, 0, 0, 1280, 720)
+myCamera = zp.Cam(0, 0, 0, 1280, 720)
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
 myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 2)
 
-zp.SetInternalCamera(myCamera)
+zp.SetInternalCam(myCamera)
 
 # Raster Loop
 
