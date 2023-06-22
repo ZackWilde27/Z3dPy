@@ -144,7 +144,7 @@ To do flat shading, call DrawTriF() and put in one of the normal axis
 
 # Exporting Mesh
 
-Export your mesh as an OBJ file, with no extra information. N-gons are triangulated automatically.
+Export your mesh as an OBJ file, with UV coordinates if applicable. N-gons are triangulated automatically.
 <br>
 Up axis is -Y, and Forward axis is Z.
 
