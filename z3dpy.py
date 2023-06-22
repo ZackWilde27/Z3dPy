@@ -1,37 +1,106 @@
 # -zw
 '''
 
-Z3dPy v0.2.3
-# *Nightly version, wiki/examples are based on the release version.
+Z3dPy v0.2.4
 
 Change Notes:
 
 PHYSICS
 
 - BasicHandleCollisions() has been completely overhauled, and is now fairly robust.
-Takes two things that are colliding, the oth, and the pivot, and moves the oth out of the pivot's hitbox.
+Takes two things that are colliding, the oth, and the pivot, and moves the oth out 
+of the pivot's hitbox.
 
-- PhysicsCollisions() has also had upgrades behind the scenes, and now when a physics thing meets a non-physics thing, it'll use BasicHandleCollisions() to separate, along with bouncing.
+- PhysicsCollisions() now uses BasicHandleCollisions() to separate objects before 
+applying velocities
+
+- Physics bodies now have rot velocity and rot acceleration, purely visual as the 
+hitbox does not rotate with it.
+
+SHORTENING WORDS
+
+Just like I did with tris, I'm shortening more words for less typing.
+
+- Renamed all instances of Camera to Cam, like CamGetPos(), and CamSetRot() to name
+a few
+
+- Renamed Cam's TargetVector() functions to TargetDir(), like CamGetTargetDir()
+
+- Renamed Cam's TargetLocation() functions to TargetLoc(), like CamSetTargetLoc()
+
+- Renamed globalX, globalY, and globalZ to just x, y, and z.
 
 - Renamed gravityDir to just gravity
 
-PGPIXELSHADER
+PIXELSHADERS
 
 - Working on PgPixelShader(), it's nearly there, still figuring out some bugs
 
+- Added TkPixelShader(tri, canvas, texture)
+Not real-time, mostly a proof of concept
+
+- PgPixelShader now has this argument list: (tri, pixelArray, texture)
+texture is optional, it'll use the built in UV test by default.
+
 - Textures have a transparency bool, pixels that are False won't be drawn.
 
-- Performance is still a big issue, and I don't know how it could be solved,
-as the bottle-neck is drawing to the screen.
+- Performance is still a big issue, the only thing that can save performance is
+rendering at a low resolution. Pygame has a transform module for upscaling.
+
+PARTICLES
+
+- Added Part(), Emitter(), and global emitters list.
+
+- Added TickParticles() which will apply physics to particles and spawn more if 
+below emitter's max.
+
+Each particle is a mesh, it re-uses the template for drawing at
+each particle's location.
+
+RASTERING
+
+- Added RasterEmitters(), for drawing particles from emitters. When using Raster(), 
+they are drawn on the default layer
+
+TRAINS
+
+- Height now blends between points instead of snapping.
 
 VECTORS
 
-- Added VectorZero(vector, threshold), which will return a vector where each axis below the threshold is 0
+- Added VectorZero(vector, threshold), which will return a vector where each axis 
+below the threshold is 0
 
 TRIS
 
 - Added TriGetP1(tri), TriGetP2(tri), and TriGetP3(tri)
-I'd still recommend the good ol' tri[0], tri[1] and tri[2], but the functions are easier to read.
+I'd still recommend the good ol' tri[0], tri[1] and tri[2], but 
+if it makes it easier, why not.
+
+MESHES
+
+- Added MeshUniqPoints(), which will convert a mesh to a set of 
+unique points.
+
+LIGHTING
+
+- CheapLightingCalc(), FlatLighting(), ExpensiveLightingCalc() and 
+BakeLighting() now have optional arguments to provide your own list of lights.
+
+MISC
+
+- Added universal functions, such as GetPos(), GetRot(), and 
+SetList(), they work on most objects, but not all
+
+- Added CamChase(cam, location, speed), which will cause the
+camera to "chase" a location rather than directly going there.
+
+- FindHowVars() now prints the SetHowVars() with variables inside, so it's a copy 
+and paste now.
+
+- RGBToHex() and by extension TkDrawTriS() has now been fixed.
+
+- Moved misc functions to the bottom of the script
 
 '''
 
@@ -50,7 +119,7 @@ except:
 # Math for, well...
 import math
 
-print("Z3dPy v0.2.3")
+print("Z3dPy v0.2.4")
 
 
 
@@ -62,12 +131,14 @@ print("Z3dPy v0.2.3")
 
 
 # You can reference these at any time to get a global axis.
-globalX = (1, 0, 0)
-globalY = (0, 1, 0)
-globalZ = (0, 0, 1)
+x = (1, 0, 0)
+y = (0, 1, 0)
+z = (0, 0, 1)
 
 # The physics loop calculates delta, so it's called physTime
 physTime = time.time()
+
+elapsed = 0.0
 
 delta = 0.3
 
@@ -172,17 +243,17 @@ def AIFunction():
         AttackPlayer()
 
 
-enemyMesh = z3dpy.LoadAniMesh("filename.obj")
+enemyMesh = z3dpy.LoadAnimMesh("filename.obj")
 
 
 # On the 29th frame of animation, it'll perform AIFunction().
-AniMeshSetFrameFunc(enemyMesh, 29, AIFunction)
+AnimMeshSetFrameFunc(enemyMesh, 29, AIFunction)
 
 # FrameNext is well, the frame that comes next.
 # Keep in mind it will override anything the function does.
-AniMeshSetFrameNext(enemyMesh, 30, 0)
+AnimMeshSetFrameNext(enemyMesh, 30, 0)
 
-AniMeshSetFrameNext(enemyMesh, 60, 31)
+AnimMeshSetFrameNext(enemyMesh, 60, 31)
 
 # If the function doesn't set the frame to 31, the frame 30 will loop back to 0.
 # and once it's in the attack animation, frame 60 will loop back to 31
@@ -215,7 +286,7 @@ def Hitbox(type = 2, id = 0, radius = 1, height = 1):
 #
 # Enable physics with z3dpy.ThingSetupPhysics(myThing)
 #
-# [0] is velocity, [1] is acceleration, [2] is mass, [3] is friction, [4] is bounciness, [5] is rot velocity, and [6] is rot acceleration
+# [0] is pos velocity, [1] is pos acceleration, [2] is mass, [3] is friction, [4] is bounciness, [5] is rot velocity, [6] is rot acceleration, and [7] is 
 #
 # Mass does not have to be 0-1, but I've found small values work better.
 #
@@ -256,6 +327,9 @@ def Thing(meshList, x, y, z):
 # [0] is position, [1] is rotation, [2] is screenHeight, [3] is screenWidth, [4] is near clip, [5] is far clip
 # [6] is target location, [7] is up vector, and [8] is user variable
 
+def Cam(x, y, z, iScrW, iScrH):
+    return [[x, y, z], [0, 0, 0], iScrH, iScrW, 0.1, 1500, [0, 0, 1], [0, 1, 0], 0]
+
 def Camera(x, y, z, iScrW, iScrH):
     return [[x, y, z], [0, 0, 0], iScrH, iScrW, 0.1, 1500, [0, 0, 1], [0, 1, 0], 0]
 
@@ -270,12 +344,14 @@ def Camera(x, y, z, iScrW, iScrH):
 
 iC = [[0, 0, 0], [0, 0, 0], 720, 1280, 360, 640, 0.1, 1500, [0, 0, 1], [0, 1, 0]]
 
-intMatV = []
+intMatV = ()
 
-def SetInternalCamera(camera):
+intMatP = ()
+
+def SetInternalCam(camera):
     global intMatV
     global iC
-    iC = [CameraGetPos(camera), CameraGetRot(camera), CameraGetScH(camera), CameraGetScW(camera), CameraGetScH(camera) * 0.5, CameraGetScW(camera) * 0.5, CameraGetNCl(camera), CameraGetFCl(camera), CameraGetTargetVector(camera), CameraGetUpVector(camera)]
+    iC = [CamGetPos(camera), CamGetRot(camera), CamGetScH(camera), CamGetScW(camera), CamGetScH(camera) * 0.5, CamGetScW(camera) * 0.5, CamGetNCl(camera), CamGetFCl(camera), CamGetTargetVector(camera), CamGetUpVector(camera)]
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intMatV = LookAtMatrix(camera)
     try:
@@ -397,6 +473,12 @@ BakeTrain(myTerrain)
 
 # Optional passes, strength, and amplitude argument (by default, 1, 1.0, and 1.0)
 BakeTrain(myTerrain, 3, 0.5, 1.5)
+
+Passes is how many times the blur is done, normally once
+
+Strength is how much the surrounding points affect final output. AKA strength of the blur, normally 1.0 / no change.
+
+Amplitude is multiplied by the final output to amplify. Normally 1.0 / no change.
 '''
 
 def BakeTrain(train, passes=1, strength=1.0, amplitude=1.0):
@@ -416,7 +498,7 @@ def BakeTrain(train, passes=1, strength=1.0, amplitude=1.0):
                 ny = y - 1 
                 ny = max(ny, 1)
 
-                # Faking a gaussian blur by de-valuing edges manually
+                # Doing a gaussian blur by de-valuing edges manually
                 pnt0 = train[x][y]
                 pnt1 = train[mx][y] * 0.8 * strength
                 pnt2 = train[mn][y] * 0.8 * strength
@@ -430,6 +512,21 @@ def BakeTrain(train, passes=1, strength=1.0, amplitude=1.0):
 
     print("Done!")
 
+# Particle System
+def Emitter(position, template, maximum, velocity=[0, 0, 0], lifetime=15.0, bActive=True):
+    return [(), position, template, velocity, maximum, lifetime, bActive]
+
+
+emitters = []
+
+# A Part is a Particle
+# Particle is already so wordy, I had to change it.
+
+# Not meant to be created manually, they are automatically created during 
+# TickParticles().
+def Part(vPosition, vVelocity, fTime):
+    return [fTime, vPosition, vVelocity]
+
 # Textures:
 #
 # Textures are a matrix/list of lists, to form a grid of colours.
@@ -439,9 +536,31 @@ def BakeTrain(train, passes=1, strength=1.0, amplitude=1.0):
 
 def TestTexture():
     # A red and blue 4x4 checker texture
-    return (((255, 0, 0, True), (255, 20, 0, True), (0, 38, 255, True), (0, 62, 255, True)), ((213, 4, 24, True), (255, 20, 47, True), (16, 39, 225, True), (28, 62, 255, True)), ((0, 38, 255, True), (0, 62, 255, True), (255, 0, 0, True), (255, 20, 0, True)), ((16, 39, 225, True), (28, 62, 255, True), (213, 4, 24, True), (255, 20, 47, True)))
+    return (
+            ((255, 0, 0, True), (255, 20, 0, True), (0, 38, 255, True), (0, 62, 255, True)),
+            ((213, 4, 24, True), (255, 20, 47, True), (16, 39, 225, True), (28, 62, 255, True)), 
+            ((0, 38, 255, True), (0, 62, 255, True), (255, 0, 0, True), (255, 20, 0, True)), 
+            ((16, 39, 225, True), (28, 62, 255, True), (213, 4, 24, True), (255, 20, 47, True))
+            )
 
-
+# PyGame came in clutch, because right now it's the only way to avoid writing the 
+# texture manually.
+# Pixels above 0 alpha will be opaque.
+def PgLoadTexture(filename, pygame):
+    try:
+        img = pygame.image.load(filename)
+    except:
+        print("Error. Either the image doesn't exist, or the pygame reference is incorrect")
+    else:
+        surf = pygame.surfarray.array2d(img)
+        fnSurf = []
+        for x in range(len(surf)):
+            fnSurf.append([])
+            for y in range(len(surf[0])):
+                col = img.get_at((x, y))
+                col = col[:3] + (col[3] > 0,)
+                fnSurf[x].append(col)
+        return fnSurf
 
 #==========================================================================
 #
@@ -451,7 +570,43 @@ def TestTexture():
 #
 #==========================================================================
 
+
 # The majority of these functions have no speed cost.
+# a lot of the code is written using these functions, my hope is that you can tell what a function is doing just by looking at it.
+
+
+# UNIVERSAL
+# Well, almost universal
+
+# These work with Things, Cameras, Meshes/AnimMeshes, Frames, Lights, Rays, Emitters,
+# and Particles
+def GetPos(any):
+    return any[1]
+
+def SetPos(any, vector):
+    any[1] = vector
+
+# These work with Things, Cameras, Meshes/AnimMeshes, and Frames
+def GetRot(any):
+    return any[2]
+
+def SetRot(any, vector):
+    any[2] = vector
+
+
+# Get/SetList()
+# Works with Things, Meshes/AnimMeshes, Frames, and Emitters
+# for Things, it's a list of meshes,
+# for Meshes and Frames, it's a tuple of tris,
+# for AnimMeshes, it's a list of frames,
+# for Emitters, it's a list of currently active particles
+
+def GetList(any):
+    return any[0]
+
+def SetList(any, lst):
+    any[0] = lst
+
 
 # TRIANGLES
 
@@ -709,6 +864,10 @@ def ThingSetCollision(thing, iType, iId, fRadius, fHeight):
             case 2:
                 thing[3][4] = LoadMesh("z3dpy/mesh/cube.obj", 0, 0, 0, fRadius, fHeight, fRadius)
 
+
+
+# Hitbox functions will return either an empty list or -1 if the input does not have a hitbox
+
 def ThingGetHitboxMesh(thing):
     if thing[3] != []:
         return thing[3][4]
@@ -717,17 +876,26 @@ def ThingGetHitboxMesh(thing):
 def ThingGetHitboxHeight(thing):
     if thing[3] != []:
         return thing[3][3]
-    return -1
+    return 0
+
+def ThingSetHitboxHeight(thing, fHeight):
+    thing[3][3] = fHeight
 
 def ThingGetHitboxRadius(thing):
     if thing[3] != []:
         return thing[3][2]
-    return -1
+    return 0
+
+def ThingSetHitboxRadius(thing, fRadius):
+    thing[3][2] = fRadius
 
 def ThingGetHitboxId(thing):
     if thing[3] != []:
         return thing[3][1]
     return -1
+
+def ThingSetHitboxId(thing, iId):
+    thing[3][1] = iId
 
 def ThingGetHitboxType(thing):
     if thing[3] != []:
@@ -833,145 +1001,160 @@ def ThingStop(thing):
 # CAMERAS
 
 
-def CameraSetPosX(cam, x):
+def CamSetPosX(cam, x):
     cam[0] = [x, cam[0][1], cam[0][2]]
 
-def CameraSetPosY(cam, y):
+def CamSetPosY(cam, y):
     cam[0] = [cam[0][0], y, cam[0][2]]
 
-def CameraSetPosZ(cam, z):
+def CamSetPosZ(cam, z):
     cam[0] = [cam[0][0], cam[0][1], z]
 
-def CameraSetPos(cam, vector):
+def CamSetPos(cam, vector):
     cam[0] = vector
 
-def CameraAddPos(cam, vector):
+def CamAddPos(cam, vector):
     cam[0] = VectorAdd(cam[0], vector)
 
-def CameraSubPos(cam, vector):
+def CamSubPos(cam, vector):
     cam[0] = VectorSub(cam[0], vector)
 
-def CameraMulPos(cam, vector):
+def CamMulPos(cam, vector):
     cam[0] = VectorMul(cam[0], vector)
 
-def CameraDivPos(cam, x, y, z):
+def CamDivPos(cam, x, y, z):
     cam[0] = [cam[0][0] / x, cam[0][1] / y, cam[0][2] / z]
 
-def CameraDivPosF(cam, f):
+def CamDivPosF(cam, f):
     cam[0] = VectorDivF(cam[0], f)
 
-def CameraGetPos(cam):
+def CamGetPos(cam):
     return cam[0]
 
-def CameraGetPosX(cam):
+def CamGetPosX(cam):
     return cam[0][0]
 
-def CameraGetPosY(cam):
+def CamGetPosY(cam):
     return cam[0][1]
 
-def CameraGetPosZ(cam):
+def CamGetPosZ(cam):
     return cam[0][2]
 
-def CameraGetPitch(cam):
+def CamGetPitch(cam):
     return cam[1][0]
 
-def CameraGetRoll(cam):
+def CamGetRoll(cam):
     return cam[1][2]
 
-def CameraGetYaw(cam):
+def CamGetYaw(cam):
     return cam[1][1]
 
-def CameraSetPitch(cam, deg):
+def CamSetPitch(cam, deg):
     cam[1][0] = deg
 
-def CameraSetRoll(cam, deg):
+def CamSetRoll(cam, deg):
     cam[1][2] = deg
 
-def CameraSetYaw(cam, deg):
+def CamSetYaw(cam, deg):
     cam[1][1] = deg
 
-def CameraSetRot(cam, vector):
+def CamSetRot(cam, vector):
     cam[1] = vector
 
-def CameraAddRot(cam, v):
+def CamAddRot(cam, v):
     cam[1] = VectorAdd(cam[1], v)
 
-def CameraSubRot(cam, v):
+def CamSubRot(cam, v):
     cam[1] = VectorSub(cam[1], v)
 
-def CameraMulRot(cam, v):
+def CamMulRot(cam, v):
     cam[1] = VectorMul(cam[1], v)
 
-def CameraDivRot(cam, v):
+def CamDivRot(cam, v):
     cam[1] = [cam[1][0] / v[0], cam[1][1] / v[1], cam[1][2] / v[2]]
 
-def CameraDivRotF(cam, v):
+def CamDivRotF(cam, v):
     cam[1] = VectorDivF(cam[1], v)
 
-def CameraGetRot(cam):
+def CamGetRot(cam):
     return cam[1]
 
-def CameraSetScH(cam, h):
+def CamSetScH(cam, h):
     cam[2] = h
 
-def CameraGetScH(cam):
+def CamGetScH(cam):
     return cam[2]
 
-def CameraSetScW(cam, w):
+def CamSetScW(cam, w):
     cam[3] = w
 
-def CameraGetScW(cam):
+def CamGetScW(cam):
     return cam[3]
 
-def CameraSetNCl(cam, nc):
+def CamSetNCl(cam, nc):
     cam[4] = nc
 
-def CameraGetNCl(cam):
+def CamGetNCl(cam):
     return cam[4]
 
-def CameraSetFCl(cam, fc):
+def CamSetFCl(cam, fc):
     cam[5] = fc
 
-def CameraGetFCl(cam):
+def CamGetFCl(cam):
     return cam[5]
 
-# Backwards Compatibility / Direction is easier to understand
-def CameraSetTargetDirection(cam, vector):
-    CameraSetTargetVector(cam, vector)
-def CameraGetTargetDirection(cam):
-    return CameraGetTargetVector(cam)
-
-def CameraSetTargetLocation(cam, vector):
+def CamSetTargetLoc(cam, vector):
     cam[6] = vector
 
-def CameraSetTargetVector(cam, vector):
-    cam[6] = VectorAdd(cam[0], VectorNormalize(vector))
-
-# SetTargetFP: Takes care of rotating vectors based on camera's rotation.
-def CameraSetTargetFP(cam):
-    dir = VectorRotateX([0, 0, 1], CameraGetPitch(cam))
-    dir = VectorRotateY(dir, CameraGetYaw(cam))
-    CameraSetTargetVector(cam, dir)
-
-def CameraGetTargetLocation(cam):
+def CamGetTargetLoc(cam):
     return cam[6]
 
-def CameraGetTargetVector(cam):
+def CamSetTargetDir(cam, vector):
+    cam[6] = VectorAdd(cam[0], VectorNormalize(vector))
+
+def CamGetTargetDir(cam):
     return VectorNormalize(VectorSub(cam[6], cam[0]))
 
-def CameraSetUpVector(cam, vector):
+
+# SetTargetFP: Takes care of rotating vectors based on camera's rotation.
+def CamSetTargetFP(cam):
+    dir = VectorRotateX([0, 0, 1], CamGetPitch(cam))
+    dir = VectorRotateY(dir, CamGetYaw(cam))
+    CamSetTargetVector(cam, dir)
+#
+
+
+# Deprecated
+def CamSetTargetLocation(cam, vector):
+    CamSetTargetLoc(cam, vector)
+
+def CamGetTargetLocation(cam):
+    return CamGetTargetLoc(cam)
+
+def CamSetTargetVector(cam, vector):
+    CamSetTargetDir(cam, vector)
+
+def CamGetTargetVector(cam):
+    return CamGetTargetDir(cam)
+#
+
+
+def CamSetUpVector(cam, vector):
     cam[7] = vector
 
-def CameraGetUpVector(cam):
+def CamGetUpVector(cam):
     return cam[7]
 
-def CameraGetRightVector(cam):
-    return VectorCrP(CameraGetTargetVector(cam), cam[7])
+def CamGetRightVector(cam):
+    return VectorCrP(CamGetTargetVector(cam), cam[7])
 
-def CameraGetUserVar(cam):
+def CamChase(cam, location, speed=0.25):
+    CamSubPos(cam, VectorMulF(VectorSub(CamGetPos(cam), location), speed))
+
+def CamGetUserVar(cam):
     return cam[8]
 
-def CameraSetUserVar(cam, any):
+def CamSetUserVar(cam, any):
     cam[8] = any
 
 
@@ -1036,168 +1219,68 @@ def RayGetEnd(ray):
 def RaySetEnd(ray, vector):
     ray[1] = vector
 
-#==========================================================================
-#  
-# Misc Functions
-#
-#==========================================================================
 
-# WhatIs()
-# Takes a list and figures out what "object" it is.
-# meant to be used with print() for debugging. Speed was not a priority
-
-# Usage:
-#
-# print(WhatIs(hopefullyATriangle))
-#
-
-def WhatIs(any):
-    try:
-        test = len(any)
-    except:
-        return str(type(any))
-    else:
-        match len(any):
-            case 2:
-                try:
-                    test = any[0][0]
-                    return "Ray"
-                except:
-                    return "Vector2"
-            case 3:
-                try:
-                    test = any[0] + 1
-                    return "Vector"
-                except:
-                    try:
-                        test = any[0][0] + 1
-                        # S for shortened triangle, it only includes the points, and no other information.
-                        return "STriangle"
-                    except:
-                        return "Unknown"
-            case 4:
-                try:
-                    test = any[0][0]
-                    return "PhysicsBody"
-                except:
-                    return "Vector4"
-            case 5:
-                try:
-                    test = any[4][0][0]
-                    return "Hitbox"
-                except:
-                    try:
-                        test = any[2][0] + 1
-                        return "Triangle"
-                    except:
-                        try:
-                            test = any[4][2]
-                            return "VectorUV"
-                        except:
-                            return "Light_Point"
-            case 6:
-                return "Mesh"
-            case 8:
-                return "Thing"
-            case 9:
-                return "Camera"
-            
-# WhatIsInt():
-# Same as WhatIs(), except instead of a string it's a number
-# -1 is Unknown
-# 0 is Vector
-# 1 is Vector2
-# 2 is Vector4
-# 3 is VectorUV
-# 4 is Triangle
-# 5 is STriangle
-# 6 is Mesh
-# 7 is Ray
-# 8 is Light_Point
-# 9 is Thing
-# 10 is Hitbox
-# 11 is PhysicsBody
-# 12 is Camera
-            
-def WhatIsInt(any):
-    try:
-        test = len(any)
-    except:
-        return -1
-    else:
-        match len(any):
-            case 2:
-                try:
-                    test = any[0][0]
-                    return 7
-                except:
-                    return 1
-            case 3:
-                try:
-                    test = any[0] + 1
-                    return 0
-                except:
-                    try:
-                        test = any[0][0] + 1
-                        # S for shortened triangle, it only includes the points, and no other information.
-                        return 5
-                    except:
-                        return -1
-            case 4:
-                try:
-                    test = any[0][0]
-                    return 11
-                except:
-                    return 2
-            case 5:
-                try:
-                    test = any[4][0][0]
-                    return 10
-                except:
-                    try:
-                        test = any[2][0] + 1
-                        return 4
-                    except:
-                        try:
-                            test = any[4][2]
-                            return 3
-                        except:
-                            return 8
-            case 6:
-                return 6
-            case 8:
-                return 9
-            case 9:
-                return 12
-
-def Projection(vector, a, f, fc, nc):
-    # At the start I went the full formula route instead of matrix form, and
-    # I kept it because it works.
-    q = fc / (fc - nc)
-    if vector[2] != 0:
-        return [(a * f * vector[0]) / vector[2], (f * vector[1]) / vector[2], (q * vector[2]) - (q * nc), vector[3], vector[4]]
-    else:
-        return vector
+# PARTICLES
 
 
-def HowProjection(vector):
-    vector += [[], []]
-    if vector[2] != 0:
-        
-        # Assumes 16/9 aspect ratio, because of this 3.
-        return [(vector[0] * howX) / vector[2], (vector[1] * howY) / vector[2], 1, vector[3], vector[4]]
-    return vector
+def PartGetTime(particle):
+    return particle[0]
 
-def ProjectTri(t, a, f, fc, nc):
-    return [Projection(t[0], a, f, fc, nc), Projection(t[1], a, f, fc, nc), Projection(t[2], a, f, fc, nc), t[3], t[4], t[5]]
-        
-def HowProjectTri(t):
-    return [HowProjection(t[0]), HowProjection(t[1]), HowProjection(t[2]), t[3], t[4], t[5]]
+def PartSetTime(particle, iLayer):
+    particle[0] = iLayer
 
-def RGBToHex(vector):
-    def floatToHex(flt):
-        return hex(flt)[2:].ljust(2, "0")
-    return "#" + floatToHex(vector[0]) + floatToHex(vector[1]) + floatToHex(vector[2])
+def PartGetPos(particle):
+    return particle[1]
+
+def PartSetPos(particle, vector):
+    particle[1] = vector
+
+def PartGetVelocity(particle):
+    return particle[2]
+
+def PartSetVelocity(particle, vector):
+    particle[2] = vector
+
+
+# EMITTERS
+
+
+def EmitterGetPos(emitter):
+    return emitter[1]
+
+def EmitterSetPos(emitter, vector):
+    emitter[1] = vector
+
+def EmitterGetTemplate(emitter):
+    return emitter[2]
+
+def EmitterSetTemplate(emitter, mesh):
+    emitter[2] = mesh
+
+def EmitterGetVelocity(emitter):
+    return emitter[3]
+
+def EmitterSetVelocity(emitter, vector):
+    emitter[3] = vector
+
+def EmitterGetMax(emitter):
+    return emitter[4]
+
+def EmitterSetMax(emitter, iMax):
+    emitter[4] = iMax
+
+def EmitterSetLifetime(emitter, fLifetime):
+    emitter[5] = fLifetime
+
+def EmitterGetLifetime(emitter):
+    return emitter[5]
+
+def EmitterGetActive(emitter):
+    return emitter[6]
+
+def EmitterSetActive(emitter, bActive):
+    emitter[6] = bActive
+
 
 #==========================================================================
 #  
@@ -1361,7 +1444,7 @@ def TriMulF(t, f):
 def TriDivF(t, f):
     return [VectorUVDivF(t[0], f), VectorUVDivF(t[1], f), VectorUVDivF(t[2], f), t[3], t[4], t[5]]
 
-def VectorIntersectPlane(pPos, pNrm, lSta, lEnd):
+def VectorIntersectPlane(pPos, pNrm, lSta, lEnd, uv1, uv2):
     pNrm = VectorNormalize(pNrm)
     plane_d = -VectorDoP(pNrm, pPos)
     ad = VectorDoP(lSta, pNrm)
@@ -1369,6 +1452,7 @@ def VectorIntersectPlane(pPos, pNrm, lSta, lEnd):
     t = (-plane_d - ad) / (bd - ad)
     lineStartToEnd = VectorUVSub(lEnd, lSta)
     lineToIntersect = VectorUVMulF(lineStartToEnd, t)
+    lSta[4] = ((uv2[0] - uv1[0]) * t + uv1[0], (uv2[1] - uv1[1] * t) + uv1[1])
     return VectorUVAdd(lSta, lineToIntersect)
 
 def ShortestPointToPlane(point, plNrm, plPos):
@@ -1401,12 +1485,12 @@ def TriClipAgainstPlane(tri, pPos, pNrm):
         return [tri[:6]]
 
     if len(insideP) == 1 and len(outsideP) == 2:
-        outT1 = [insideP[0], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[1]), VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0]), tri[3], tri[4], tri[5]]
+        outT1 = [insideP[0], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[1], insideP[0][4], outsideP[1][4]), VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0], insideP[0][4], outsideP[0][4]), tri[3], tri[4], tri[5]]
         return [outT1]
 
     if len(insideP) == 2 and len(outsideP) == 1:
-        outT1 = [insideP[0], insideP[1], VectorIntersectPlane(pPos, pNrm, insideP[1], outsideP[0]), tri[3], tri[4], tri[5]]
-        outT2 = [insideP[0], outT1[2], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0]), tri[3], tri[4], tri[5]]
+        outT1 = [insideP[0], insideP[1], VectorIntersectPlane(pPos, pNrm, insideP[1], outsideP[0], insideP[1][4], outsideP[0][4]), tri[3], tri[4], tri[5]]
+        outT2 = [insideP[0], outT1[2], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0], insideP[0][4], outsideP[0][4]), tri[3], tri[4], tri[5]]
         return [outT1, outT2]
 
 def GetNormal(tri):
@@ -1672,8 +1756,8 @@ def PointAtMatrix(pos, target, up):
     return ((temp[2][0], temp[2][1], temp[2][2], 0), (temp[1][0], temp[1][1], temp[1][2], 0), (temp[0][0], temp[0][1], temp[0][2], 0), (pos[0], pos[1], pos[2], 1))
 
 def LookAtMatrix(camera):
-    temp = MatrixStuff(CameraGetPos(camera), CameraGetTargetLocation(camera), CameraGetUpVector(camera))
-    return ((temp[2][0], temp[1][0], temp[0][0], 0.0), (temp[2][1], temp[1][1], temp[0][1], 0.0), (temp[2][2], temp[1][2], temp[0][2], 0.0), (-VectorDoP(CameraGetPos(camera), temp[2]), -VectorDoP(CameraGetPos(camera), temp[1]), -VectorDoP(CameraGetPos(camera), temp[0]), 1.0))
+    temp = MatrixStuff(CamGetPos(camera), CamGetTargetLocation(camera), CamGetUpVector(camera))
+    return ((temp[2][0], temp[1][0], temp[0][0], 0.0), (temp[2][1], temp[1][1], temp[0][1], 0.0), (temp[2][2], temp[1][2], temp[0][2], 0.0), (-VectorDoP(CamGetPos(camera), temp[2]), -VectorDoP(CamGetPos(camera), temp[1]), -VectorDoP(CamGetPos(camera), temp[0]), 1.0))
 
 def MatrixMakeProjection(fov):
     a = iC[2] / iC[3]
@@ -1732,7 +1816,7 @@ def RayIntersectTri(ray, tri):
     return (False,)
 
 def RayIntersectMesh(ray, mesh):
-    for t in mesh[0]:
+    for t in TranslateTris(TransformTris(MeshGetTris(mesh), MeshGetRot(mesh)), MeshGetPos(mesh)):
         hit = RayIntersectTri(ray, t)
         if hit[0]:
             return hit
@@ -1828,56 +1912,56 @@ def GatherCollisions(thingList):
 #       BasicHandleCollisions(collision)
 #
 
-def BasicHandleCollisions(oth, pivot):
-    if ThingGetPosY(oth) + ThingGetHitboxHeight(oth) < (ThingGetPosY(pivot) - ThingGetHitboxHeight(pivot)) + gravity[1] * 0.05:
-        # Floor
-        print("Floor1")
-        ThingSetVelocityY(oth, 0)
-        ThingSetPosY(oth, ThingGetPosY(pivot) - ThingGetHitboxHeight(pivot) - ThingGetHitboxHeight(oth))
-        GroundBounce(oth)
-        return
-    
-    if ThingGetPosX(oth) + ThingGetHitboxRadius(oth) < (ThingGetPosX(pivot) - ThingGetHitboxRadius(pivot)) + 0.5:
-        # +X Wall Collision
-        print("+X")
-        ThingSetPosX(oth, ThingGetPosX(pivot) - ThingGetHitboxRadius(pivot) - ThingGetHitboxRadius(oth) - 0.04)
-        PhysicsBounce(oth)
-        return
-    
-    if ThingGetPosX(oth) - ThingGetHitboxRadius(oth) > (ThingGetPosX(pivot) + ThingGetHitboxRadius(pivot)) - 0.5:
-        # -X Wall Collision
-        print("-X")
-        ThingSetPosX(oth, ThingGetPosX(pivot) + ThingGetHitboxRadius(pivot) + ThingGetHitboxRadius(oth) + 0.04)
-        PhysicsBounce(oth)
-        return
-    
-    if ThingGetPosZ(oth) + ThingGetHitboxRadius(oth) < (ThingGetPosX(pivot) - ThingGetHitboxRadius(pivot)) + 0.5:
-        # +Z Wall Collision
-        print("+Z")
-        ThingSetPosZ(oth, ThingGetPosZ(pivot) - ThingGetHitboxRadius(pivot) - ThingGetHitboxRadius(oth))    
-        PhysicsBounce(oth)
-        return
-    
-    if ThingGetPosZ(oth) - ThingGetHitboxRadius(oth) > (ThingGetPosZ(pivot) + ThingGetHitboxRadius(pivot)) - 0.5:
-        # -Z Wall Collision
-        print("-Z")
-        ThingSetPosZ(oth, ThingGetPosZ(pivot) + ThingGetHitboxRadius(pivot) + ThingGetHitboxRadius(oth))
-        PhysicsBounce(oth)
-        return
-    
-    if ThingGetPosY(oth) - ThingGetHitboxHeight(oth) > (ThingGetPosY(pivot) + ThingGetHitboxHeight(pivot)) - 0.5:
-        # Ceiling Collision
-        print("Ceil")
-        ThingSetVelocityY(oth, 0)
-        ThingSetPosY(oth, ThingGetPosY(pivot) + ThingGetHitboxHeight(pivot) + ThingGetHitboxHeight(oth))
-        return
+# Floors are handled just like the 
 
-    # Defaults to
-    # Floor Collision
-    print("Floor2")
-    ThingSetVelocityY(oth, 0)
-    ThingSetPosY(oth, ThingGetPosY(pivot) - ThingGetHitboxHeight(pivot) - ThingGetHitboxHeight(oth))
-    GroundBounce(oth)
+def BasicHandleCollisions(oth, pivot):
+    
+    match ThingGetHitboxType(oth):
+        case 0:
+            # Sphere Collisions
+            # Simple offset the direction away from pivot.
+            ThingSetPos(oth, VectorMulF(DirectionBetweenVectors(ThingGetPos(oth), ThingGetPos(pivot)), ThingGetHitboxRadius(oth) + ThingGetHitboxRadius(pivot)))
+        case 2:
+            # Cube Collisions
+            # Oh boy.
+            #if ThingGetPosY(oth) + ThingGetHitboxHeight(oth) < (ThingGetPosY(pivot) - ThingGetHitboxHeight(pivot)) + gravity[1] * 0.05:
+                # Floor Collision
+                #ThingSetPosY(oth, ThingGetPosY(pivot) - ThingGetHitboxHeight(pivot) - ThingGetHitboxHeight(oth))
+                #if ThingGetPhysics(oth) != []:
+                    #GroundBounce(oth)
+                #return
+            
+            if ThingGetPosX(oth) + ThingGetHitboxRadius(oth) < (ThingGetPosX(pivot) - ThingGetHitboxRadius(pivot)) + 0.5:
+                # +X Wall Collision
+                ThingSetPosX(oth, ThingGetPosX(pivot) - ThingGetHitboxRadius(pivot) - ThingGetHitboxRadius(oth))
+                return
+            
+            if ThingGetPosX(oth) - ThingGetHitboxRadius(oth) > (ThingGetPosX(pivot) + ThingGetHitboxRadius(pivot)) - 0.5:
+                # -X Wall Collision
+                ThingSetPosX(oth, ThingGetPosX(pivot) + ThingGetHitboxRadius(pivot) + ThingGetHitboxRadius(oth))
+                return
+            
+            if ThingGetPosZ(oth) + ThingGetHitboxRadius(oth) < (ThingGetPosZ(pivot) - ThingGetHitboxRadius(pivot)) + 0.5:
+                # +Z Wall Collision
+                ThingSetPosZ(oth, ThingGetPosZ(pivot) - ThingGetHitboxRadius(pivot) - ThingGetHitboxRadius(oth))    
+                return
+            
+            if ThingGetPosZ(oth) - ThingGetHitboxRadius(oth) > (ThingGetPosZ(pivot) + ThingGetHitboxRadius(pivot)) - 0.5:
+                # -Z Wall Collision
+                ThingSetPosZ(oth, ThingGetPosZ(pivot) + ThingGetHitboxRadius(pivot) + ThingGetHitboxRadius(oth))
+                return
+            
+            if ThingGetPosY(oth) - ThingGetHitboxHeight(oth) > (ThingGetPosY(pivot) + ThingGetHitboxHeight(pivot)) - (ThingGetHitboxHeight(pivot) * 0.95):
+                # Ceiling Collision
+                ThingSetPosY(oth, ThingGetPosY(pivot) + ThingGetHitboxHeight(pivot) + ThingGetHitboxHeight(oth) - (ThingGetVelocityY(oth) * 0.2))
+                ThingSetVelocityY(oth, 0)
+                return
+
+            # Defaults to
+            # Floor Collision
+            ThingSetPosY(oth, ThingGetPosY(pivot) - ThingGetHitboxHeight(pivot) - ThingGetHitboxHeight(oth))
+            if ThingGetPhysics(oth) != []:
+                GroundBounce(oth)
 
 
 # HandlePhysics()
@@ -1912,27 +1996,25 @@ def HandlePhysics(thing, floorHeight=0):
             ThingSetPosY(thing, floorHeight - (ThingGetHitboxHeight(thing) * 0.5))
             GroundBounce(thing)
 
-def HandlePhysicsFloor(fFloorHeight=0):
-    for layer in layers:
-        for t in layer:
-            HandlePhysics(t, fFloorHeight)
+def HandlePhysicsFloor(things, fFloorHeight=0):
+    for t in things:
+        HandlePhysics(t, fFloorHeight)
 
-def HandlePhysicsTrain(train):
-    for layer in layers:
-        for t in layer:
-            if ThingGetPosX(t) > 0.0 and ThingGetPosX(t) < len(train):
-                if ThingGetPosZ(t) > 0.0 and ThingGetPosZ(t) < len(train[0]):
-                    trainX = math.floor(ThingGetPosX(t))
-                    trainY = math.floor(ThingGetPosZ(t))
-                    dx = ThingGetPosX(t) - trainX
-                    dy = ThingGetPosZ(t) - trainY
-                    h1 = train[trainX][trainY]
-                    h2 = h1 - train[trainX + 1][trainY]
-                    h3 = h1 - train[trainX][trainY + 1]
-                    h4 = h1 + (((h2 * dx) + (h3 * dy)) * 0.5)
-                    HandlePhysics(t, h4)
-                    continue
-            HandlePhysics(t, 0.0)
+def HandlePhysicsTrain(things, train):
+    for t in things:
+        if ThingGetPosX(t) > 0.0 and ThingGetPosX(t) < len(train) - 1:
+            if ThingGetPosZ(t) > 0.0 and ThingGetPosZ(t) < len(train[0]) - 1:
+                trainX = math.floor(ThingGetPosX(t))
+                trainY = math.floor(ThingGetPosZ(t))
+                dx = ThingGetPosX(t) - trainX
+                dy = ThingGetPosZ(t) - trainY
+                h1 = train[trainX][trainY]
+                h2 = h1 - train[trainX + 1][trainY]
+                h3 = h1 - train[trainX][trainY + 1]
+                h4 = h1 + (((h2 * dx) + (h3 * dy)) * 0.5)
+                HandlePhysics(t, h4)
+                continue
+        HandlePhysics(t, 0.0)
 
 def PhysicsBounce(thing):
     d = VectorPureDirection(ThingGetVelocity(thing))
@@ -2008,8 +2090,10 @@ def sign(f):
 
 def Raster(fnSortKey=triSortAverage, bSortReverse=True):
     finished = []
-    for layer in layers:
-        finished += RasterThings(layer, fnSortKey, bSortReverse)
+    for l in range(len(layers)):
+        if l == 1:
+            finished += RasterParts()
+        finished += RasterThings(layers[l], fnSortKey, bSortReverse)
     return finished
 
 def CRaster(fnSortKey=triSortAverage, bSortReverse=True):
@@ -2035,27 +2119,45 @@ def CRasterThings(things, fnSortKey=triSortAverage, bSortReverse=True):
 #
 #   z3dpy.PgDrawTriFL(tri, surface, pygame)
 #    
-def RasterThings(thingList, sortKey=triSortAverage, sortReverse=True):
+def RasterThings(things, sortKey=triSortAverage, sortReverse=True):
     try:
         test = intMatV[0][0]
     except:
-        print("Internal Camera is not set. Use z3dpy.SetInternalCamera(yourCamera) before rastering.")
+        print("Internal Camera is not set. Use z3dpy.SetInternalCam(yourCamera) before rastering.")
         return []
     else:
         viewed = []
-        for t in thingList:
+        for t in things:
             if t[5]:
                 for m in t[0]:
                     if AnimMeshGetFrame(m) == -1:
+                        # Static Mesh
                         viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
                     else:
-                        viewed += RasterPt1(MeshGetTris(m[0][AnimMeshGetFrame(m)]), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
+                        # AnimMesh
+                        viewed += RasterPt1(MeshGetTris(MeshGetTris(m)[AnimMeshGetFrame(m)] ), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
+                        # Call the function for that frame
                         m[0][AnimMeshGetFrame(m)][2]()
+                        # If iNext is not -1, set the current frame to iNext
                         if m[0][AnimMeshGetFrame(m)][1] != -1:
                             AnimMeshSetFrame(m[0][AnimMeshGetFrame(m)][1])
             else:
                 for m in t[0]:
                     viewed += RasterPt1Static(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), MeshGetId(m), MeshGetColour(m))
+        viewed.sort(key=sortKey, reverse=sortReverse)
+        return RasterPt2(viewed)
+    
+def RasterParts(emitters=emitters, sortKey=triSortAverage, sortReverse=True):
+    try:
+        test = intMatV[0][0]
+    except:
+        print("Internal Camera is not set. Use z3dpy.SetInternalCam(yourCamera) before rastering.")
+        return []
+    else:
+        viewed = []
+        for em in emitters:
+            for p in em[0]:
+                viewed += RasterPt1Static(MeshGetTris(EmitterGetTemplate(em)), PartGetPos(p), -2, [255, 255, 255])
         viewed.sort(key=sortKey, reverse=sortReverse)
         return RasterPt2(viewed)
     
@@ -2073,7 +2175,7 @@ def RasterMeshList(meshList, sortKey=triSortAverage, sortReverse=True):
     try:
         test = intMatV[0][0]
     except:
-        print("Internal Camera is not set. Use z3dpy.SetInternalCamera(yourCamera) before rastering.")
+        print("Internal Camera is not set. Use z3dpy.SetInternalCam(yourCamera) before rastering.")
         return []
     else:
         viewed = []
@@ -2089,7 +2191,7 @@ def DebugRaster(train=[], sortKey=triSortAverage, sortReverse=True):
     try:
         test = intMatV[0][0]
     except:
-        print("Internal Camera is not set. Use z3dpy.SetInternalCamera(yourCamera) before rastering.")
+        print("Internal Camera is not set. Use z3dpy.SetInternalCam(yourCamera) before rastering.")
         return []
     else:
         finished = []
@@ -2368,8 +2470,8 @@ def TkDrawTriFLB(tri, canvas):
 
 # Flat lighting shader, meant to be put into DrawTriangleRGB's colour
 # Takes the direction towards the light and compares that to a corrected normal.
-def FlatLighting(tri):
-    return CheapLightingCalc(tri)
+def FlatLighting(tri, lights=lights):
+    return CheapLightingCalc(tri, lights)
 
 def CFlatLighting(tri):
     wpos = TriGetWPos(tri)
@@ -2378,7 +2480,7 @@ def CFlatLighting(tri):
 
 # CheapLightingCalc takes the direction towards the light source, no shadow checks or anything.
 # optionally, draws a ray between the triangle and light, for debugging purposes.
-def CheapLightingCalc(tri):
+def CheapLightingCalc(tri, lights=lights):
     shading = 0.0
     intensity = 0.0
     nNormal = VectorMul(TriGetNormal(tri), [-1, 1, 1])
@@ -2393,7 +2495,7 @@ def CheapLightingCalc(tri):
     return min(shading, 1)
 
 # ExpensiveLightingCalc uses the direction towards the light source, and draws a ray between the triangle and light, testing for ray collisions.
-def ExpensiveLightingCalc(tri):
+def ExpensiveLightingCalc(tri, lights=lights):
     shading = 0.0
     intensity = 0.0
     pos = TriGetWPos(tri)
@@ -2436,7 +2538,7 @@ def FlatLightingBaked(tri):
 
 # Baked Lighting:
 # Do the FlatLighting(), and bake it to the triangle's shader variable
-def BakeLighting(things, expensive=False):
+def BakeLighting(things, expensive=False, lights=lights):
     global rays
     print("Baking Lighting...")
     for th in things:
@@ -2644,9 +2746,17 @@ def UVCalcPt2(Fy, uvDx, uvDy, UVstX, UVstY):
     uvX = Fy * uvDx + UVstX
     return (uvX, uvY)
 
+
+# PixelShader() is a more complicated version of TriToPixels(), which calculates UV
+# coordinates for each pixel, and also does the drawing to minimize overhead.
+
+# Uses Affine texture mapping, which means textures warp like a playstation 1
+
 # Lots of comments because something is broken, and
 # so far I haven't found the issue, maybe there's someone who can.
-def PgPixelShader(tri, pixelArray, pygame):
+def PgPixelShader(tri, pixelArray, texture=txtr):
+    tX = len(texture)
+    tY = len(texture[0])
     list = [tri[0], tri[1], tri[2]]
     list.sort(key=FillSort)
 
@@ -2656,7 +2766,8 @@ def PgPixelShader(tri, pixelArray, pygame):
         # x * slope takes a screen X and turns it into a screen Y, along the P1-P3 line
         slope = (list[2][1] - list[0][1]) / diffX
 
-        # multiplied by 0-1 to get a screen X, along the P1-P2 line (normalized, make sure to add back P1's X)
+        # multiplied by 0-1 to get a screen X, along the P1-P2 line (normalized, make 
+        # sure to add back P1's X)
         diff = list[1][0] - list[0][0]
 
         # If this side's flat, no need.
@@ -2667,7 +2778,8 @@ def PgPixelShader(tri, pixelArray, pygame):
             uv3 = list[2][4]
 
             diffY = list[1][1] - list[0][1]
-            # x * diff3 takes a screen x and results in a screen y, on the P1-P2 line (normalized, make sure to add back P1's Y)
+            # x * diff3 takes a screen x and results in a screen y, on the P1-P2 line 
+            # (normalized, make sure to add back P1's Y)
             diff3 = diffY / diff
 
             for x in range(int(diff) + 1):
@@ -2675,39 +2787,41 @@ def PgPixelShader(tri, pixelArray, pygame):
                 range1 = int(diff3 * x + list[0][1])
                 range2 = int(slope * x + list[0][1])
 
-                # Converting screen x to 0-1
+                # Converting x to 0-1
                 # Normalized between P1 and P2
-                nX = (x / diff)
+                nX = (x / (diff + 1))
                 # Normalized between P1 and P3
                 nX2 = (x / diffX)
 
                 UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, True)
 
+                # Final X coordinate (pre-calculating instead of in the for loop)
                 fX = int(x + list[0][0])
 
-                sgn = 1 if range1 < range2 else -1
-                for y in range(range1, range2, sgn):
+                if fX > 0 and fX < iC[3]:
 
-                    # Convering screen y to 0-1
-                    nY = (y - range1) / (range2 - range1)
-                        
-                    # Pixel:
-                    # [0] is the screen x, [1] is the screen y, [2] is the UV
-                    if fX > 0 and fX < iC[3]:
+                    sgn = 1 if range1 < range2 else -1
+                    for y in range(range1, range2, sgn):
+
+                        # Convering y to 0-1
+                        nY = (y - range1) / (range2 - range1)
+                            
+                        # Pixel:
+                        # [0] is the screen x, [1] is the screen y, [2] is the UV
                         if y > 0 and y < iC[2]:
                             if pixelArray[fX, y] == 0:
                                 fUVs = UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])
-                                rU = int(fUVs[0] * len(txtr))
-                                rV = int(fUVs[1] * len(txtr[0]))
-                                u = int(abs(rU)) % len(txtr)
-                                v = int(abs(rV)) % len(txtr[0])
-                                colour = txtr[u][v]
-                                pixelArray[fX, y] = colour
+                                rU = fUVs[0] * tX
+                                rV = fUVs[1] * tY
+                                u = int(abs(rU)) % tX
+                                v = int(abs(rV)) % tY
+                                colour = texture[u][v]
+                                if colour[3]:
+                                    pixelArray[fX, y] = colour
 
-        PgPixelShaderPt2(list, slope, diff, diffX, pixelArray, pygame)
+        PgPixelShaderPt2(list, slope, diff, diffX, pixelArray, texture, tX, tY)
 
-def PgPixelShaderPt2(list, fSlope, diff, diffX, pixelArray, pygame):
-    output = []
+def PgPixelShaderPt2(list, fSlope, diff, diffX, pixelArray, texture, tX, tY):
     if list[2][0] != list[1][0]:
         diff2 = list[2][0] - list[1][0]
         if diff2 != 0:
@@ -2716,12 +2830,12 @@ def PgPixelShaderPt2(list, fSlope, diff, diffX, pixelArray, pygame):
             uv2 = list[1][4]
             uv3 = list[2][4]
 
-            for x in range(int(diff2)):
+            for x in range(int(diff2) + 1):
                 # Repeat the same steps except for this side now.
                 range1 = int(slope2 * x + list[1][1])
                 range2 = int(fSlope * (x + diff) + list[0][1])
                 
-                nX = x / diff2
+                nX = x / (diff2 + 1)
                 nX2 = (x + diff) / diffX
                 UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, False)
                 fX = int(x + list[1][0])
@@ -2736,12 +2850,126 @@ def PgPixelShaderPt2(list, fSlope, diff, diffX, pixelArray, pygame):
                         if y > 0 and y < iC[2]:
                             if pixelArray[fX, y] == 0:
                                 fUVs = UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])
-                                rU = int(fUVs[0] * len(txtr))
-                                rV = int(fUVs[1] * len(txtr[0]))
-                                u = int(abs(rU)) % len(txtr)
-                                v = int(abs(rV)) % len(txtr[0])
-                                colour = txtr[u][v]
-                                pixelArray[fX, y] = colour
+                                rU = fUVs[0] * tX
+                                rV = fUVs[1] * tY
+                                u = int(abs(rU)) % tX
+                                v = int(abs(rV)) % tY
+                                colour = texture[u][v]
+                                if colour[3]:
+                                    pixelArray[fX, y] = colour
+
+depthBuffer = ()
+
+def MakeDepthBuffer():
+    global depthBuffer
+    db = []
+    for x in iC[3]:
+        db.append([])
+        for y in iC[2]:
+            db[x].append(0.0)
+    depthBuffer = tuple(db)
+
+# Tkinter is slow, so this is not meant for real time.
+def TkPixelShader(tri, canvas, texture=txtr):
+    tX = len(texture)
+    tY = len(texture[0])
+    list = [tri[0], tri[1], tri[2]]
+    list.sort(key=FillSort)
+
+    diffX = list[2][0] - list[0][0]
+
+    if diffX != 0:
+        # x * slope takes a screen X and turns it into a screen Y, along the P1-P3 line
+        slope = (list[2][1] - list[0][1]) / diffX
+
+        # multiplied by 0-1 to get a screen X, along the P1-P2 line (normalized, make 
+        # sure to add back P1's X)
+        diff = list[1][0] - list[0][0]
+
+        # If this side's flat, no need.
+        if diff != 0:
+
+            uv1 = list[0][4]
+            uv2 = list[1][4]
+            uv3 = list[2][4]
+
+            diffY = list[1][1] - list[0][1]
+            # x * diff3 takes a screen x and results in a screen y, on the P1-P2 line 
+            # (normalized, make sure to add back P1's Y)
+            diff3 = diffY / diff
+
+            for x in range(int(diff) + 1):
+
+                range1 = int(diff3 * x + list[0][1])
+                range2 = int(slope * x + list[0][1])
+
+                # Converting x to 0-1
+                # Normalized between P1 and P2
+                nX = (x / (diff + 1))
+                # Normalized between P1 and P3
+                nX2 = (x / diffX)
+
+                UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, True)
+
+                # Final X coordinate (pre-calculating instead of in the for loop)
+                fX = int(x + list[0][0])
+
+                sgn = 1 if range1 < range2 else -1
+                for y in range(range1, range2, sgn):
+
+                    # Convering y to 0-1
+                    nY = (y - range1) / (range2 - range1)
+                        
+                    # Pixel:
+                    # [0] is the screen x, [1] is the screen y, [2] is the UV
+                    if fX > 0 and fX < iC[3]:
+                        if y > 0 and y < iC[2]:
+                            fUVs = UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])
+                            rU = int(fUVs[0] * tX)
+                            rV = int(fUVs[1] * tY)
+                            u = int(abs(rU)) % tX
+                            v = int(abs(rV)) % tY
+                            colour = texture[u][v]
+                            if colour[3]:
+                                canvas.create_line(fX, y, fX + 1, y, fill=RGBToHex(colour))
+
+        TkPixelShaderPt2(list, slope, diff, diffX, canvas, texture, tX, tY)
+
+def TkPixelShaderPt2(list, fSlope, diff, diffX, canvas, texture, tX, tY):
+    if list[2][0] != list[1][0]:
+        diff2 = list[2][0] - list[1][0]
+        if diff2 != 0:
+            slope2 = (list[2][1] - list[1][1]) / diff2
+            uv1 = list[0][4]
+            uv2 = list[1][4]
+            uv3 = list[2][4]
+
+            for x in range(int(diff2) + 1):
+                # Repeat the same steps except for this side now.
+                range1 = int(slope2 * x + list[1][1])
+                range2 = int(fSlope * (x + diff) + list[0][1])
+                
+                nX = x / (diff2 + 1)
+                nX2 = (x + diff) / diffX
+                UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, False)
+                fX = int(x + list[1][0])
+
+                sgn = 1 if range1 < range2 else -1
+
+                for y in range(range1, range2, sgn):
+
+                    nY = (y - range1) / (range2 - range1)
+
+                    if fX > 0 and fX < iC[3]:
+                        if y > 0 and y < iC[2]:
+                            fUVs = UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])
+                            rU = int(fUVs[0] * tX)
+                            rV = int(fUVs[1] * tY)
+                            u = int(abs(rU)) % tX
+                            v = int(abs(rV)) % tY
+                            colour = texture[u][v]
+                            if colour[3]:
+                                canvas.create_line(fX, y, fX + 1, y, fill=RGBToHex(colour))
 
 #==========================================================================
 #  
@@ -2749,16 +2977,19 @@ def PgPixelShaderPt2(list, fSlope, diff, diffX, pixelArray, pygame):
 #
 #==========================================================================
 
-# Wrote a script to brute-force finding a single multiplier that could do most of the projection.
+# Wrote a script to brute-force finding a single multiplier that could do most of 
+# the projection.
 # I call it: How-Does-That-Even-Work Projection
 
 # I've already calculated the constants for an FOV of 90, at 16:9: 
-# To recalculate, use FindHowVars(fFov). It's quite speedy now, but nevertheless should be done once at the start.
+# To recalculate, use FindHowVars(fFov). It's quite speedy now, but nevertheless 
+# should be done once at the start.
 
 howX = 0.56249968159
 howY = 1.0
 
-# Optional aspect ratio argument: put height over width as a fraction, so for 16:9 put in 9/16, 4:3 is 3/4, 21:9 is 9/21, and so on.
+# Optional aspect ratio argument: put height over width as a fraction, so for 16:9 
+# put in 9/16, 4:3 is 3/4, 21:9 is 9/21, and so on.
 def FindHowVars(fFov, asp=9/16):
     global howX
     global howY
@@ -2801,6 +3032,9 @@ calc = True
 # Written as a brute-forcer because it's meant to find a constant for any formula
 
 def CalculateCam(foV, farClip, aspectRatio):
+    print("")
+    print("Calculating Camera Constants")
+    print("")
     fov = foV * 0.0174533
     print("Graphing real formulas...")
     fullXGraph = []
@@ -2838,6 +3072,196 @@ def CalculateCam(foV, farClip, aspectRatio):
                 finished.append(bestM)
                 calc = False
             aiM = bestM + ((rand.random() - 0.5) * srchRad)
-    print("X: " + str(finished[0]) + ", Y: " + str(finished[1]))
-    print("Use SetHowVars() to skip the calculations")
+    print("Done!")
+    print("z3dpy.SetHowVars(" + str(finished[0]) + ", " + str(finished[1]) + ")")
     return finished
+
+#==========================================================================
+#  
+# Emitter/Particle Functions
+#
+#==========================================================================
+
+def TickEmitters(emitters=emitters):
+    for em in emitters:
+        for p in range(len(em[0])):
+            if p == len(em[0]):
+                break
+            pt = em[0][p]
+            pt[0] -= delta
+            if pt[0] <= 0:
+                # Removal from list
+                em[0] = em[0][:p] + em[0][p+1:]
+                # Accounting for the removal
+                p -= 1
+                continue
+            # Basic version of physics for particles
+            pt[2] = VectorMul(pt[2], [airDrag * sign(pt[2][0]), airDrag * sign(pt[2][1]), airDrag * sign(pt[2][2])])
+            pt[2] = VectorAdd(pt[2], VectorMulF(gravity, 0.05))
+            pt[1] = VectorAdd(VectorMulF(pt[2], delta), pt[1])
+        if em[6]:
+            if len(em[0]) < EmitterGetMax(em):
+                em[0] = em[0] + (Part(EmitterGetPos(em), EmitterGetVelocity(em), EmitterGetLifetime(em)),)
+
+#==========================================================================
+#  
+# Misc Functions
+#
+#==========================================================================
+
+# WhatIs()
+# Takes a list and figures out what "object" it is.
+# meant to be used with print() for debugging. Speed was not a priority
+
+# Usage:
+#
+# print(WhatIs(hopefullyATriangle))
+#
+
+def WhatIs(any):
+    try:
+        test = len(any)
+    except:
+        return str(type(any))
+    else:
+        match len(any):
+            case 2:
+                try:
+                    test = any[0][0]
+                    return "Ray"
+                except:
+                    return "Vector2"
+            case 3:
+                try:
+                    test = any[0] + 1
+                    return "Vector"
+                except:
+                    try:
+                        test = any[0][0] + 1
+                        # S for shortened triangle, it only includes the points, and no other information.
+                        return "STriangle"
+                    except:
+                        return "Unknown"
+            case 4:
+                try:
+                    test = any[0][0]
+                    return "PhysicsBody"
+                except:
+                    return "Vector4"
+            case 5:
+                try:
+                    test = any[4][0][0]
+                    return "Hitbox"
+                except:
+                    try:
+                        test = any[2][0] + 1
+                        return "Triangle"
+                    except:
+                        try:
+                            test = any[4][2]
+                            return "VectorUV"
+                        except:
+                            return "Light_Point"
+            case 6:
+                return "Mesh"
+            case 8:
+                return "Thing"
+            case 9:
+                return "Camera"
+            
+# WhatIsInt():
+# Same as WhatIs(), except instead of a string it's a number
+# -1 is Unknown
+# 0 is Vector
+# 1 is Vector2
+# 2 is Vector4
+# 3 is VectorUV
+# 4 is Triangle
+# 5 is STriangle
+# 6 is Mesh
+# 7 is Ray
+# 8 is Light_Point
+# 9 is Thing
+# 10 is Hitbox
+# 11 is PhysicsBody
+# 12 is Camera
+            
+def WhatIsInt(any):
+    try:
+        test = len(any)
+    except:
+        return -1
+    else:
+        match len(any):
+            case 2:
+                try:
+                    test = any[0][0]
+                    return 7
+                except:
+                    return 1
+            case 3:
+                try:
+                    test = any[0] + 1
+                    return 0
+                except:
+                    try:
+                        test = any[0][0] + 1
+                        # S for shortened triangle, it only includes the points, and no other information.
+                        return 5
+                    except:
+                        return -1
+            case 4:
+                try:
+                    test = any[0][0]
+                    return 11
+                except:
+                    return 2
+            case 5:
+                try:
+                    test = any[4][0][0]
+                    return 10
+                except:
+                    try:
+                        test = any[2][0] + 1
+                        return 4
+                    except:
+                        try:
+                            test = any[4][2]
+                            return 3
+                        except:
+                            return 8
+            case 6:
+                return 6
+            case 8:
+                return 9
+            case 9:
+                return 12
+
+def Projection(vector, a, f, fc, nc):
+    # At the start I went the full formula route instead of matrix form, and
+    # I kept it because it works.
+    q = fc / (fc - nc)
+    if vector[2] != 0:
+        return [(a * f * vector[0]) / vector[2], (f * vector[1]) / vector[2], (q * vector[2]) - (q * nc), vector[3], vector[4]]
+    else:
+        return vector
+
+
+def HowProjection(vector):
+    vector += [[], []]
+    if vector[2] != 0:
+        
+        # Assumes 16/9 aspect ratio, because of this 3.
+        return [(vector[0] * howX) / vector[2], (vector[1] * howY) / vector[2], 1, vector[3], vector[4]]
+    return vector
+
+def ProjectTri(t, a, f, fc, nc):
+    return [Projection(t[0], a, f, fc, nc), Projection(t[1], a, f, fc, nc), Projection(t[2], a, f, fc, nc), t[3], t[4], t[5]]
+        
+def HowProjectTri(t):
+    return [HowProjection(t[0]), HowProjection(t[1]), HowProjection(t[2]), t[3], t[4], t[5]]
+
+def RGBToHex(vector):
+    def intToHex(int):
+        return hex(max(int, 0))[2:].ljust(2, "0")
+    return "#" + intToHex(int(vector[0])) + intToHex(int(vector[1])) + intToHex(int(vector[2]))
