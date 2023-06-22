@@ -1,17 +1,19 @@
 import z3dpy as zp
 import pygame
-import time
+
+print("")
+print("Controls:")
+print("W and S to move ray-shooter up and down")
 
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
-currentTime = time.time()
-
 zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
 
-# z3dpy.Camera(x, y, z, scrW, scrH)
-myCamera = zp.Camera(0, 0, -4, 1280, 720)
+# z3dpy.Cam(x, y, z, scrW, scrH)
+myCamera = zp.Cam(0, 0, -4, 1280, 720)
+
 
 
 
@@ -27,6 +29,8 @@ zp.AddThing(player)
 
 zp.AddThing(cube)
 
+zp.CamSetPos(myCamera, zp.VectorSub(zp.ThingGetPos(player), [0, 8, 0]))
+
 while True:
 
     for event in pygame.event.get():
@@ -34,13 +38,7 @@ while True:
             pygame.quit()
 
     clock.tick(60)
-    screen.fill("black")
-
-    zp.CameraSetPos(myCamera, zp.VectorSub(zp.ThingGetPos(player), [0, 8, 0]))
-    zp.CameraSetTargetVector(myCamera, [0, 1, 0])
-    zp.CameraSetUpVector(myCamera, [0, 0, 1])
-
-    zp.SetInternalCamera(myCamera)
+    
 
     # Input
     keys = pygame.key.get_pressed()
@@ -57,14 +55,24 @@ while True:
     
     theRay = zp.Ray(rayStart, rayEnd)
 
-    zp.rays.append(theRay)
-
     hit = zp.RayIntersectThingComplex(theRay, cube)
 
     if(hit[0]):
         pygame.display.set_caption("Yep")
     else:
         pygame.display.set_caption("Nope")
+
+    # Append to the global list for drawing.
+    zp.rays.append(theRay)
+
+    # New CamChase() will make the camera "chase" a location rather than being set.
+    zp.CamChase(myCamera, zp.VectorSub(zp.ThingGetPos(player), [0, 8, 0]), 0.25)
+    zp.CamSetTargetVector(myCamera, [0, 1, 0])
+    zp.CamSetUpVector(myCamera, [0, 0, 1])
+
+    zp.SetInternalCam(myCamera)
+
+    screen.fill("black")
         
     # Render 3D
     for tri in zp.DebugRaster():

@@ -13,30 +13,28 @@ static = False
 coolDown = 0
 
 # z3dpy.Camera(x, y, z, scrW, scrH)
-myCamera = zp.Camera(0, 0, 0, 1280, 720)
+myCamera = zp.Cam(0, 0, 0, 1280, 720)
 
 # z3dpy.LoadMesh(filename, x, y, z)
 # z3dpy.Thing(meshList, x, y, z)s
-zack = zp.Thing([zp.NewSusanne()], 0, 0, 3)
+sus = zp.Thing([zp.NewSusanne()], 0, 0, 3)
 
 zp.lights.append(zp.Light_Point(2, 0, 1, 1, 1500))
 
-zp.CameraSetTargetFP(myCamera)
+zp.CamSetTargetFP(myCamera)
 
-zp.SetInternalCamera(myCamera)
+zp.SetInternalCam(myCamera)
 
-zp.BakeLighting([zack])
+zp.BakeLighting([sus])
 
 print("")
 print("L to switch between static and dynamic lighting")
 
-stuckInLoop = True
-
-while stuckInLoop:
+while True:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            stuckInLoop = True
+            pygame.quit()
     
     screen.fill("black")
 
@@ -50,16 +48,16 @@ while stuckInLoop:
     coolDown -= 1
 
     if static:
-        for tri in zp.RasterThings([zack]):
+        for tri in zp.RasterThings([sus]):
             zp.PgDrawTriFLB(tri, screen, pygame)
 
     else:
-        for tri in zp.RasterThings([zack]):
+        for tri in zp.RasterThings([sus]):
             zp.PgDrawTriFL(tri, screen, pygame)
 
     pygame.display.flip()
 
-    zp.ThingAddRot(zack, [1, 2, 3])
+    zp.ThingAddRot(sus, [1, 2, 3])
 
     # Setting the caption is much faster than printing
     pygame.display.set_caption(str(int(1 / (time.time() - currentTime))) + " FPS")

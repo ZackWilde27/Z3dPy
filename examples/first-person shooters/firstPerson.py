@@ -1,8 +1,5 @@
-#-zw
-
 import pygame
 import z3dpy as zp
-import time
 
 print("")
 print("Controls:")
@@ -15,18 +12,20 @@ screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
 # Our camera to view from
-FPCamera = zp.Camera(0, -10, 0, 1280, 720)
+FPCamera = zp.Cam(0, -10, 0, 1280, 720)
 
-# Setting up How-Does-That-Even-Work Projection
+# Changing FOV
 #zp.FindHowVars(75)
 zp.SetHowVars(0.733063872892536, 1.303224560042964)
 
-gunMetal = zp.LoadMesh("mesh/gunMetal.obj", 0, 0, 0)
-gunWood = zp.LoadMesh("mesh/gunWood.obj", 0, 0, 0)
+# Importing gun as two pieces to colour separately
+gunMetal = zp.LoadMesh("mesh/gunMetal.obj")
+gunWood = zp.LoadMesh("mesh/gunWood.obj")
 
 zp.MeshSetColour(gunMetal, [128, 144, 171])
 zp.MeshSetColour(gunWood, [214, 138, 102])
 
+# Combine them into one Thing
 Gun = zp.Thing([gunMetal, gunWood], 0, 0, 0)
 
 world = zp.Thing([zp.LoadMesh("mesh/world4.obj", 0, 0, 0)], 0, 0, 0)
@@ -75,24 +74,21 @@ while stuckInLoop:
     keys = pygame.key.get_pressed()
 
     if keys[pygame.K_w]:
-        zp.CameraAddPos(FPCamera, zp.VectorRotateY([0, 0, 1], zp.CameraGetYaw(FPCamera)))
+        zp.CamAddPos(FPCamera, zp.VectorRotateY([0, 0, 1], zp.CamGetYaw(FPCamera)))
     if keys[pygame.K_s]:
-        zp.CameraSubPos(FPCamera, zp.VectorRotateY([0, 0, 1], zp.CameraGetYaw(FPCamera)))
+        zp.CamSubPos(FPCamera, zp.VectorRotateY([0, 0, 1], zp.CamGetYaw(FPCamera)))
 
     if keys[pygame.K_a]:
-        zp.CameraAddPos(FPCamera, zp.CameraGetRightVector(FPCamera))
+        zp.CamAddPos(FPCamera, zp.CamGetRightVector(FPCamera))
     if keys[pygame.K_d]:
-        zp.CameraSubPos(FPCamera, zp.CameraGetRightVector(FPCamera))
-
-    if keys[pygame.K_r]:
-        ResetPhysicsDemo()
+        zp.CamSubPos(FPCamera, zp.CamGetRightVector(FPCamera))
 
     if mouseTrue:
         check = pygame.mouse.get_rel()
-        zp.CameraSetYaw(FPCamera, zp.CameraGetYaw(FPCamera) + -check[0] * 0.5)
-        newPitch = zp.CameraGetPitch(FPCamera) + -check[1] * 0.5
+        zp.CamSetYaw(FPCamera, zp.CamGetYaw(FPCamera) + -check[0] * 0.5)
+        newPitch = zp.CamGetPitch(FPCamera) + -check[1] * 0.5
         newPitch = min(newPitch, 90)
-        zp.CameraSetPitch(FPCamera, max(newPitch, -90))
+        zp.CamSetPitch(FPCamera, max(newPitch, -90))
         newDrag = int(weaponDrag + check[0] * 0.2)
         newDrag = max(newDrag, -wpnDrgMax)
         weaponDrag = min(newDrag, wpnDrgMax)
@@ -100,27 +96,24 @@ while stuckInLoop:
         pygame.mouse.set_pos([640, 360])
 
     # Gravity
-    if zp.CameraGetPos(FPCamera)[1] < -5:
-        zp.CameraAddPos(FPCamera, [0, 0.1, 0])
+    if zp.CamGetPos(FPCamera)[1] < -5:
+        zp.CamAddPos(FPCamera, [0, 0.1, 0])
     else:
-        zp.CameraSetPosY(FPCamera, -5)
+        zp.CamSetPosY(FPCamera, -5)
 
     # Weapon Drag
     if weaponDrag != 0:
-        if weaponDrag < 0:
-            weaponDrag += 1
-        else:
-            weaponDrag -= 1
+        weaponDrag -= zp.sign(weaponDrag)
     
-    zp.CameraSetTargetFP(FPCamera)
+    zp.CamSetTargetFP(FPCamera)
 
     # Update Gun to camera
-    zp.ThingSetPos(Gun, zp.CameraGetPos(FPCamera))
+    zp.ThingSetPos(Gun, zp.CamGetPos(FPCamera))
 
-    zp.ThingSetRoll(Gun, zp.CameraGetYaw(FPCamera) - 90 + weaponDrag)
+    zp.ThingSetRoll(Gun, zp.CamGetYaw(FPCamera) - 90 + weaponDrag)
 
     # Setting Internal Camera
-    zp.SetInternalCamera(FPCamera)
+    zp.SetInternalCam(FPCamera)
 
     for tri in zp.Raster():
         normal = zp.TriGetNormal(tri)

@@ -18,15 +18,15 @@ zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
 # z3dpy.Camera(x, y, z, scrW, scrH)
 myCamera = zp.Camera(0, 0, 0, 1280, 720)
 
-zp.CameraSetTargetVector(myCamera, [0, 0, 1])
+zp.CamSetTargetDir(myCamera, [0, 0, 1])
     
-zp.SetInternalCamera(myCamera)
+zp.SetInternalCam(myCamera)
 
 # z3dpy.LoadMesh(filename, x, y, z)
 # z3dpy.Thing(meshList, x, y, z)
-zack = zp.Thing([zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 0)], 0, 0, 3)
+sus = zp.Thing([zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 0)], 0, 0, 3)
 
-zp.CAddThing(zack)
+zp.CAddThing(sus)
 
 isC = False
 

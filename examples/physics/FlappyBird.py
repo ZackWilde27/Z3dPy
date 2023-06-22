@@ -21,7 +21,7 @@ zp.MeshSetColour(birdBody, [255, 214, 91])
 zp.MeshSetColour(birdBeak, [255, 52, 38])
 
 # Changing Gravity
-zp.gravityDir = [0, 4, 0]
+zp.gravity = [0, 4, 0]
 
 # Group two meshes with different colours into one Thing
 bird = zp.Thing([birdBody, birdBeak], 0, 0, 5)
@@ -63,7 +63,7 @@ def Reset():
 
 
 # Create our camera (x, y, z, width, height, fov, nearClip, farClip)
-myCamera = zp.Camera(0, 0, -3, 1280, 720)
+myCamera = zp.Cam(0, 0, -3, 1280, 720)
 
 birdVelocity = 0
 
@@ -97,16 +97,16 @@ while True:
     zp.HandlePhysicsFloor([bird], 5)
 
     # Smoothly following the bird
-    comp = zp.ThingGetPosY(bird) - zp.CameraGetPos(myCamera)[1]
+    comp = zp.ThingGetPosY(bird) - zp.CamGetPos(myCamera)[1]
     if abs(comp) > 0.1:
-        zp.CameraSubPos(myCamera, [0, -comp * 0.25, 0])
+        zp.CamSubPos(myCamera, [0, -comp * 0.25, 0])
     else:
-        zp.CameraSetPosY(myCamera, zp.ThingGetPosY(bird))
-    zp.CameraSetPosX(myCamera, zp.ThingGetPosX(bird))
+        zp.CamSetPosY(myCamera, zp.ThingGetPosY(bird))
+    zp.CamSetPosX(myCamera, zp.ThingGetPosX(bird))
 
-    zp.CameraSetTargetVector(myCamera, [0, 0, 1])
+    zp.CamSetTargetVector(myCamera, [0, 0, 1])
 
-    zp.SetInternalCamera(myCamera)
+    zp.SetInternalCam(myCamera)
 
     # Tilting Bird
     rotation = min(zp.ThingGetVelocityY(bird) * 15, 40)
