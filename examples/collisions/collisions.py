@@ -69,7 +69,7 @@ while True:
     if keys[pygame.K_SPACE]:
         zp.ThingSetVelocity(char, [0, -2, 0])
 
-    zp.HandlePhysicsFloor(2)
+    zp.HandlePhysicsFloor([char], 2)
 
     zp.PhysicsCollisions([char, bar])
 
