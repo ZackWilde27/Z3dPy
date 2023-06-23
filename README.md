@@ -11,6 +11,8 @@ Handles all the math for drawing, as well as lighting, rays/collisions, and basi
 
 Documentation can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
+<br>
+
 # Installation Guide
 
 First you'll need a display, like pygame, or tkinter or something.
@@ -20,6 +22,8 @@ Download the release build and extract the zip folder to the same folder as your
 import z3dpy as zp
 ```
 Installation guide for z3dpyfast can be found <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Z3dPyFast">here</a>
+
+<br>
 
 # Getting Started
 
@@ -137,11 +141,10 @@ while True:
     
     zp.MeshAddRot(myMesh, [1, 4, 3])
 ```
-<br>
+
 Everything is coloured with it's normal direction, so X is red, Y is green, Z is blue.
 
-<br> 
-To do flat shading, call DrawTriF() and put in one of the normal axis
+<br>
 
 # Exporting Mesh
 
