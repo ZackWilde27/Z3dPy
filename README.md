@@ -21,7 +21,6 @@ Download the release build and extract the zip folder to the same folder as your
 ```python
 import z3dpy as zp
 ```
-Installation guide for z3dpyfast can be found <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Z3dPyFast">here</a>
 
 <br>
 
