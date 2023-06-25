@@ -1,106 +1,62 @@
 # -zw
 '''
 
-Z3dPy v0.2.4
+Z3dPy v0.2.5
+*Nightly build, wiki/examples are based on the nightly build
 
 Change Notes:
 
-PHYSICS
+CAMERAS
 
-- BasicHandleCollisions() has been completely overhauled, and is now fairly robust.
-Takes two things that are colliding, the oth, and the pivot, and moves the oth out 
-of the pivot's hitbox.
+- Added screenSize, which is a Vector2 containing the screen height and width.
+It's now global instead of each camera having their own.
 
-- PhysicsCollisions() now uses BasicHandleCollisions() to separate objects before 
-applying velocities
+- Creating a Cam() object only needs x, y, and z now.
 
-- Physics bodies now have rot velocity and rot acceleration, purely visual as the 
-hitbox does not rotate with it.
+- Camera variables have been moved around, to remove ScW and ScH, and now GetPos()
+and GetRot() is compatible.
 
-SHORTENING WORDS
+ANIMESHES
 
-Just like I did with tris, I'm shortening more words for less typing.
+- Added functions using the AniMesh spelling, as I decided to use that spelling 
+instead. Old functions will remain for backwards compatibility.
 
-- Renamed all instances of Camera to Cam, like CamGetPos(), and CamSetRot() to name
-a few
+ROTTO()
 
-- Renamed Cam's TargetVector() functions to TargetDir(), like CamGetTargetDir()
+- Added RotTo(vRot, vector), it just rotates a vector, but it can be used to get 
+anything's forward, up, or right vector.
 
-- Renamed Cam's TargetLocation() functions to TargetLoc(), like CamSetTargetLoc()
+The first vector is the object's rotation, the second is the desired direction.
 
-- Renamed globalX, globalY, and globalZ to just x, y, and z.
+If you want to get a Thing's forward vector, the desired
+direction is forward on the z axis.
 
-- Renamed gravityDir to just gravity
+z3dpy.RotTo(z3dpy.ThingGetRot(myThing), [0, 0, 1])
 
-PIXELSHADERS
+If you want to get a Mesh's up vector, the desired
+direction is up on the y axis. (+Y is up in this case)
 
-- Working on PgPixelShader(), it's nearly there, still figuring out some bugs
+z3dpy.RotTo(z3dpy.MeshGetRot(myMesh), [0, 1, 0])
 
-- Added TkPixelShader(tri, canvas, texture)
-Not real-time, mostly a proof of concept
+You may be able to predict how you get a Camera's right vector.
 
-- PgPixelShader now has this argument list: (tri, pixelArray, texture)
-texture is optional, it'll use the built in UV test by default.
-
-- Textures have a transparency bool, pixels that are False won't be drawn.
-
-- Performance is still a big issue, the only thing that can save performance is
-rendering at a low resolution. Pygame has a transform module for upscaling.
-
-PARTICLES
-
-- Added Part(), Emitter(), and global emitters list.
-
-- Added TickParticles() which will apply physics to particles and spawn more if 
-below emitter's max.
-
-Each particle is a mesh, it re-uses the template for drawing at
-each particle's location.
+z3dpy.RotTo(z3dpy.CamGetRot(myCamera), [1, 0, 0])
 
 RASTERING
 
-- Added RasterEmitters(), for drawing particles from emitters. When using Raster(), 
-they are drawn on the default layer
+- Added RasterPt1BF() and RasterPt1StaticBF(), which will skip back-face culling. Should be used with flat shapes, will decrease performance in most other circumstances.
 
-TRAINS
-
-- Height now blends between points instead of snapping.
-
-VECTORS
-
-- Added VectorZero(vector, threshold), which will return a vector where each axis 
-below the threshold is 0
-
-TRIS
-
-- Added TriGetP1(tri), TriGetP2(tri), and TriGetP3(tri)
-I'd still recommend the good ol' tri[0], tri[1] and tri[2], but 
-if it makes it easier, why not.
-
-MESHES
-
-- Added MeshUniqPoints(), which will convert a mesh to a set of 
-unique points.
-
-LIGHTING
-
-- CheapLightingCalc(), FlatLighting(), ExpensiveLightingCalc() and 
-BakeLighting() now have optional arguments to provide your own list of lights.
+- Fixed debug rays disappearing: DebugRaster() will now raster rays with back-faces.
 
 MISC
 
-- Added universal functions, such as GetPos(), GetRot(), and 
-SetList(), they work on most objects, but not all
+- PartSetTime()'s second argument correctly says fTime instead of iLayer
 
-- Added CamChase(cam, location, speed), which will cause the
-camera to "chase" a location rather than directly going there.
+- If PgLoadTexture() does not find the texture, (or some other error occurs), it'll be replaced with TestTexture()
 
-- FindHowVars() now prints the SetHowVars() with variables inside, so it's a copy 
-and paste now.
+- z3dpy.y is now -1, since up is negative, whoops
 
-- RGBToHex() and by extension TkDrawTriS() has now been fixed.
-
-- Moved misc functions to the bottom of the script
+- gravity is now a tuple, since you'd be re-assigning to change it anyways.
 
 '''
 
@@ -119,7 +75,7 @@ except:
 # Math for, well...
 import math
 
-print("Z3dPy v0.2.4")
+print("Z3dPy v0.2.5")
 
 
 
@@ -132,7 +88,7 @@ print("Z3dPy v0.2.4")
 
 # You can reference these at any time to get a global axis.
 x = (1, 0, 0)
-y = (0, 1, 0)
+y = (0, -1, 0)
 z = (0, 0, 1)
 
 # The physics loop calculates delta, so it's called physTime
@@ -142,7 +98,9 @@ elapsed = 0.0
 
 delta = 0.3
 
-gravity = [0, 9.8, 0]
+gravity = (0, 9.8, 0)
+
+screenSize = (1280, 720)
 
 airDrag = 0.02
 
@@ -230,6 +188,9 @@ def Frame(tris, iNext=-1, Function=NOP):
 def AniMesh(frames, x, y, z):
     return [frames, [x, y, z], [0, 0, 0], [255, 255, 255], 0, 0, 0]
 
+def AnimMesh(frames, x, y, z):
+    return [frames, [x, y, z], [0, 0, 0], [255, 255, 255], 0, 0, 0]
+
 # Usage:
 '''
 # Assuming that frame 0-30 is a walk animation and 31-60 is an attack animation
@@ -243,17 +204,17 @@ def AIFunction():
         AttackPlayer()
 
 
-enemyMesh = z3dpy.LoadAnimMesh("filename.obj")
+enemyMesh = z3dpy.LoadAniMesh("filename.obj")
 
 
 # On the 29th frame of animation, it'll perform AIFunction().
-AnimMeshSetFrameFunc(enemyMesh, 29, AIFunction)
+AniMeshSetFrameFunc(enemyMesh, 29, AIFunction)
 
 # FrameNext is well, the frame that comes next.
 # Keep in mind it will override anything the function does.
-AnimMeshSetFrameNext(enemyMesh, 30, 0)
+AniMeshSetFrameNext(enemyMesh, 30, 0)
 
-AnimMeshSetFrameNext(enemyMesh, 60, 31)
+AniMeshSetFrameNext(enemyMesh, 60, 31)
 
 # If the function doesn't set the frame to 31, the frame 30 will loop back to 0.
 # and once it's in the attack animation, frame 60 will loop back to 31
@@ -309,7 +270,7 @@ def PhysicsBody():
 # [0] is the list of meshes, [1] is position, [2] is rotation, [3] is hitbox, [4] is physics body, and [5] is isMovable, [6] is internal id, and [7] is user variable.
 #
 # Hitbox and Physics body are empty till you assign them.
-# Internal id should not be changed, it's for storing the index in the global things list.
+# Internal id should not be changed, it's for RemoveThing(), stores it's index instead of finding the thing.
 
 def Thing(meshList, x, y, z):
     return [meshList, [x, y, z], [0, 0, 0], [], [], True, 0, 0]
@@ -324,14 +285,14 @@ def Thing(meshList, x, y, z):
 #
 # To change the FOV, call FindHowVars(fov)
 
-# [0] is position, [1] is rotation, [2] is screenHeight, [3] is screenWidth, [4] is near clip, [5] is far clip
-# [6] is target location, [7] is up vector, and [8] is user variable
+# [0] is user variable, [1] is position, [2] is rotation, [3] is near clip, 
+# [4] is far clip, [5] is target location, [6] is up vector
 
-def Cam(x, y, z, iScrW, iScrH):
-    return [[x, y, z], [0, 0, 0], iScrH, iScrW, 0.1, 1500, [0, 0, 1], [0, 1, 0], 0]
+def Cam(x, y, z):
+    return [0, [x, y, z], [0, 0, 0], 0.1, 1500, [0, 0, 1], [0, 1, 0]]
 
-def Camera(x, y, z, iScrW, iScrH):
-    return [[x, y, z], [0, 0, 0], iScrH, iScrW, 0.1, 1500, [0, 0, 1], [0, 1, 0], 0]
+def Camera(x, y, z):
+    return [0, [x, y, z], [0, 0, 0], 0.1, 1500, [0, 0, 1], [0, 1, 0]]
 
 # Internal Camera
 #
@@ -351,7 +312,7 @@ intMatP = ()
 def SetInternalCam(camera):
     global intMatV
     global iC
-    iC = [CamGetPos(camera), CamGetRot(camera), CamGetScH(camera), CamGetScW(camera), CamGetScH(camera) * 0.5, CamGetScW(camera) * 0.5, CamGetNCl(camera), CamGetFCl(camera), CamGetTargetVector(camera), CamGetUpVector(camera)]
+    iC = [CamGetPos(camera), CamGetRot(camera), screenSize[1], screenSize[0], screenSize[1] * 0.5, screenSize[0] * 0.5, CamGetNCl(camera), CamGetFCl(camera), CamGetTargetVector(camera), CamGetUpVector(camera)]
     # doing all these calculations once so we can hold on to them for the rest of calculations
     intMatV = LookAtMatrix(camera)
     try:
@@ -550,7 +511,7 @@ def PgLoadTexture(filename, pygame):
     try:
         img = pygame.image.load(filename)
     except:
-        print("Error. Either the image doesn't exist, or the pygame reference is incorrect")
+        return TestTexture()
     else:
         surf = pygame.surfarray.array2d(img)
         fnSurf = []
@@ -578,7 +539,7 @@ def PgLoadTexture(filename, pygame):
 # UNIVERSAL
 # Well, almost universal
 
-# These work with Things, Cameras, Meshes/AnimMeshes, Frames, Lights, Rays, Emitters,
+# These work with Things, Cameras, Meshes/AniMeshes, Frames, Lights, Rays, Emitters,
 # and Particles
 def GetPos(any):
     return any[1]
@@ -586,7 +547,7 @@ def GetPos(any):
 def SetPos(any, vector):
     any[1] = vector
 
-# These work with Things, Cameras, Meshes/AnimMeshes, and Frames
+# These work with Things, Cameras, Meshes/AniMeshes, and Frames
 def GetRot(any):
     return any[2]
 
@@ -595,10 +556,10 @@ def SetRot(any, vector):
 
 
 # Get/SetList()
-# Works with Things, Meshes/AnimMeshes, Frames, and Emitters
+# Works with Things, Meshes/AniMeshes, Frames, and Emitters
 # for Things, it's a list of meshes,
 # for Meshes and Frames, it's a tuple of tris,
-# for AnimMeshes, it's a list of frames,
+# for AniMeshes, it's a list of frames,
 # for Emitters, it's a list of currently active particles
 
 def GetList(any):
@@ -701,27 +662,47 @@ def MeshSetId(mesh, iId):
 def MeshGetId(mesh):
     return mesh[4]
 
-def AnimMeshGetFrame(animMesh):
-    return animMesh[5]
+def AniMeshGetFrame(animesh):
+    return animesh[5]
 
-def AnimMeshSetFrame(animMesh, iFrame):
-    animMesh[5] = iFrame
+def AniMeshSetFrame(animesh, iFrame):
+    animesh[5] = iFrame
 
-def AnimMeshIncFrame(animMesh):
-    animMesh[5] = (animMesh[5] + 1) % len(animMesh[0])
+def AniMeshIncFrame(animesh):
+    animesh[5] = (animesh[5] + 1) % len(animesh[0])
 
-def AnimMeshDecFrame(animMesh):
-    animMesh[5] -= 1
+def AniMeshDecFrame(animesh):
+    animesh[5] -= 1
 
 # AniMeshSetFrameFunc sets the function to be executed on a particular frame of animation
 # iFrame is the frame that the function should be run on.
 # Keep in mind that there can only be one function per frame.
-def AnimMeshSetFrameFunc(animMesh, iFrame, function):
-    animMesh[0][iFrame][2] = function
+def AniMeshSetFrameFunc(animesh, iFrame, function):
+    animesh[0][iFrame][2] = function
 
 # AniMeshSetFrameNext sets the frame that will come after iFrame
-def AnimMeshSetFrameNext(animMesh, iFrame, iNext):
-    animMesh[0][iFrame][1] = iNext
+def AniMeshSetFrameNext(animesh, iFrame, iNext):
+    animesh[0][iFrame][1] = iNext
+
+# Deprecated
+def AnimMeshGetFrame(animesh):
+    return AniMeshGetFrame(animesh)
+
+def AnimMeshSetFrame(animesh, iFrame):
+    AniMeshSetFrame(animesh, iFrame)
+
+def AnimMeshIncFrame(animesh):
+    AniMeshIncFrame(animesh)
+
+def AnimMeshDecFrame(animesh):
+    AniMeshDecFrame(animesh)
+
+def AnimMeshSetFrameFunc(animesh, iFrame, function):
+    AniMeshSetFrameFunc(animesh, iFrame, function)
+
+def AnimMeshSetFrameNext(animesh, iFrame, iNext):
+    AniMeshSetFrameNext(animesh, iFrame, iNext)
+#
 
 
 # THINGS
@@ -735,6 +716,12 @@ def AddThing(thing, iLayer=2):
 def AddThings(things, iLayer=2):
     for thing in things:
         AddThing(thing, iLayer)
+
+def GatherThings():
+    output = ()
+    for layer in layers:
+        output += (thing for thing in layer)
+    return output
 
 def CAddThing(thing):
     # Same thing but for C++
@@ -831,8 +818,8 @@ def ThingGetYaw(thing):
 # ThingIncFrames will increment frame counter of each AniMesh in the Thing.
 def ThingIncFrames(thing):
     for m in thing[0]:
-        if AnimMeshGetFrame(m) != -1:
-            AnimMeshIncFrame(m)
+        if AniMeshGetFrame(m) != -1:
+            AniMeshIncFrame(m)
 
 # ThingSetFrameFunc(thing, 0, 30, AIFunction)
 # iAniMesh is the index of the animesh to change
@@ -1002,118 +989,106 @@ def ThingStop(thing):
 
 
 def CamSetPosX(cam, x):
-    cam[0] = [x, cam[0][1], cam[0][2]]
+    cam[1] = [x, cam[1][1], cam[1][2]]
 
 def CamSetPosY(cam, y):
-    cam[0] = [cam[0][0], y, cam[0][2]]
+    cam[1] = [cam[1][0], y, cam[1][2]]
 
 def CamSetPosZ(cam, z):
-    cam[0] = [cam[0][0], cam[0][1], z]
+    cam[1] = [cam[1][0], cam[1][1], z]
 
 def CamSetPos(cam, vector):
-    cam[0] = vector
-
-def CamAddPos(cam, vector):
-    cam[0] = VectorAdd(cam[0], vector)
-
-def CamSubPos(cam, vector):
-    cam[0] = VectorSub(cam[0], vector)
-
-def CamMulPos(cam, vector):
-    cam[0] = VectorMul(cam[0], vector)
-
-def CamDivPos(cam, x, y, z):
-    cam[0] = [cam[0][0] / x, cam[0][1] / y, cam[0][2] / z]
-
-def CamDivPosF(cam, f):
-    cam[0] = VectorDivF(cam[0], f)
-
-def CamGetPos(cam):
-    return cam[0]
-
-def CamGetPosX(cam):
-    return cam[0][0]
-
-def CamGetPosY(cam):
-    return cam[0][1]
-
-def CamGetPosZ(cam):
-    return cam[0][2]
-
-def CamGetPitch(cam):
-    return cam[1][0]
-
-def CamGetRoll(cam):
-    return cam[1][2]
-
-def CamGetYaw(cam):
-    return cam[1][1]
-
-def CamSetPitch(cam, deg):
-    cam[1][0] = deg
-
-def CamSetRoll(cam, deg):
-    cam[1][2] = deg
-
-def CamSetYaw(cam, deg):
-    cam[1][1] = deg
-
-def CamSetRot(cam, vector):
     cam[1] = vector
 
-def CamAddRot(cam, v):
-    cam[1] = VectorAdd(cam[1], v)
+def CamAddPos(cam, vector):
+    cam[1] = VectorAdd(cam[1], vector)
 
-def CamSubRot(cam, v):
-    cam[1] = VectorSub(cam[1], v)
+def CamSubPos(cam, vector):
+    cam[1] = VectorSub(cam[1], vector)
 
-def CamMulRot(cam, v):
-    cam[1] = VectorMul(cam[1], v)
+def CamMulPos(cam, vector):
+    cam[1] = VectorMul(cam[1], vector)
 
-def CamDivRot(cam, v):
-    cam[1] = [cam[1][0] / v[0], cam[1][1] / v[1], cam[1][2] / v[2]]
+def CamDivPos(cam, x, y, z):
+    cam[1] = [cam[1][0] / x, cam[1][1] / y, cam[1][2] / z]
 
-def CamDivRotF(cam, v):
-    cam[1] = VectorDivF(cam[1], v)
+def CamDivPosF(cam, f):
+    cam[1] = VectorDivF(cam[1], f)
 
-def CamGetRot(cam):
+def CamGetPos(cam):
     return cam[1]
 
-def CamSetScH(cam, h):
-    cam[2] = h
+def CamGetPosX(cam):
+    return cam[1][0]
 
-def CamGetScH(cam):
+def CamGetPosY(cam):
+    return cam[1][1]
+
+def CamGetPosZ(cam):
+    return cam[1][2]
+
+def CamGetPitch(cam):
+    return cam[2][0]
+
+def CamGetRoll(cam):
+    return cam[2][2]
+
+def CamGetYaw(cam):
+    return cam[2][1]
+
+def CamSetPitch(cam, deg):
+    cam[2][0] = deg
+
+def CamSetRoll(cam, deg):
+    cam[2][2] = deg
+
+def CamSetYaw(cam, deg):
+    cam[2][1] = deg
+
+def CamSetRot(cam, vector):
+    cam[2] = vector
+
+def CamAddRot(cam, v):
+    cam[2] = VectorAdd(cam[2], v)
+
+def CamSubRot(cam, v):
+    cam[2] = VectorSub(cam[2], v)
+
+def CamMulRot(cam, v):
+    cam[2] = VectorMul(cam[2], v)
+
+def CamDivRot(cam, v):
+    cam[2] = [cam[2][0] / v[0], cam[2][1] / v[1], cam[2][2] / v[2]]
+
+def CamDivRotF(cam, v):
+    cam[2] = VectorDivF(cam[2], v)
+
+def CamGetRot(cam):
     return cam[2]
 
-def CamSetScW(cam, w):
-    cam[3] = w
-
-def CamGetScW(cam):
-    return cam[3]
-
 def CamSetNCl(cam, nc):
-    cam[4] = nc
+    cam[3] = nc
 
 def CamGetNCl(cam):
-    return cam[4]
+    return cam[3]
 
 def CamSetFCl(cam, fc):
-    cam[5] = fc
+    cam[4] = fc
 
 def CamGetFCl(cam):
-    return cam[5]
+    return cam[4]
 
 def CamSetTargetLoc(cam, vector):
-    cam[6] = vector
+    cam[5] = vector
 
 def CamGetTargetLoc(cam):
-    return cam[6]
+    return cam[5]
 
 def CamSetTargetDir(cam, vector):
-    cam[6] = VectorAdd(cam[0], VectorNormalize(vector))
+    cam[5] = VectorAdd(cam[1], VectorNormalize(vector))
 
 def CamGetTargetDir(cam):
-    return VectorNormalize(VectorSub(cam[6], cam[0]))
+    return VectorNormalize(VectorSub(cam[5], cam[1]))
 
 
 # SetTargetFP: Takes care of rotating vectors based on camera's rotation.
@@ -1140,22 +1115,22 @@ def CamGetTargetVector(cam):
 
 
 def CamSetUpVector(cam, vector):
-    cam[7] = vector
+    cam[6] = vector
 
 def CamGetUpVector(cam):
-    return cam[7]
+    return cam[6]
 
 def CamGetRightVector(cam):
-    return VectorCrP(CamGetTargetVector(cam), cam[7])
+    return VectorCrP(CamGetTargetDir(cam), CamGetUpVector(cam))
 
 def CamChase(cam, location, speed=0.25):
     CamSubPos(cam, VectorMulF(VectorSub(CamGetPos(cam), location), speed))
 
 def CamGetUserVar(cam):
-    return cam[8]
+    return cam[0]
 
 def CamSetUserVar(cam, any):
-    cam[8] = any
+    cam[0] = any
 
 
 # LIGHTS
@@ -1226,8 +1201,8 @@ def RaySetEnd(ray, vector):
 def PartGetTime(particle):
     return particle[0]
 
-def PartSetTime(particle, iLayer):
-    particle[0] = iLayer
+def PartSetTime(particle, fTime):
+    particle[0] = fTime
 
 def PartGetPos(particle):
     return particle[1]
@@ -1420,6 +1395,27 @@ def VectorRotateZ(vec, deg):
 
 def VectorZero(vec, thresh):
     return [0 if axis <= thresh else axis for axis in vec]
+
+def WrapRot(vRot):
+    # Constructing new rot, not modifying the original.
+    nRot = [vRot[0], vRot[1], vRot[2]]
+
+    while nRot[0] < 0:
+        nRot[0] += 360
+    while nRot[1] < 0:
+        nRot[1] += 360
+    while nRot[2] < 0:
+        nRot[2] += 360
+
+    return VectorMod(nRot, 360)
+    
+
+def RotTo(vRot, VRot2):
+    nRot = WrapRot(vRot)
+    nV = VectorRotateX(VRot2, nRot[0])
+    nV = VectorRotateY(nV, nRot[1])
+    return VectorNegate(nV)
+    
 
 
 #==========================================================================
@@ -1621,7 +1617,7 @@ def LoadMesh(filename, x = 0, y = 0, z = 0, sclX = 1, sclY = 1, sclZ = 1):
     file.close()
     return Mesh(tuple(output), x, y, z)
 
-def LoadAnimMesh(filename, x=0, y=0, z=0, sclX=1, sclY=1, sclZ=1):
+def LoadAniMesh(filename, x=0, y=0, z=0, sclX=1, sclY=1, sclZ=1):
     looking = True
     a = 0
     st = 0
@@ -1657,6 +1653,12 @@ def LoadAnimMesh(filename, x=0, y=0, z=0, sclX=1, sclY=1, sclZ=1):
         newMsh[0].append(newFrm)
 
     return newMsh
+
+
+# Deprecated
+def LoadAnimMesh(filename, x=0, y=0, z=0, sclX=1, sclY=1, sclZ=1):
+    return LoadAniMesh(filename, x, y, z, sclX, sclY, sclZ)
+#
 
 lightMesh = LoadMesh("z3dpy/mesh/light.obj")
 
@@ -2106,7 +2108,7 @@ def CRasterThings(things, fnSortKey=triSortAverage, bSortReverse=True):
     viewed = []
     for t in things:
         for m in t[0]:
-            viewed += RasterCPt1(t[6], VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m), AnimMeshGetFrame(m))
+            viewed += RasterCPt1(t[6], VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m), AniMeshGetFrame(m))
     viewed.sort(key=fnSortKey, reverse=bSortReverse)
     return RasterPt2(viewed)
 
@@ -2130,17 +2132,17 @@ def RasterThings(things, sortKey=triSortAverage, sortReverse=True):
         for t in things:
             if t[5]:
                 for m in t[0]:
-                    if AnimMeshGetFrame(m) == -1:
+                    if AniMeshGetFrame(m) == -1:
                         # Static Mesh
                         viewed += RasterPt1(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
                     else:
-                        # AnimMesh
-                        viewed += RasterPt1(MeshGetTris(MeshGetTris(m)[AnimMeshGetFrame(m)] ), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
+                        # AniMesh
+                        viewed += RasterPt1(MeshGetTris(MeshGetTris(m)[AniMeshGetFrame(m)] ), VectorAdd(MeshGetPos(m), ThingGetPos(t)), VectorAdd(MeshGetRot(m), ThingGetRot(t)), MeshGetId(m), MeshGetColour(m))
                         # Call the function for that frame
-                        m[0][AnimMeshGetFrame(m)][2]()
+                        m[0][AniMeshGetFrame(m)][2]()
                         # If iNext is not -1, set the current frame to iNext
-                        if m[0][AnimMeshGetFrame(m)][1] != -1:
-                            AnimMeshSetFrame(m[0][AnimMeshGetFrame(m)][1])
+                        if m[0][AniMeshGetFrame(m)][1] != -1:
+                            AniMeshSetFrame(m[0][AniMeshGetFrame(m)][1])
             else:
                 for m in t[0]:
                     viewed += RasterPt1Static(MeshGetTris(m), VectorAdd(MeshGetPos(m), ThingGetPos(t)), MeshGetId(m), MeshGetColour(m))
@@ -2211,12 +2213,13 @@ def DebugRaster(train=[], sortKey=triSortAverage, sortReverse=True):
             viewed += RasterPt1Static(MeshGetTris(dotMesh), d, -1, [255, 0, 0])
 
         for r in rays:
-            viewed += RasterPt1Static([Tri(RayGetStart(r) + [[0, 0, 0], [0, 0]], VectorAdd(RayGetStart(r), [0, 0.001, 0]) + [[0, 0, 0], [0, 0]], RayGetEnd(r) + [[0, 0, 0], [0, 0]])], [0, 0, 0], -1, [255, 0, 0])
+            # Looks like spaghetti because I have to convert Vector3's to VectorUVs used in triangles
+            viewed += RasterPt1StaticBF([Tri(RayGetStart(r) + [[0, 0, 0], [0, 0]], VectorAdd(RayGetStart(r), [0, 0.01, 0]) + [[0, 0, 0], [0, 0]], RayGetEnd(r) + [[0, 0, 0], [0, 0]])], [0, 0, 0], -1, [255, 0, 0])
 
         if train != []:
             for x in range(len(train)):
                 for y in range(len(train[0])):
-                    viewed += RasterPt1Static(MeshGetTris(dotMesh), [x, train[x][y], y], -1, [255, 0, 0])
+                    viewed += RasterPt1BF(MeshGetTris(dotMesh), [x, train[x][y], y], -1, [255, 0, 0])
 
         viewed.sort(key = sortKey, reverse=sortReverse)
         finished += RasterPt2(viewed)
@@ -2229,6 +2232,24 @@ def RasterPt1(tris, pos, rot, id, colour):
         if VectorDoP(GetNormal(tri), VectorMul(iC[8], [-1, 1, 1])) > -0.4:
             prepared.append(tri)
     for t in ViewTris(TranslateTris(prepared, pos)):
+        for r in TriClipAgainstZ(t):
+            r.append(colour)
+            r.append(id)
+            translated.append(r)
+    return translated
+
+def RasterPt1BF(tris, pos, rot, id, colour):
+    translated = []
+    for t in ViewTris(TranslateTris(TransformTris(tris, rot), pos)):
+        for r in TriClipAgainstZ(t):
+            r.append(colour)
+            r.append(id)
+            translated.append(r)
+    return translated
+
+def RasterPt1StaticBF(tris, pos, id, colour):
+    translated = []
+    for t in ViewTris(TranslateTris(tris, pos)):
         for r in TriClipAgainstZ(t):
             r.append(colour)
             r.append(id)
@@ -2468,7 +2489,7 @@ def TkDrawTriFLB(tri, canvas):
 #   TkDrawTriangleS(tri, FlatLighting(tri), canvas)
 #
 
-# Flat lighting shader, meant to be put into DrawTriangleRGB's colour
+# Flat lighting shader, meant to be put into DrawTriS's shade
 # Takes the direction towards the light and compares that to a corrected normal.
 def FlatLighting(tri, lights=lights):
     return CheapLightingCalc(tri, lights)
@@ -2545,9 +2566,9 @@ def BakeLighting(things, expensive=False, lights=lights):
         for m in th[0]:
             for t in m[0]:
                 if expensive:
-                    calc = ExpensiveLightingCalc(TranslateTri(TransformTri(t, VectorAdd(MeshGetRot(m), ThingGetRot(th))), VectorAdd(MeshGetPos(m), ThingGetPos(th))))
+                    calc = ExpensiveLightingCalc(TranslateTri(TransformTri(t, VectorAdd(MeshGetRot(m), ThingGetRot(th))), VectorAdd(MeshGetPos(m), ThingGetPos(th))), lights)
                 else:
-                    calc = CheapLightingCalc(TranslateTri(TransformTri(t, VectorAdd(MeshGetRot(m), ThingGetRot(th))), VectorAdd(MeshGetPos(m), ThingGetPos(th))))
+                    calc = CheapLightingCalc(TranslateTri(TransformTri(t, VectorAdd(MeshGetRot(m), ThingGetRot(th))), VectorAdd(MeshGetPos(m), ThingGetPos(th))), lights)
                 TriSetShade(t, calc)
     rays = []
     print("Lighting Baked!")
