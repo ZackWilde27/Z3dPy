@@ -22,6 +22,8 @@ Download the release build and extract the zip folder to the same folder as your
 import z3dpy as zp
 ```
 
+Builds that end in an odd number are nightly builds, which may be unstable / lacking documentation (outside of the script itself)
+
 <br>
 
 # Getting Started
