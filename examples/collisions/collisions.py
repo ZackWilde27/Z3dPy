@@ -2,7 +2,7 @@ import z3dpy as zp
 import pygame
 
 pygame.init()
-screen = pygame.display.set_mode((1280, 720))
+screen = zp.PgScreen(1280, 720, "black", pygame)
 clock = pygame.time.Clock()
 
 zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
@@ -13,8 +13,8 @@ print("WASD to move character")
 print("Space to jump")
 print("Up and Down arrow to move platform")
 
-# z3dpy.Camera(x, y, z, scrW, scrH)
-myCamera = zp.Camera(0, -2, -4, 1280, 720)
+# z3dpy.Camera(x, y, z)
+myCamera = zp.Cam(0, -2, -4)
 
 # z3dpy.LoadMesh(filename, x, y, z)
 # z3dpy.Thing(meshList, x, y, z)
@@ -47,7 +47,6 @@ while True:
             pygame.quit()
 
     clock.tick(30)
-    screen.fill("black")
 
     # Input
     keys = pygame.key.get_pressed()
@@ -73,12 +72,16 @@ while True:
 
     zp.PhysicsCollisions([char, bar])
 
-    zp.CamAddPos(myCamera, zp.VectorMulF(zp.VectorSub(zp.VectorSub(zp.ThingGetPos(char), [0, 2, 5]), zp.CamGetPos(myCamera)), 0.2))
+    camLoc = zp.VectorSub(zp.ThingGetPos(char), [0, 2, 5])
+    
+    # Camera will ease towards the desired location
+    zp.CamChase(myCamera, camLoc)
 
     zp.CamSetTargetLoc(myCamera, zp.ThingGetPos(char))
 
     zp.SetInternalCam(myCamera) 
-    
+
+    screen.fill("black")
 
     for tri in zp.DebugRaster():
         if zp.TriGetId(tri) == -1:

@@ -1,22 +1,29 @@
 import z3dpy as zp
 import tkinter as tk
 
-tK = tk.Tk()
-canvas = tk.Canvas(width=320, height=240, background="black")
-canvas.pack()
+res = input("Half resolution? (y/n): ")
 
-zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
+tK = tk.Tk()
+
+if res == "y":
+    canvas = zp.TkScreen(320, 240, "black", tk)
+else:
+    canvas = zp.TkScreen(640, 480, "black", tk)
+
+zp.FindHowVars(90, 3/4)
+
+zp.SetHowVars(0.7499994966812669, 0.9999993845600877)
 
 # z3dpy.Camera(x, y, z, scrW, scrH)
-myCamera = zp.Cam(0, 0, -4, 320, 240)
+myCamera = zp.Cam(0, 0, -4)
 
 # z3dpy.LoadMesh(filename, x, y, z)
 # z3dpy.Thing(meshList, x, y, z)
-zack = zp.Thing([zp.LoadMesh("mesh/uvpln.obj")], 0, 0, 3)
+plane = zp.Thing([zp.LoadMesh("mesh/uvpln.obj")], 0, 0, 3)
 
-zp.ThingSetRot(zack, [90, 0, 0])
+zp.ThingSetRot(plane, [90, 0, 0])
 
-zp.AddThing(zack)
+zp.AddThing(plane)
 
 while True:
 
@@ -28,4 +35,4 @@ while True:
     tK.update()
     canvas.delete("all")
 
-    zp.ThingAddRot(zack, [0, 0, 5])
+    zp.ThingAddRot(plane, [0, 0, 5])
