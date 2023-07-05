@@ -38,19 +38,27 @@ import pygame
 
 # PyGame stuff
 pygame.init()
-# I'll pick 720p
-screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 ```
 
-Next we create a camera object. width and height should match the output screen.
-
+In 0.2.6+, the screen size is now global instead of inside cameras. Use PgScreen() to automatically set screenSize while setting display mode
 ```python
-# Create our camera (x, y, z, width, height)
-myCamera = zp.Cam(0, 0, 0, 1280, 720)
+screen = zp.PgScreen(1280, 720, "black", pygame)
+
+# It's equivalent to:
+screen = pygame.display.set_mode((1280, 720))
+screen.fill("black")
+zp.screenSize = (1280, 720)
 ```
 
-Now we load a mesh, I'll use the built-in susanne.
+Next create a camera object. Placing it at 0, 0, 0 will make placing the mesh easier.
+
+```python
+# Create our camera (x, y, z)
+myCamera = zp.Cam(0, 0, 0)
+```
+
+Now load a mesh to draw, I'll use the built-in susanne.
 
 For games it's handy to combine meshes into Things, but this example doesn't need those.
 
@@ -112,11 +120,11 @@ import pygame
 
 # PyGame stuff
 pygame.init()
-screen = pygame.display.set_mode((1280, 720))
+screen = zp.PgScreen(1280, 720, "black", pygame)
 clock = pygame.time.Clock()
 
-# Create our camera (x, y, z, width, height)
-myCamera = zp.Cam(0, 0, 0, 1280, 720)
+# Create our camera (x, y, z)
+myCamera = zp.Cam(0, 0, 0)
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
 myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 2)
