@@ -3,11 +3,11 @@ import z3dpy as zp
 
 # Initialize PyGame
 pygame.init()
-screen = pygame.display.set_mode((1280, 720))
-clock = pygame.time.Clock()
+# PgScreen(height, width, bgCol, pygame)
+screen = zp.PgScreen(1280, 720, "black", pygame)
 
-# Cam(x, y, z, scrW, scrH)
-myCamera = zp.Cam(0, 0, 0, 1280, 720)
+# Cam(x, y, z)
+myCamera = zp.Cam(0, 0, 0)
 
 # LoadMesh(filename)
 myMesh = zp.LoadMesh("z3dpy/mesh/z3dpy.obj")

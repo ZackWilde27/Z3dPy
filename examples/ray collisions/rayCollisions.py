@@ -6,15 +6,19 @@ print("Controls:")
 print("W and S to move ray-shooter up and down")
 
 pygame.init()
-screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
-zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
+# Manually setting the display mode can still be done
+screen = pygame.display.set_mode((1280, 720))
 
+# To set the z3dpy screen size, either include it in your camera:
 # z3dpy.Cam(x, y, z, scrW, scrH)
 myCamera = zp.Cam(0, 0, -4, 1280, 720)
 
+# or set screenSize like so:
+zp.screenSize = (1280, 720)
 
+zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
 
 
 # z3dpy.LoadMesh(filename, x, y, z)
@@ -47,11 +51,18 @@ while True:
         zp.ThingAddPos(player, [0, 0, -0.25])
     if keys[pygame.K_s]:
         zp.ThingAddPos(player, [0, 0, 0.25])
+
+    if keys[pygame.K_d]:
+        zp.ThingAddRot(player, [0, -1, 0])
+    if keys[pygame.K_a]:
+        zp.ThingAddRot(player, [0, 1, 0])
         
 
     rayStart = zp.ThingGetPos(player)
+
+    rayDir = zp.RotTo(zp.ThingGetRot(player), [1, 0, 0])
     
-    rayEnd = zp.VectorAdd(zp.ThingGetPos(player), [15, 0, 0])
+    rayEnd = zp.VectorAdd(rayStart, zp.VectorMulF(rayDir, 15))
     
     theRay = zp.Ray(rayStart, rayEnd)
 
@@ -67,6 +78,7 @@ while True:
 
     # New CamChase() will make the camera "chase" a location rather than being set.
     zp.CamChase(myCamera, zp.VectorSub(zp.ThingGetPos(player), [0, 8, 0]), 0.25)
+    
     zp.CamSetTargetVector(myCamera, [0, 1, 0])
     zp.CamSetUpVector(myCamera, [0, 0, 1])
 

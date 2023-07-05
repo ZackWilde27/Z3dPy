@@ -8,11 +8,11 @@ print("Mouse to aim")
 
 # Pygame stuff
 pygame.init()
-screen = pygame.display.set_mode((1280, 720))
+screen = zp.PgScreen(1280, 720, "#317FC4", pygame)
 clock = pygame.time.Clock()
 
 # Our camera to view from
-FPCamera = zp.Cam(0, -10, 0, 1280, 720)
+FPCamera = zp.Cam(0, -10, 0)
 
 # Changing FOV
 #zp.FindHowVars(75)

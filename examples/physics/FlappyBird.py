@@ -7,8 +7,12 @@ print("Controls:")
 print("E to jump")
 
 pygame.init()
-screen = pygame.display.set_mode((1280, 720))
+# PgScreen(height, width, bgCol, pygame)
+screen = zp.PgScreen(1280, 720, "black", pygame)
 clock = pygame.time.Clock()
+
+# Create our camera (x, y, z)
+myCamera = zp.Cam(0, 0, -3)
 
 # Use the LoadMesh function to load an OBJ file
 # LoadMesh has optional arguments for x, y, z, and sclx, scly, sclz.
@@ -61,10 +65,6 @@ def Reset():
     zp.ThingSetVelocity(bird, [0, 0, 0])
     SpawnPipePair(-1)
 
-
-# Create our camera (x, y, z, width, height, fov, nearClip, farClip)
-myCamera = zp.Cam(0, 0, -3, 1280, 720)
-
 birdVelocity = 0
 
 
@@ -82,8 +82,8 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             
-    clock.tick(30)
     screen.fill("#88E5FF")
+    clock.tick(30)
 
     # Input
     keys = pygame.key.get_pressed()
@@ -97,14 +97,10 @@ while True:
     zp.HandlePhysicsFloor([bird], 5)
 
     # Smoothly following the bird
-    comp = zp.ThingGetPosY(bird) - zp.CamGetPos(myCamera)[1]
-    if abs(comp) > 0.1:
-        zp.CamSubPos(myCamera, [0, -comp * 0.25, 0])
-    else:
-        zp.CamSetPosY(myCamera, zp.ThingGetPosY(bird))
-    zp.CamSetPosX(myCamera, zp.ThingGetPosX(bird))
+    # CamChase(camera, targetLocation, speed)
+    zp.CamChase(myCamera, [zp.ThingGetPosX(bird), zp.ThingGetPosY(bird), -3], 0.1)
 
-    zp.CamSetTargetVector(myCamera, [0, 0, 1])
+    zp.CamSetTargetDir(myCamera, [0, 0, 1])
 
     zp.SetInternalCam(myCamera)
 

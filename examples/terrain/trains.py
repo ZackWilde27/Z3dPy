@@ -2,13 +2,13 @@ import z3dpy as zp
 import pygame
 
 pygame.init()
-screen = pygame.display.set_mode((1280, 720))
+screen = zp.PgScreen(1280, 720, "black", pygame)
 clock = pygame.time.Clock()
 
 zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
 
-# z3dpy.Camera(x, y, z, scrW, scrH)
-myCamera = zp.Camera(0, 0, -4, 1280, 720)
+# z3dpy.Camera(x, y, z)
+myCamera = zp.Camera(0, 0, -4)
 
 # z3dpy.LoadMesh(filename, x, y, z)
 # z3dpy.Thing(meshList, x, y, z)
@@ -61,7 +61,7 @@ while True:
 
     zp.CamChase(myCamera, zp.VectorSub(zp.ThingGetPos(cube), [0, 2, 7]), 0.05)
 
-    zp.CamSetTargetLocation(myCamera, zp.ThingGetPos(cube))
+    zp.CamSetTargetLoc(myCamera, zp.ThingGetPos(cube))
 
     zp.SetInternalCam(myCamera)
 

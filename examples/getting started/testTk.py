@@ -6,11 +6,11 @@ except:
 
 #Initialize Tkinter
 tK = tk.Tk()
-canvas = tk.Canvas(width=1280, height=720, background="black")
-canvas.pack()
+# TkScreen(height, width, bgCol, tk)
+canvas = zp.TkScreen(1280, 720, "black", tk)
 
-# Cam(x, y, z, scrW, scrH)
-myCamera = zp.Cam(0, 0, 0, 1280, 720)
+# Cam(x, y, z)
+myCamera = zp.Cam(0, 0, 0)
 
 # LoadMesh(filename)
 myMesh = zp.LoadMesh("z3dpy/mesh/z3dpy.obj")
@@ -38,7 +38,5 @@ while True:
     # Update the screen
     tK.update()
     
-    
     # ThingAddRot(thing, vector)
     zp.ThingAddRot(myThing, [2, 1, 3])
-

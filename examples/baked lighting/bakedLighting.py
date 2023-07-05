@@ -7,24 +7,30 @@ screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
 currentTime = time.time()
-
 static = False
-
 coolDown = 0
 
-# z3dpy.Camera(x, y, z, scrW, scrH)
-myCamera = zp.Cam(0, 0, 0, 1280, 720)
+# Camera(x, y, z, scrW, scrH)
+myCamera = zp.Cam(0, 0, -5)
 
-# z3dpy.LoadMesh(filename, x, y, z)
-# z3dpy.Thing(meshList, x, y, z)s
-sus = zp.Thing([zp.NewSusanne()], 0, 0, 3)
-
-zp.lights.append(zp.Light_Point(2, 0, 1, 1, 1500))
-
-zp.CamSetTargetFP(myCamera)
-
+zp.CamSetTargetDir(myCamera, [0, 0, 1])
 zp.SetInternalCam(myCamera)
 
+# LoadMesh(filename, x, y, z)
+myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj")
+# Thing(meshList, x, y, z)
+sus = zp.Thing([myMesh], 0, 0, 0)
+
+# Light_Point(x, y, z, FStrength, fRadius, vColour)
+redLight = zp.Light_Point(2.25, 0, 2, 0.8, 3.0, (255, 0, 0))
+
+blueLight = zp.Light_Point(-2.25, 0, -2, 0.8, 3.0, (0, 0, 255))
+
+# Append to global list
+zp.lights.append(redLight)
+zp.lights.append(blueLight)
+
+# BakeLighting(thingList, bExpensive)
 zp.BakeLighting([sus])
 
 print("")

@@ -12,7 +12,7 @@ screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
 # Create the Camera
-myCamera = zp.Cam(0, 0, 0, 1280, 720)
+myCamera = zp.Cam(0, 0, 0)
 
 # Changing FOV
 #zp.FindHowVars(75)
@@ -25,7 +25,7 @@ sus = zp.Thing([zp.NewSusanne()], 0, 0, 4)
 zp.AddThing(sus)
 
 # Create a PointLight and append it to the z3dpy.lights list
-myLight = zp.Light_Point(0, 0, 2, 1, 25)
+myLight = zp.Light_Point(0, 0, 2, 0.8, 25, (255, 0, 0))
 
 zp.lights.append(myLight)
 

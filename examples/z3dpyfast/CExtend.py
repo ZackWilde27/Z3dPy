@@ -3,7 +3,7 @@ import pygame
 import time
 
 pygame.init()
-screen = pygame.display.set_mode((1280, 720))
+screen = zp.PgScreen(1280, 720, "black", pygame)
 clock = pygame.time.Clock()
 
 print("")
@@ -15,8 +15,8 @@ currentTime = time.time()
 
 zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
 
-# z3dpy.Camera(x, y, z, scrW, scrH)
-myCamera = zp.Camera(0, 0, 0, 1280, 720)
+# z3dpy.Camera(x, y, z)
+myCamera = zp.Camera(0, 0, 0)
 
 zp.CamSetTargetDir(myCamera, [0, 0, 1])
     
