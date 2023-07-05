@@ -157,7 +157,10 @@ Everything is coloured with it's normal direction, so X is red, Y is green, Z is
 
 # Exporting Mesh
 
-Export your mesh as an OBJ file, with UV coordinates if applicable. N-gons are triangulated automatically.
+Export your mesh as an OBJ file.
+- UV coordinates are supported and used in the pixel shaders
+- N-gons are triangulated automatically.
+- If materials are exported, LoadMesh() will automatically separate it into a list of meshes.
 <br>
 Up axis is -Y, and Forward axis is Z.
 
