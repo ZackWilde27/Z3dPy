@@ -2,16 +2,15 @@ import z3dpy as zp
 import pygame
 
 pygame.init()
-screen = pygame.display.set_mode((1680, 720))
+screen = zp.PgScreen(1680, 720, "black", pygame)
 clock = pygame.time.Clock()
 
-# Setting up FOV
-zp.FindHowVars(65, 9/21)
-
-#zp.SetHowVars(0.733063825608609, 1.3032244924564758)
+# Setting up 21:9 FOV
+#zp.FindHowVars(65, 9/21)
+zp.SetHowVars(0.6727219660070214, 1.5696847505584837)
 
 # z3dpy.Camera(x, y, z, scrW, scrH)
-myCamera = zp.Camera(-10, -2, 3, 1680, 720)
+myCamera = zp.Camera(-10, -2, 3)
 
 zp.CamSetTargetDir(myCamera, [1, 0, 0])
 

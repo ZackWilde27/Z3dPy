@@ -4,19 +4,19 @@ import time
 
 tK = tk.Tk()
 # 21:9 for the cinematic feel
-canvas = tk.Canvas(width=1680, height=720, background="black")
+canvas = zp.TkScreen(1680, 720, "black", tk)
 canvas.pack()
 
 currentTime = time.time()
 
-maxDelta = 1/30
+maxDelta = 1/33
 
 # Setting up FOV and aspect ratio
 #zp.FindHowVars(65, 9/21)
 zp.SetHowVars(0.6727218910344901, 1.5696847612112212)
 
 # z3dpy.Camera(x, y, z, scrW, scrH)
-myCamera = zp.Camera(-10, -2, 3, 1680, 720)
+myCamera = zp.Camera(-10, -2, 3)
 
 zp.CamSetTargetDir(myCamera, [1, 0, 0])
 
@@ -53,7 +53,6 @@ while True:
 
         tK.update()
         currentTime = time.time()
-    
 
         # Play animation
         zp.ThingIncFrames(char1)
