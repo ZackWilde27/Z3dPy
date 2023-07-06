@@ -1,10 +1,13 @@
 # -zw
 '''
 
-Z3dPy v0.2.6
+Z3dPy v0.2.6.2
 
 Change Notes:
 
+Patch 1
+
+- Fixed CAddThing crash.
 
 DUPES
 
@@ -182,9 +185,7 @@ except:
 # Math for, well...
 import math
 
-print("Z3dPy v0.2.6")
-
-# Testing something
+print("Z3dPy v0.2.6.2")
 
 
 
@@ -1134,7 +1135,7 @@ def GatherThings():
 
 def CAddThing(thing):
     # Same thing but for C++
-    thing[6] = z3dpyfast.CAddThing(thing)
+    thing[6] = z3dpyfast.CAddThing(thing[0])
     layers[2].append(thing)
 
 
