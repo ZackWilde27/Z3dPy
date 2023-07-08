@@ -38,16 +38,12 @@ import pygame
 
 # PyGame stuff
 pygame.init()
+pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 ```
 
-In 0.2.6+, the screen size is now global instead of inside cameras. Use PgScreen() to automatically set screenSize while setting display mode
+In 0.2.6+, the screen size is now global instead of inside cameras.
 ```python
-screen = zp.PgScreen(1280, 720, "black", pygame)
-
-# It's equivalent to:
-screen = pygame.display.set_mode((1280, 720))
-screen.fill("black")
 zp.screenSize = (1280, 720)
 ```
 
