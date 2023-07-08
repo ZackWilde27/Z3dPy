@@ -116,8 +116,10 @@ import pygame
 
 # PyGame stuff
 pygame.init()
-screen = zp.PgScreen(1280, 720, "black", pygame)
+screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
+
+zp.screenSize = (1280, 720)
 
 # Create our camera (x, y, z)
 myCamera = zp.Cam(0, 0, 0)
