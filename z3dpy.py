@@ -1,172 +1,39 @@
 # -zw
 '''
 
-Z3dPy v0.2.6.2
+Z3dPy v0.2.7
+*Nightly build, wiki/examples are based on the release version.
 
 Change Notes:
 
-Patch 1
+TRIS
 
-- Fixed CAddThing crash.
-
-DUPES
-
-- Added Dupes, which are basically copies of a Thing.
-
-Dupes have their own position and rotation, but for
-everything else, it points to another Thing.
-
-use AddDupe(thing, position, rotation, iLayer) to add a 
-Dupe to the global list, pointing at the thing.
-
-For the global list, all Dupes must be in the same layer 
-as the OG Thing.
-
-The cost of drawing is the same as having multiple Things, 
-but it makes managing the code for instances easier.
-
-To use your own list, create a Dupe with 
-Dupe(iIndexOfOGThingInYourList, position, rotation)
-
-RasterThings() will look in the input list to find the 
-Thing to copy.
-
-
-SCREEN
-
-- screenSize is now a global Vector2, instead of each 
-camera having their own.
-
-- Added PgScreen(width, height, bgCol, pygame) and
-TkScreen(width, height, bgCol, tkinter)
-
-These functions turn creating the screen and setting the
-screenSize into one function.
-
-PgScreen() sets the global screenSize, sets the pygame
-screen mode, and returns the surface with the desired
-size and pre-filled colour.
-(bgCol is only there to make it the same as TkScreen).
-
-TkScreen() sets the global screenSize, then creates,
-packs and returns a canvas with the desired size and
-background colour.
-
+- Fixed world position offset.
 
 LIGHTING
 
-- Lighting now supports coloured lights. Creating a light
-is now:
-Light_Point(x, y, z, FStrength, fRadius, vColour)
+- Fixed lighting bug where the Z direction had a much larger radius
 
-vColour is white (255, 255, 255) by default.
+- ExpensiveLighting() now calculates colour like CheapLighting().
 
-Strength above 0.8 will turn white at a close radius.
+RAYS
 
-- Renamed CheapLightingCalc() and ExpensiveLightingCalc()
-to just CheapLighting() and ExpensiveLighting().
-
-
-VECTORS
-
-- Added RotTo(vRot, VTarget), it just rotates a vector, but
-it can be used to get anything's forward, up, or
-right vector.
-
-The first vector is the object's rotation, the second is
-the desired direction.
-
-To get a forward vector:
-z3dpy.RotTo(z3dpy.ThingGetRot(myThing), [0, 0, 1])
-
-To get an up vector: (up is negative)
-z3dpy.RotTo(z3dpy.MeshGetRot(myMesh), [0, -1, 0])
-
-To get a right vector:
-z3dpy.RotTo(z3dpy.ThingGetRot(myThing), [1, 0, 0])
-
-- Added WrapRot(rot), which will take a rotation and
-convert it to 0-359.
-
-- Renamed VectorMod() to VectorModF()
-
-- Added VectorMod(v1, v2), which will modulo each axis
-individually.
-
-
-CAMERAS
-
-- ScW and ScH are now optional parameters when
-creating cameras for backwards compatibility.
-it'll set the global screenSize before returning
-the camera.
-
-- ScW and ScH have been removed from camera objects.
-
-- Camera variables have been moved around, GetPos() and 
-GetRot() are now compatible with cameras.
-
-- CamSetTargetFP() now uses RotTo(), which means it now
-accounts for roll.
-
-
-PARTICLES / EMITTERS
-
-- Emitters have their own gravity, creating an
-emitter is now:
-Emitter(vPos, mshTemplate, iMax, vVelocity, fLifetime, vGravity)
-
-bActive can still be accessed with EmitterSetActive() and
-EmitterGetActive(). It's active by default.
-
-- PartSetTime()'s second argument correctly says fTime
-instead of iLayer.
-
-
-MESHES
-
-- Added functions using the AniMesh spelling, as I decided 
-to use that spelling instead. Old functions will remain for 
-backwards compatibility.
-
-- If materials are exported in the OBJ, LoadMesh() will
-automatically separate the meshes, and return a list.
-Keep that in mind when putting in a thing.
-
+- Rays now have bIsArrow, which if True will DebugRaster() the ray as an arrow, pointing at the end location
 
 RASTERING
 
-- Added RasterPt1BF() and RasterPt1StaticBF(), which will
-include back-faces. Only use this with flat shapes, or when
-otherwise necessary.
+- Added RasterPt1PointAt(tris, pos, target, up, id, colour), which will use the PointAt matrix to calculate both position and rotation,
+instead of the standard world matrix.
+This should be used for arrows, planes that always face the player, etc.
 
-- Fixed drawn rays disappearing.
-
-
-PIXEL SHADERS
-
-- Fixed Pixel shader's missing pixels between triangles.
-
-- If PgLoadTexture() does not find the texture, (or some
-other error occurs), it'll be replaced with TestTexture().
-
+- DebugRaster() now rasters lights with their colour
 
 MISC
 
-- Updated WhatIs() and WhatIsInt() to account for new
-objects and changes.
+- Removed WhatIsInt(), as it's not fast.
 
-- z3dpy.y is now [0, -1, 0], so it matches the 
-world-space up.
+- Fixed GatherThings()
 
-- gravity is now a tuple, since you'd be re-assigning to
-change it anyways.
-
-- Deprecated functions have ## surrounding them so they're
-more separate.
-
-- Updated the documentation in the script. I've been
-focusing more on updating the GitHub wiki recently.
 
 '''
 
@@ -185,7 +52,7 @@ except:
 # Math for, well...
 import math
 
-print("Z3dPy v0.2.6.2")
+print("Z3dPy v0.2.7")
 
 
 
@@ -536,9 +403,10 @@ def Light_Point(x, y, z, FStrength, fRadius, vColour=(255, 255, 255)):
 #
 # [0] is ray start location
 # [1] is ray end location
+# [2] is wether or not it's drawn as an arrow
 
-def Ray(raySt, rayNd):
-    return [raySt, rayNd]
+def Ray(raySt, rayNd, bIsArrow=False):
+    return [raySt, rayNd, bIsArrow]
 
 # Usage:
 '''
@@ -836,84 +704,6 @@ def WhatIs(any):
                         return "Triangle"
                     except:
                         return "Thing"
-            
-# WhatIsInt():
-# Same as WhatIs(), except it returns a number instead of
-# string for putting in a match.
-# Speed was more of a priority
-# 0 is Vector (Vector3)
-# 1 is Vector2
-# 2 is Vector4
-# 3 is VectorUV
-# 4 is Triangle
-# 5 is Triangle w/ only 3 points
-# 6 is Mesh
-# 7 is AniMesh
-# 8 is Ray
-# 9 is Light_Point
-# 10 is Thing
-# 11 is Hitbox
-# 12 is PhysicsBody
-# 13 is Emitter
-# 14 is Particle
-# 15 is Camera
-            
-def WhatIsInt(any):
-    match len(any):
-        case 2:
-            try:
-                test = any[0][0]
-                return 8
-            except:
-                return 1
-        case 3:
-            try:
-                test = any[0] + 1
-                return 0
-            except:
-                try:
-                    test = any[0][0] + 1
-                    # Shortened triangle, it only includes the points, and no other information.
-                    return 5
-                except:
-                    return 14
-        case 4:
-            try:
-                test = any[0][0]
-                return 12
-            except:
-                return 2
-        case 5:
-            try:
-                test = any[4][0][0]
-                return 11
-            except:
-                try:
-                    test = any[4][2]
-                    return 3
-                except:
-                    return 9
-        case 6:
-            return 4
-        case 7:
-            try:
-                test = any[5][0]
-                return 15
-            except:
-                if any[5] == -1:
-                    return 6
-                else:
-                    return 7
-        case 8:
-            try:
-                test = any[4] + 1
-                return 13
-            except:
-                try:
-                    test = any[6][0]
-                    return 4
-                except:
-                    return 10
 
 #==========================================================================
 #
@@ -1128,14 +918,14 @@ def AddDupe(thing, position, rotation, iLayer=2):
 
 
 def GatherThings():
-    output = ()
+    output = []
     for layer in layers:
-        output += (thing for thing in layer)
-    return output
+        output += [thing for thing in layer]
+    return tuple(output)
 
 def CAddThing(thing):
     # Same thing but for C++
-    thing[6] = z3dpyfast.CAddThing(thing[0])
+    thing[6] = z3dpyfast.CAddThing(thing)
     layers[2].append(thing)
 
 
@@ -1817,13 +1607,13 @@ def VectorPureDirection(v):
     return VectorZero(VectorNormalize(v), 1.0)
 
 def VectorRotateX(vec, deg):
-    return Vec3MatrixMul(vec, MatrixMakeRotX(deg))
+    return Vec3MatrixMulOneLine(vec, MatrixMakeRotX(deg))
 
 def VectorRotateY(vec, deg):
-    return Vec3MatrixMul(vec, MatrixMakeRotY(deg))
+    return Vec3MatrixMulOneLine(vec, MatrixMakeRotY(deg))
 
 def VectorRotateZ(vec, deg):
-    return Vec3MatrixMul(vec, MatrixMakeRotZ(deg))
+    return Vec3MatrixMulOneLine(vec, MatrixMakeRotZ(deg))
 
 def VectorZero(vec, thresh):
     return [0 if axis <= thresh else axis for axis in vec]
@@ -2164,19 +1954,6 @@ def VecMatrixMul(v, m):
     output.pop()
     return output + [v[3], v[4]]
 
-def Vec3MatrixMul(v, m):
-    output = [0.0, 0.0, 0.0, 0.0]
-    for i in range(0, 3):
-        output[0] += v[i] * m[i][0]
-        output[1] += v[i] * m[i][1]
-        output[2] += v[i] * m[i][2]
-        output[3] += v[i] * m[i][3]
-    output[0] += m[3][0]
-    output[1] += m[3][1]
-    output[2] += m[3][2]
-    output[3] += m[3][3]
-    return output
-
 def Vec3MatrixMulOneLine(v, m):
     return [v[0] * m[0][0] + v[1] * m[1][0] + v[2] * m[2][0] + m[3][0], v[0] * m[0][1] + v[1] * m[1][1] + v[2] * m[2][1] + m[3][1], v[0] * m[0][2] + v[1] * m[1][2] + v[2] * m[2][2] + m[3][2], v[0] * m[0][3] + v[1] * m[1][3] + v[2] * m[2][3] + m[3][3]]
 
@@ -2185,7 +1962,7 @@ def MatrixMatrixMul(m1, m2):
     for c in range(0, 3):
         for r in range(0, 3):
             output[r][c] = m1[r][0] * m2[0][c] + m1[r][1] * m2[1][c] + m1[r][2] * m2[2][c] + m1[r][3] * m2[3][c]
-    return output
+    return tuple(output)
 
 # Stuff for the PointAt and LookAt Matrix
 def MatrixStuff(pos, target, up):
@@ -2559,11 +2336,7 @@ def Raster(fnSortKey=triSortAverage, bSortReverse=True):
     return finished
 
 def CRaster(fnSortKey=triSortAverage, bSortReverse=True):
-    finished = []
-    for layer in layers:
-        for t in layer:
-            finished += z3dpyfast.CRaster2(t[6])
-    return finished
+    return z3dpyfast.CRaster2([t[6] for t in GatherThings()])
 
 # RasterThings()
 # Supply your own list of things to draw.
@@ -2649,6 +2422,7 @@ def RasterMeshList(meshList, sortKey=triSortAverage, sortReverse=True):
         viewed.sort(key=sortKey, reverse=sortReverse)
         return RasterPt2(viewed)
 
+arrowMesh = LoadMesh("z3dpy/mesh/axisZ.obj")
 
 # Draws things, as well as hitboxes, and any lights/rays you give it. 
 # Triangles from debug objects will have an id of -1
@@ -2670,14 +2444,16 @@ def DebugRaster(train=[], sortKey=triSortAverage, sortReverse=True):
                     viewed += RasterPt1(MeshGetTris(ThingGetHitboxMesh(t)), ThingGetPos(t), [0, 0, 0], -1, [255, 0, 0])
 
         for l in lights:
-            viewed += RasterPt1Static(MeshGetTris(lightMesh), LightGetPos(l), -1, [255, 0, 0])
+            viewed += RasterPt1Static(MeshGetTris(lightMesh), LightGetPos(l), -1, LightGetColour(l))
 
         for d in dots:
             viewed += RasterPt1Static(MeshGetTris(dotMesh), d, -1, [255, 0, 0])
 
         for r in rays:
-            # Looks like spaghetti because I have to convert Vector3's to VectorUVs used in triangles
-            viewed += RasterPt1StaticBF([Tri(RayGetStart(r) + [[0, 0, 0], [0, 0]], VectorAdd(RayGetStart(r), [0, 0.01, 0]) + [[0, 0, 0], [0, 0]], RayGetEnd(r) + [[0, 0, 0], [0, 0]])], [0, 0, 0], -1, [255, 0, 0])
+            if r[2]:
+                viewed += RasterPt1PointAt(MeshGetTris(arrowMesh), RayGetStart(r), RayGetEnd(r), iC[7], -1, [255, 0, 0])
+            else:
+                viewed += RasterPt1StaticBF([Tri(RayGetStart(r) + [[0, 0, 0], [0, 0]], VectorAdd(RayGetStart(r), [0, 0.01, 0]) + [[0, 0, 0], [0, 0]], RayGetEnd(r) + [[0, 0, 0], [0, 0]])], [0, 0, 0], -1, [255, 0, 0])
 
         if train != []:
             for x in range(len(train)):
@@ -2696,6 +2472,21 @@ def RasterPt1(tris, pos, rot, id, colour):
             if VectorDoP(GetNormal(tri), VectorMul(iC[6], [-1, 1, 1])) > -0.4:
                 prepared.append(tri)
     for t in ViewTris(TranslateTris(prepared, pos)):
+        for r in TriClipAgainstZ(t):
+            r.append(colour)
+            r.append(id)
+            translated.append(r)
+    return translated
+
+def RasterPt1PointAt(tris, pos, target, up, id, colour):
+    translated = []
+    translated = []
+    prepared = []
+    for tri in TransformTris(tris, [0, 0, 0], True, pos, target, up):
+        if DistanceBetweenVectors(TriAverage(tri), iC[0]) < iC[5]:
+            if VectorDoP(GetNormal(tri), VectorMul(iC[6], [-1, 1, 1])) > -0.4:
+                prepared.append(tri)
+    for t in ViewTris(prepared):
         for r in TriClipAgainstZ(t):
             r.append(colour)
             r.append(id)
@@ -2784,25 +2575,20 @@ def RasterCPt2(tris):
 # The stages should be done in that order.
 #
 
-mXs = ()
-mYs = ()
-mZs = ()
-
-for mx in range(360):
-    mXs += (MatrixMakeRotX(mx),)
-    mYs += (MatrixMakeRotY(mx),)
-    mZs += (MatrixMakeRotZ(mx),)
-
-def TransformTris(tris, rot):
+def TransformTris(tris, rot, pointAt=False, pos=[0, 0, 0], trg=[0, 0, 0], up=[0, 0, 0]):
     transformed = []
-    mX = MatrixMakeRotX(rot[0])
-    mY = MatrixMakeRotZ(rot[2])
-    mZ = MatrixMakeRotY(rot[1])
-    mW = MatrixMatrixMul(mX, mY)
-    mW = MatrixMatrixMul(mW, mZ)
+    if pointAt:
+        mW = PointAtMatrix(pos, trg, up)
+    else:
+        mX = MatrixMakeRotX(rot[0])
+        mY = MatrixMakeRotZ(rot[2])
+        mZ = MatrixMakeRotY(rot[1])
+        mW = MatrixMatrixMul(mX, mY)
+        mW = MatrixMatrixMul(mW, mZ)
     for t in tris:
         nt = TriMatrixMul(t, mW)
-        nt[3] = GetNormal(nt)
+        TriSetNormal(nt, GetNormal(nt))
+        TriSetWPos(nt, TriAverage(nt))
         transformed.append(nt)
     return transformed
 
@@ -2817,7 +2603,7 @@ def TranslateTris(tris, pos):
     translated = []
     for tri in tris:
         ntri = TriAdd(tri, pos)
-        TriSetWPos(ntri, VectorAdd(TriAverage(ntri), pos))
+        TriSetWPos(ntri, VectorAdd(TriGetWPos(tri), pos))
         translated.append(ntri)
     return translated
 
@@ -2995,7 +2781,7 @@ def CheapLighting(tri, lights=lights):
             newcolour = VectorMul(colour, LightGetColour(l))
             colour = VectorAdd(colour, newcolour)
     colour = VectorDivF(colour, len(lights))
-    return VectorMinF(VectorMulF(colour, shading * intensity), 1)
+    return VectorMinF(VectorMulF(colour, shading * intensity), 1.0)
 
 # ExpensiveLighting uses the direction towards the light source, and tests for ray collisions to create shadows.
 def ExpensiveLighting(tri, lights=lights):
@@ -3012,14 +2798,16 @@ def ExpensiveLighting(tri, lights=lights):
                 for th in layer:
                     inters = RayIntersectThingComplex(testRay, th)
                     if inters[0]:
-                        # Making sure it's not this triangle
+                        # Making sure it's not this triangle, by comparing normals
                         if VectorComb(VectorSub(inters[3], TriGetNormal(tri))) > 0:
                             cntnue = False
             if cntnue:
                 lightDir = DirectionBetweenVectors(LightGetPos(l), pos)
                 shading += (VectorDoP(lightDir, VectorMul(TriGetNormal(tri), [-1, 1, 1])) + 1) * 0.5
-                intensity += 1 - ((dist / LightGetRadius(l)) ** 2)
-    return shading * intensity * LightGetStrength(l)
+                intensity += (1 - ((dist / LightGetRadius(l)) ** 2)) * LightGetStrength(l)
+                colour = VectorAdd(colour, VectorMul(colour, LightGetColour(l)))
+    colour = VectorDivF(colour, len(lights))
+    return VectorMinF(VectorMulF(shading * intensity), 1.0)
 
 ## Deprecated
 def CheapLightingCalc(tri, lights=lights):
