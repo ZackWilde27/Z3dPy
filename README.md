@@ -5,7 +5,7 @@ Z3dPy is my open-source 3D software renderer written entirely in Python. (Now wi
 
 Still in active development
 
-You'll need a display window, I recommend PyGame for it's speed, but tkinter works fine.
+You'll need something to draw on. I recommend PyGame for it's speed, but Tkinter also has built-in support.
 
 Handles all the math for drawing, as well as lighting, rays/collisions, and basic physics.
 
