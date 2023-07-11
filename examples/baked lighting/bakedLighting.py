@@ -22,9 +22,9 @@ myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj")
 sus = zp.Thing([myMesh], 0, 0, 0)
 
 # Light_Point(x, y, z, FStrength, fRadius, vColour)
-redLight = zp.Light_Point(2.25, 0, 2, 0.8, 3.0, (255, 0, 0))
+redLight = zp.Light_Point(2.25, 0, 2, 0.8, 4.0, (255, 0, 0))
 
-blueLight = zp.Light_Point(-2.25, 0, -2, 0.8, 3.0, (0, 0, 255))
+blueLight = zp.Light_Point(-2.25, 0, -2, 0.8, 4.0, (0, 0, 255))
 
 # Append to global list
 zp.lights.append(redLight)
