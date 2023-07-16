@@ -1,21 +1,17 @@
 # Z3dPy
 ![enginef](https://github.com/ZackWilde27/Z3dPy/assets/115175938/072e0f64-a536-4ae9-bc7e-60f542c3f950)
 
-Z3dPy is my open-source 3D software renderer written entirely in Python. (Now with an extension to speed up rendering.)
+Z3dPy is my open-source 3D engine written in Python, packaged into a module.
 
-Still in active development
+Still in active development.
 
-You'll need something to draw on. I recommend PyGame for it's speed, but Tkinter also has built-in support.
-
-Handles all the math for drawing, as well as lighting, rays/collisions, and basic physics.
+You'll need something to drive the screen and handle the controls, but other than that, this module has no dependencies.
 
 Documentation can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
 <br>
 
 # Installation Guide
-
-First you'll need a display, like pygame, or tkinter or something.
 
 Download the release build and extract the zip folder to the same folder as your script, then import it with:
 ```python
@@ -156,10 +152,12 @@ Everything is coloured with it's normal direction, so X is red, Y is green, Z is
 # Exporting Mesh
 
 Export your mesh as an OBJ file.
-- UV coordinates are supported and used in the pixel shaders.
-- N-gons are triangulated automatically.
+- UV coordinates are used in the pixel shaders.
+- LoadMesh() will triangulate all n-gons
 - If materials are exported, LoadMesh() will automatically separate it into a list of meshes.
 <br>
 Up axis is -Y, and Forward axis is Z.
 
 ![image](https://user-images.githubusercontent.com/115175938/235002154-62bb03ad-13f3-4084-b410-aa0074553865.png)
+
+<br>
