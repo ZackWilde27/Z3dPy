@@ -3,7 +3,7 @@
 
 Z3dPy is my open-source 3D engine written in Python, packaged into a module.
 
-Still in active development.
+Still in active development, it's not quite there yet but it's getting close.
 
 You'll need something to drive the screen and handle the controls, but other than that, this module has no dependencies.
 
