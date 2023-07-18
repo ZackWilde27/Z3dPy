@@ -7,8 +7,10 @@ import random as rand
 # PgInit(width, height, bgCol, pygame)
 # PgInit replaces pygame.init(), sets the global screen size, and returns the screen,
 # filled with bgCol
-screen = zp.PgInit(1280, 720, "black", pygame)
+screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
+
+zp.screenSize = (1280, 720)
 
 # Cam(x, y, z)
 myCamera = zp.Cam(7.5, 7.5, -10)
@@ -26,6 +28,10 @@ zp.AddThing(myThing)
 
 # Since the camera isn't going to move, we only need to set it once.
 zp.SetInternalCam(myCamera)
+
+amount = 0
+
+mx = 150
 
 # Raster Loop
 while True:
@@ -46,7 +52,13 @@ while True:
     # Update the screen
     pygame.display.flip()
 
-    # Add another dupe, with a random location and rotation
-    zp.AddDupe(myThing, [rand.random() * 15, rand.random() * 15, rand.random() * 15], [rand.random() * 270, rand.random() * 270, rand.random() * 270])
-    # It's going to end up drawing more triangles, but other than that, major speed boost as it only references the one mesh.
+    if amount < mx:
+
+        # Add another dupe, with a random location and rotation
+        zp.AddDupe(myThing, [rand.random() * 15, rand.random() * 15, rand.random() * 15], [rand.random() * 270, rand.random() * 270, rand.random() * 270])
+        # It's going to end up drawing more triangles, but it only needs to reference the one mesh.
+
+        amount += 1
+
+        
     
