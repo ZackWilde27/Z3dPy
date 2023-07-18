@@ -8,16 +8,16 @@ print("W and S to move ray-shooter up and down")
 pygame.init()
 clock = pygame.time.Clock()
 
-# Manually setting the display mode can still be done
+# Manually setting the display mode this time
 screen = pygame.display.set_mode((1280, 720))
 
-# To set the z3dpy screen size, either include it in your camera:
-# z3dpy.Cam(x, y, z, scrW, scrH)
-myCamera = zp.Cam(0, 0, -4, 1280, 720)
-
-# or set screenSize like so:
 zp.screenSize = (1280, 720)
 
+# Cam(x, y, z)
+myCamera = zp.Cam(0, 0, -4)
+
+# Setting FOV
+# zp.FindHowVars(75)
 zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
 
 
@@ -62,7 +62,7 @@ while True:
 
     rayDir = zp.RotTo(zp.ThingGetRot(player), [1, 0, 0])
     
-    rayEnd = zp.VectorAdd(rayStart, zp.VectorMulF(rayDir, 15))
+    rayEnd = zp.VectorAdd(rayStart, zp.VectorMulF(rayDir, 5))
     
     theRay = zp.Ray(rayStart, rayEnd)
 
@@ -77,17 +77,22 @@ while True:
     zp.rays.append(theRay)
 
     # New CamChase() will make the camera "chase" a location rather than being set.
-    zp.CamChase(myCamera, zp.VectorSub(zp.ThingGetPos(player), [0, 8, 0]), 0.25)
+    zp.CamChase(myCamera, zp.VectorSub(zp.ThingGetPos(player), [0, 8, 0]), 1)
     
     zp.CamSetTargetVector(myCamera, [0, 1, 0])
     zp.CamSetUpVector(myCamera, [0, 0, 1])
 
     zp.SetInternalCam(myCamera)
 
+    zp.dots = []
+
     screen.fill("black")
         
     # Render 3D
     for tri in zp.DebugRaster():
+        if zp.TriGetId(tri) == -1:
+            zp.PgDrawTriOutl(tri, [1, 0, 0], screen, pygame)
+        else:
             nrm = zp.TriGetNormal(tri)
             col = (nrm[2] + nrm[1]) * 0.5
             zp.PgDrawTriS(tri, col, screen, pygame)
