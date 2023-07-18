@@ -3,27 +3,33 @@ import pygame
 import random as rand
 
 pygame.init()
-screen = zp.PgScreen(1280, 720, "black", pygame)
+screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
-# Setting FOV to 75
+zp.screenSize = (1280, 720)
+
+# Setting FOV
 #zp.FindHowVars(75)
 zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
 
 # z3dpy.Cam(x, y, z)
-myCamera = zp.Cam(0, 0, -4)
-
+myCamera = zp.Cam(0, 0, -15)
 zp.SetInternalCam(myCamera)
 
 # Mesh to serve as the template
 myMesh = zp.LoadMesh("z3dpy/mesh/dot.obj")
 
 # Emitter(vPos, mshTemplate, iMax, vVelocity, fLifetime, vGravity)
-myEmitter = zp.Emitter([0, 0, 0], myMesh, 25, [0, 15, 0], 25.0, [1, 4.0, 0])
-# vVelocity is the particle's starting velocity
+myEmitter = zp.Emitter([0, 0, 0], myMesh, 100, [0, 15, 0], 3, [4, 20, 0])
 
 # Add to global list
 zp.emitters.append(myEmitter)
+
+
+# The Ground
+plane = zp.LoadMesh("z3dpy/mesh/plane.obj", 0, 0, 0, 5, 5, 5)
+ground = zp.Thing([plane], 0, 2, 15)
+zp.AddThing(ground)
 
 while True:
 
@@ -31,15 +37,18 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
 
-    clock.tick(30)
-    screen.fill("black")
+    clock.tick(60)
+    zp.GetDelta
 
     ranx = (rand.random() - 0.5) * 25
     rany = (rand.random() - 0.5) * 25
 
+    # Making snow spawn at random locations by moving the emitter
     zp.EmitterSetPos(myEmitter, [ranx, -5, rany])
 
-    zp.TickEmitters()
+    zp.HandleEmitters()
+
+    screen.fill("#5B8EAF")
 
     for tri in zp.Raster():
         zp.PgDrawTriF(tri, 1, screen, pygame)
