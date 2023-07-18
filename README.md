@@ -7,6 +7,8 @@ Still in active development, though it's nearing completion, should mostly be fi
 
 You'll need something to drive the screen and handle the controls, but other than that, this module has no dependencies.
 
+It can do lighting, rays, collisions, and has a basic physics engine
+
 Documentation can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
 <br>
