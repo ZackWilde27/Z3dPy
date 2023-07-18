@@ -1,78 +1,87 @@
-import z3dpy as zp
 import pygame
+import z3dpy as zp
+import time
 
-print("")
-print("Controls:")
-print("Arrow Keys to move mesh around")
-print("WASD to move camera")
-
-# PyGame stuff
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
+array = pygame.PixelArray(screen)
 
-# Create the Camera
-myCamera = zp.Cam(0, 0, 0)
+zp.screenSize = (1280, 720)
 
-# Changing FOV
-#zp.FindHowVars(75)
-zp.SetHowVars(0.7330638371434377, 1.3032244450784043)
+currentTime = time.time()
+static = False
+coolDown = 0
 
-# Susanne Mesh
-sus = zp.Thing([zp.NewSusanne()], 0, 0, 4)
+# Camera(x, y, z)
+myCamera = zp.Cam(0, 0, -3)
 
-# Adding Thing
+zp.CamSetTargetDir(myCamera, [0, 0, 1])
+zp.SetInternalCam(myCamera)
+
+# LoadMesh(filename, x, y, z)
+myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj")
+
+zp.MeshSetColour(myMesh, (255, 255, 255))
+# Thing(meshList, x, y, z)
+sus = zp.Thing([myMesh], 0, 0, 0)
+
 zp.AddThing(sus)
 
-# Create a PointLight and append it to the z3dpy.lights list
-myLight = zp.Light_Point(0, 0, 2, 0.8, 25, (255, 0, 0))
+# Light_Point(x, y, z, FStrength, fRadius, vColour)
+redLight = zp.Light_Point(2.25, 0, 2, 0.8, 4.0, (255, 0, 0))
 
-zp.lights.append(myLight)
+blueLight = zp.Light_Point(-2.25, 0, -2, 0.8, 4.0, (100, 100, 255))
 
-# Raster Loop
+# Append to global list
+zp.lights.append(redLight)
+zp.lights.append(blueLight)
+
+zp.worldColour = (0.02, 0.00, 0.02)
+
+# BakeLighting(thingList, bExpensive)
+zp.BakeLighting([sus])
+
+fps = 30
+
+print("")
+print("L to switch between static and dynamic lighting")
+
 while True:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
+    
+    screen.fill("black")
 
     # Input
     keys = pygame.key.get_pressed()
 
-    if keys[pygame.K_w]:
-        zp.CamAddPos(myCamera, zp.VectorMulF(zp.CamGetTargetDir(myCamera), 0.1))
-    if keys[pygame.K_s]:
-        zp.CamSubPos(myCamera, zp.VectorMulF(zp.CamGetTargetDir(myCamera), 0.1))
-    if keys[pygame.K_a]:
-       zp.CamAddPos(myCamera, zp.VectorMulF(zp.CamGetRightVector(myCamera), 0.1))
-    if keys[pygame.K_d]:
-        zp.CamSubPos(myCamera, zp.VectorMulF(zp.CamGetRightVector(myCamera), 0.1))
+    if keys[pygame.K_l]:
+        if coolDown < 0:
+            coolDown = 10
+            static = not static
+    coolDown -= 1
+
+    if static:
+        for tri in zp.Raster():
+            zp.PgDrawTriFLB(tri, screen, pygame)
+
+    else:
         
+        for tri in zp.Raster():
+            if zp.TriGetId(tri) == -1:
+                zp.PgDrawTriOutl(tri, [1, 0, 0], screen, pygame)
+            else:
+                zp.PgDrawTriFL(tri, screen, pygame)
 
-    if keys[pygame.K_UP]:
-        zp.ThingAddPosZ(sus, 0.1)
-    if keys[pygame.K_DOWN]:
-        zp.ThingAddPosZ(sus, -0.1)
-    if keys[pygame.K_LEFT]:
-        zp.ThingAddPosX(sus, -0.1)
-    if keys[pygame.K_RIGHT]:
-        zp.ThingAddPosX(sus, 0.1)
-        
-    # The camera always looks forward
-    zp.CamSetTargetDir(myCamera, [0, 0, 1])
-
-    zp.SetInternalCam(myCamera)
-
-    # Clear the screen
-    screen.fill("black")
-
-    # Using DebugRaster() to draw the light as well
-    for tri in zp.DebugRaster():
-        # Debug things will have an ID of -1, draw them with a red outline
-        if zp.TriGetId(tri) == -1:
-            zp.PgDrawTriOutl(tri, [1, 0, 0], screen, pygame)
-        else:
-            # Use DrawTriFL for flat lighting.
-            zp.PgDrawTriFL(tri, screen, pygame)
-            
     pygame.display.flip()
+
+    zp.ThingAddRot(sus, (2, 2, 2))
+
+    fps = int(1 / (time.time() - currentTime))
+
+    # Setting the caption is much faster than printing
+    pygame.display.set_caption(str(fps) + " FPS")
+    currentTime = time.time()
