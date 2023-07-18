@@ -2,20 +2,23 @@ import z3dpy as zp
 import pygame
 
 pygame.init()
-screen = zp.PgScreen(1280, 720, "black", pygame)
+screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
+zp.screenSize = (1280, 720)
+
+# Setting FOV
+#zp.FindHowVars(75)
 zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
 
-# z3dpy.Camera(x, y, z)
+# Cam(x, y, z)
 myCamera = zp.Camera(0, 0, -4)
 
-# z3dpy.LoadMesh(filename, x, y, z)
-# z3dpy.Thing(meshList, x, y, z)
+# LoadMesh(filename, x, y, z)
+# Thing(meshList, x, y, z)
 cube = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj", 0, 0, 0)], 0, 0, 3)
 
 zp.ThingSetupPhysics(cube)
-
 zp.ThingSetupHitbox(cube, 2, 0, 1, 1)
 
 zp.AddThing(cube)
@@ -41,7 +44,7 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
 
-    #clock.tick(60)
+    clock.tick(60)
     screen.fill("black")
 
     # Input
@@ -56,16 +59,16 @@ while True:
     if keys[pygame.K_d]:
         zp.ThingAddPos(cube, [0.25, 0, 0])
 
-    # Make sure to use HandlePhysicsTrain()
+    # HandlePhysicsTrain(thingList, train)
     zp.HandlePhysicsTrain([cube], myTrain)
 
-    zp.CamChase(myCamera, zp.VectorSub(zp.ThingGetPos(cube), [0, 2, 7]), 0.05)
+    # "Chase" the player rather than directly setting location
+    zp.CamChase(myCamera, zp.VectorSub(zp.ThingGetPos(cube), [0, 2, 7]), 5)
 
     zp.CamSetTargetLoc(myCamera, zp.ThingGetPos(cube))
 
     zp.SetInternalCam(myCamera)
 
-    # DebugRaster can draw Trains.
     for tri in zp.DebugRaster(myTrain):
         if zp.TriGetId(tri) == -1:
             zp.PgDrawTriOutl(tri, [1, 0, 0], screen, pygame)
