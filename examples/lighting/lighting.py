@@ -5,7 +5,6 @@ import time
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
-array = pygame.PixelArray(screen)
 
 zp.screenSize = (1280, 720)
 
@@ -71,10 +70,7 @@ while True:
     else:
         
         for tri in zp.Raster():
-            if zp.TriGetId(tri) == -1:
-                zp.PgDrawTriOutl(tri, [1, 0, 0], screen, pygame)
-            else:
-                zp.PgDrawTriFL(tri, screen, pygame)
+            zp.PgDrawTriFL(tri, screen, pygame)
 
     pygame.display.flip()
 
