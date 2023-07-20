@@ -76,7 +76,7 @@ while True:
 
     zp.ThingAddRot(sus, (2, 2, 2))
 
-    fps = int(1 / (time.time() - currentTime))
+    fps = 1 // (time.time() - currentTime)
 
     # Setting the caption is much faster than printing
     pygame.display.set_caption(str(fps) + " FPS")
