@@ -1,155 +1,58 @@
 # -zw
 '''
-Z3dPy v0.2.8 - The Fixes/Streamlining Update
+Z3dPy v0.2.9
+*Nightly build, wiki/examples are based on the release
+version
 
 Change Notes:
 
-LIGHTS
+C++
 
-- Added Light_Sun(VDirection, FStrength, fRadius, *vColour).
-DebugRaster() will draw these lights as arrows located
-at 0, 0, 0
+- z3dpyfast is back, it's been scaled down to a library
+for the more complicated math functions.
 
-- Added worldColour, acts as ambient light in flat lighting.
-It's normalized, so white is (1.0, 1.0, 1.0)
+Instead of having CFunctions, it now replaces the Python
+functions, so nothing changes except the speed.
 
-- Fixed lighting bug where the Z direction had a much
-larger radius
+It already gives quite the boost, but as I add more and
+more functions, it should get faster.
 
-- Reworked colour system, lights are more vibrant.
+LIGHTING
 
-- ExpensiveLighting() now calculates colour like
-CheapLighting().
-
-- ExpensiveLighting() only checks for shadows against
-Things in it's shadowcasters argument.
-I would recommend using low poly models for shadows.
-
-- GetPos() and SetPos() are now compatible with lights and
-rays (I just assumed they were compatible before, sorry
-about that.)
-
-- [0] is now type, everything else has been shifted over.
-
-- Fixed LightGetUserVar() and LightSetUserVar().
-
-- BakeLighting() doesn't require any arguments. By default
-it'll bake everything in the layers, using everything as
-shadowcasters
-
-Argument list is now BakeLighting(things, bExpensive, lights, shadowCasters)
+- BakeLighting(*things, *bExpensive, *lights, *shadowcasters)
+has been fixed: by default things will gather everything
+from all layers, and shadowcasters will be equal to things.
 
 
-RASTERING
+MESHES
 
-- RasterParts() is now in
-RasterThings(thingList, emitterList, *sortingMethod, *reverseSorting)
-so they can be sorted alongside the Things.
-
-- Remade the transformation stage: instead of a rotation
-matrix + position, everything uses the PointAt matrix.
-
-It allows for skipping the translation stage entirely,
-speeding things up a bit.
-
-TransformTris(tris, pos, target, *up) now takes those
-arguments
-
-WTransformTris(tris, rot) does the old rotation matrix
-method
-
-- Renamed RasterPt1BF() to RasterPt1NoCull(), makes more
-sense than BackFace
-
-- Added RasterPt1StaticNoCull(tris, pos)
-
-- Raster Pipeline no longer needs id and colour, as it
-now carries through.
+- Meshes and AniMeshes now have bCull, which if False,
+will not cull it's triangles.
 
 
-TRIS
+COLLISION
 
-- Fixed world position offset.
-
-- Put colour and id back in Triangles from the start,
-because adding them afterwards just makes things complicated.
-
-
-RAYS
-
-- Rays now have bIsArrow, which if True will DebugRaster()
-the ray as an arrow, pointing at the end location
-
-- Added RayGetIsArrow(ray) and RaySetIsArrow(ray, bIsArrow).
-
-
-DELTA TIME
-
-- Added GetDelta(). Call it at the start of the loop to
-calculate delta time.
-It updates the global, so returning the delta is
-for your code, if you need it.
-
-- gravity now takes delta into account
+- Added ThingIntersectThingComplex(thing1, thing2) which is
+the most expensive, but accurate collision method.
+Turns each triangle of thing1 into rays and tests for
+collisions of triangles in thing2
 
 
 CAM CHASE
 
-- CamChase() now uses delta time.
-
-- CamChase() now returns wether or not the camera is at
-the target location. This can be used for things like
-blending between cameras or transitions and stuff.
-
-
-PHYSICS
-
-- Ceiling hitbox now scales with Y velocity, so it should
-be harder to clip through regardless of speed.
-
-- Reworked HandlePhysicsTrain() to improve interpolation.
-
-
-EMITTERS
-
-- TickEmitters() has been renamed to HandleEmitters(), to
-match HandlePhysics().
-
-- If you have fewer than 3 layers, Raster() will draw emitters on the last layer.
-
-
-THINGS
-
-- If a Thing's id is -2, it's rotation value becomes the
-target location for all meshes.
-
-- Removed cylinder hitboxes, as they didn't have much support
-
-
-C++
-
-- z3dpyfast is being scaled down to just a vector math
-library.
-I'm still figuring out the bugs, it's not ready yet.
+- CamChase()'s acceptance radius now scales with speed,
+so it won't oscilate.
 
 
 MISC
 
-- Added ListInterpolate(list, fIndex) which will interpolate between numbers in a list based on fIndex
+- Renamed VectorIntersectPlane() to VectorUVIntersectPlane(), and added a new VectorIntersectPlane() for standard vectors.
 
-- Fixed MeshUniqPoints()
+- Moved VectorIntersectPlane() and ShortestPointToPlane() to the Vectors section, I think it makes more sense there.
 
-- Removed WhatIsInt()
+- LookAtMatrix(pos, target, up) has that argument list, instead of a camera
 
-- Fixed GatherThings()
 
-- Remade VectorMin(v1, v2) and VectorMax(v1, v2). It'll min/max each axis individually.
-I meant to do this in the last update
-To get the original functionality, use VectorCompare(v1, v2) which returns wether or not v1 is greater in magnitude than v2.
-
-- Fixed texture rotation with pixel shaders
-
-- Made general optimizations
 '''
 
 # Time for delta-time calculations related to physics
@@ -161,7 +64,9 @@ import random as rand
 # Math for, well...
 import math
 
-print("Z3dPy v0.2.8")
+# z3dpyfast is imported at the bottom of the script to replace functions.
+
+print("Z3dPy v0.2.9")
 
 #==========================================================================
 #  
@@ -457,11 +362,10 @@ def Cam(x, y, z, scW=-1, scH=-1):
     return [0, [x, y, z], [0, 0, 0], 0.1, 1500, [0, 0, 1], [0, 1, 0]]
 
 
+## Backwards Compatibility
 def Camera(x, y, z, scW=-1, scH=-1):
-    global screenSize
-    if scW + scH != -2:
-        screenSize = (scW, scH)
-    return [0, [x, y, z], [0, 0, 0], 0.1, 1500, [0, 0, 1], [0, 1, 0]]
+    return Cam(x, y, z, scW, scH)
+##
 
 # Internal Camera
 #
@@ -490,7 +394,7 @@ def SetInternalCam(camera):
     iC = [CamGetPos(camera), CamGetRot(camera), screenSize[1] * 0.5, screenSize[0] * 0.5, CamGetNCl(camera), CamGetFCl(camera), CamGetTargetVector(camera), CamGetUpVector(camera)]
     # doing all these calculations once so we can hold on 
     # to them for the rest of calculations
-    intMatV = LookAtMatrix(camera)
+    intMatV = LookAtMatrix(CamGetPos(camera), CamGetTargetLoc(camera), CamGetUpVector(camera))
 
 # Lights:
 #
@@ -658,35 +562,6 @@ Amplitude is multiplied by the final output to amplify.
 Normally 1.0 / no change.
 '''
 
-def BakeTrain(train, passes=1, strength=1.0, amplitude=1.0):
-    scX = len(train)
-    scY = len(train[0])
-    print("Baking Train...")
-    # Blurring to smooth
-    for p in range(passes):
-        for x in range(scX):
-            for y in range(scY):
-                mx = min(x + 1, scX - 1)
-                mn = max(x - 1, 1)
-                my = min(y + 1, scY - 1)
-                ny = max(y - 1, 1)
-
-                # Doing a gaussian blur by de-valuing edges
-                # manually
-                p0 = train[x][y]
-                p1 = train[mx][y] * 0.8 * strength
-                p2 = train[mn][y] * 0.8 * strength
-                p3 = train[x][my] * 0.8 * strength
-                p4 = train[x][ny] * 0.8 * strength
-                p5 = train[mx][my] * 0.6 * strength
-                p6 = train[mx][ny] * 0.6 * strength
-                p7 = train[mn][my] * 0.6 * strength
-                p8 = train[mn][ny] * 0.6 * strength
-                h = sum((p0, p1, p2, p3, p4, p5, p6, p7, p8)) / 9
-                train[x][y] = h * amplitude
-
-    print("Done!")
-
 
 
 # Emitters:
@@ -696,15 +571,16 @@ def BakeTrain(train, passes=1, strength=1.0, amplitude=1.0):
 # [0] is the list of currently active particles
 # [1] is position
 # [2] is the template mesh
-# [3] is velocity
-# [4] is max #
-# [5] is lifetime
+# [3] is particle start velocity
+# [4] is max number of particles
+# [5] is particle lifetime
 # [6] is particle gravity
 # [7] is wether or not it's active.
+# [8] is randomness of particle start velocity
 #
 
-def Emitter(position, template, maximum, velocity=[0, 0, 0], lifetime=15.0, vGravity=[0, 9.8, 0]):
-    return [(), position, template, velocity, maximum, lifetime, vGravity, False]
+def Emitter(position, template, maximum, velocity=[0.0, 0.0, 0.0], lifetime=15.0, vGravity=(0, 9.8, 0), randomness=0.0):
+    return [(), position, template, velocity, maximum, lifetime, vGravity, False, randomness]
 
 # Usage:
 '''
@@ -1403,8 +1279,9 @@ def CamGetRightVector(cam):
     return VectorCrP(CamGetTargetDir(cam), CamGetUpVector(cam))
 
 def CamChase(cam, location, speed=0.25):
+    dspeed = speed * delta
     line = VectorSub(CamGetPos(cam), location)
-    if VectorComb(VectorABS(line)) < 0.05:
+    if VectorGetLength(line) < 0.05:
         CamSetPos(cam, location)
         return True
     CamSubPos(cam, VectorMulF(line, speed * delta))
@@ -1559,36 +1436,9 @@ def EmitterGetGravity(emitter):
 def EmitterSetGravity(emitter, vector):
     emitter[6] = vector
 
-
 #==========================================================================
 #  
-# Vector UV Functions
-#
-#==========================================================================
-
-# In VectorUV functions, the first vector's UV and normal are carried. The second vector does not have to be a VectorUV.
-
-def VectorUVAdd(v1, v2):
-    return VectorAdd(v1, v2) + [v1[3], v1[4]]
-
-def VectorUVSub(v1, v2):
-    return VectorSub(v1, v2) + [v1[3], v1[4]]
-
-def VectorUVMul(v1, v2):
-    return VectorMul(v1, v2) + [v1[3], v1[4]]
-
-def VectorUVMulF(v1, f):
-    return VectorMulF(v1, f) + [v1[3], v1[4]]
-
-def VectorUVDiv(v1, v2):
-    return VectorDiv(v1, v2) + [v1[3], v1[4]]
-
-def VectorUVDivF(v1, f):
-    return VectorDivF(v1, f) + [v1[3], v1[4]]
-
-#==========================================================================
-#  
-# Vector functions
+# Vectors
 #
 #==========================================================================
 
@@ -1699,9 +1549,7 @@ def VectorRotateZ(vec, deg):
 def VectorZero(vec, thresh):
     return [axis if axis >= thresh else 0 for axis in vec]
 
-# WrapRot() takes a rot and converts it to 0-359
 def WrapRot(vRot):
-    # Constructing new rot, not modifying the original.
     nRot = [vRot[0], vRot[1], vRot[2]]
 
     if nRot[0] < 0:
@@ -1713,13 +1561,61 @@ def WrapRot(vRot):
 
     return VectorModF(nRot, 360)
 
-# Now I know the definitive order of operations:
-# RotateX -> RotateZ -> RotateY
 def RotTo(vRot, VTarget):
     nRot = WrapRot(vRot)
     nV = VectorRotateX(VTarget, nRot[0])
     nV = VectorRotateZ(nV, nRot[2])
     return VectorRotateY(nV, nRot[1])
+
+def VectorIntersectPlane(pPos, pNrm, lSta, lEnd):
+    pNrm = VectorNormalize(pNrm)
+    plane_d = -VectorDoP(pNrm, pPos)
+    ad = VectorDoP(lSta, pNrm)
+    bd = VectorDoP(lEnd, pNrm)
+    t = (-plane_d - ad) / (bd - ad)
+    lineStartToEnd = VectorSub(lEnd, lSta)
+    lineToIntersect = VectorMulF(lineStartToEnd, t)
+    return VectorAdd(lSta, lineToIntersect)
+
+def ShortestPointToPlane(point, plNrm, plPos):
+    return VectorDoP(plNrm, point) - VectorDoP(plNrm, plPos)
+
+#==========================================================================
+#  
+# Vector UVs
+#
+#==========================================================================
+
+# In VectorUV functions, the first vector's UV and normal are carried. The second vector does not have to be a VectorUV.
+
+def VectorUVAdd(v1, v2):
+    return VectorAdd(v1, v2) + [v1[3], v1[4]]
+
+def VectorUVSub(v1, v2):
+    return VectorSub(v1, v2) + [v1[3], v1[4]]
+
+def VectorUVMul(v1, v2):
+    return VectorMul(v1, v2) + [v1[3], v1[4]]
+
+def VectorUVMulF(v1, f):
+    return VectorMulF(v1, f) + [v1[3], v1[4]]
+
+def VectorUVDiv(v1, v2):
+    return VectorDiv(v1, v2) + [v1[3], v1[4]]
+
+def VectorUVDivF(v1, f):
+    return VectorDivF(v1, f) + [v1[3], v1[4]]
+
+def VectorUVIntersectPlane(pPos, pNrm, lSta, lEnd):
+    pNrm = VectorNormalize(pNrm)
+    plane_d = -VectorDoP(pNrm, pPos)
+    ad = VectorDoP(lSta, pNrm)
+    bd = VectorDoP(lEnd, pNrm)
+    t = (-plane_d - ad) / (bd - ad)
+    lineStartToEnd = VectorUVSub(lEnd, lSta)
+    lineToIntersect = VectorUVMulF(lineStartToEnd, t)
+    lSta[4] = ((lEnd[4][0] - lSta[4][0]) * t + lSta[4][0], (lEnd[4][1] - lSta[4][1]) * t + lSta[4][1])
+    return VectorUVAdd(lSta, lineToIntersect)
 
 
 #==========================================================================
@@ -1744,60 +1640,38 @@ def TriMulF(t, f):
 def TriDivF(t, f):
     return [VectorUVDivF(t[0], f), VectorUVDivF(t[1], f), VectorUVDivF(t[2], f), t[3], t[4], t[5], t[6], t[7]]
 
-def VectorIntersectPlane(pPos, pNrm, lSta, lEnd, uv1, uv2):
-    pNrm = VectorNormalize(pNrm)
-    plane_d = -VectorDoP(pNrm, pPos)
-    ad = VectorDoP(lSta, pNrm)
-    bd = VectorDoP(lEnd, pNrm)
-    t = (-plane_d - ad) / (bd - ad)
-    lineStartToEnd = VectorUVSub(lEnd, lSta)
-    lineToIntersect = VectorUVMulF(lineStartToEnd, t)
-    lSta[4] = ((uv2[0] - uv1[0]) * t + uv1[0], (uv2[1] - uv1[1]) * t + uv1[1])
-    return VectorUVAdd(lSta, lineToIntersect)
-
-def ShortestPointToPlane(point, plNrm, plPos):
-    return VectorDoP(plNrm, point) - VectorDoP(plNrm, plPos)
-
 def TriClipAgainstPlane(tri, pPos, pNrm):
-    pNrm = VectorNormalize(pNrm)
-    insideP = []
-    outsideP = []
-    d1 = ShortestPointToPlane(tri[0], pNrm, pPos)
-    d2 = ShortestPointToPlane(tri[1], pNrm, pPos)
-    d3 = ShortestPointToPlane(tri[2], pNrm, pPos)
-    if d1 >= 0:
-        insideP.append(tri[0])
-    else:
-        outsideP.append(tri[0])
-    if d2 >= 0:
-        insideP.append(tri[1])
-    else:
-        outsideP.append(tri[1])
-    if d3 >= 0:
-        insideP.append(tri[2])
-    else:
-        outsideP.append(tri[2])
 
-    if len(insideP) == 0:
-        return []
+    test = [ShortestPointToPlane(tri[0], pNrm, pPos) >= 0, ShortestPointToPlane(tri[1], pNrm, pPos) >= 0, ShortestPointToPlane(tri[2], pNrm, pPos) >= 0]
+    trues = test.count(True)
+    match trues:
+        case 0:
+            return []
+        case 3:
+            yield tri
+            
+        case 1:
+            first = test.index(True)
+            second = test.index(False)
+            test[second] = -1
+            third = test.index(False)
+            outT1 = [tri[first], VectorUVIntersectPlane(pPos, pNrm, tri[first], tri[third]), VectorUVIntersectPlane(pPos, pNrm, tri[first], tri[second]), tri[3], tri[4], tri[5], tri[6], tri[7]]
+            yield outT1
 
-    if len(insideP) == 3:
-        return [tri]
-
-    if len(insideP) == 1 and len(outsideP) == 2:
-        outT1 = [insideP[0], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[1], insideP[0][4], outsideP[1][4]), VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0], insideP[0][4], outsideP[0][4]), tri[3], tri[4], tri[5], tri[6], tri[7]]
-        return [outT1]
-
-    if len(insideP) == 2 and len(outsideP) == 1:
-        outT1 = [insideP[0], insideP[1], VectorIntersectPlane(pPos, pNrm, insideP[1], outsideP[0], insideP[1][4], outsideP[0][4]), tri[3], tri[4], tri[5], tri[6], tri[7]]
-        outT2 = [insideP[0], outT1[2], VectorIntersectPlane(pPos, pNrm, insideP[0], outsideP[0], insideP[0][4], outsideP[0][4]), tri[3], tri[4], tri[5], tri[6], tri[7]]
-        return [outT1, outT2]
+        case 2:
+            first = test.index(True)
+            test[first] = -1
+            second = test.index(True)
+            third = test.index(False)
+            outT1 = [tri[first], tri[second], VectorUVIntersectPlane(pPos, pNrm, tri[second], tri[third]), tri[3], tri[4], tri[5], tri[6], tri[7]]
+            outT2 = [tri[first], outT1[2], VectorUVIntersectPlane(pPos, pNrm, tri[first], tri[third]), tri[3], tri[4], tri[5], tri[6], tri[7]]
+            yield outT1
+            yield outT2
 
 def GetNormal(tri):
     triLine1 = VectorSub(tri[1], tri[0])
     triLine2 = VectorSub(tri[2], tri[0])
-    normal = VectorCrP(triLine1, triLine2)
-    return VectorNormalize(VectorMul(normal, [1, -1, -1]))
+    return VectorNormalize(VectorMul(VectorCrP(triLine1, triLine2), [1, -1, -1]))
 
 def TriAverage(tri):
     return [(tri[0][0] + tri[1][0] + tri[2][0]) * 0.333333, (tri[0][1] + tri[1][1] + tri[2][1]) * 0.333333, (tri[0][1] + tri[1][1] + tri[2][1]) * 0.33333]
@@ -1834,7 +1708,7 @@ def TriClipAgainstScreenEdges(tri):
 
 
 # Load OBJ File
-def LoadMesh(filename, x = 0, y = 0, z = 0, sclX = 1, sclY = 1, sclZ = 1):
+def LoadMesh(filename, x = 0.0, y = 0.0, z = 0.0, sclX = 1.0, sclY = 1.0, sclZ = 1.0):
     try:
         file = open(filename)
     except:
@@ -1933,7 +1807,7 @@ def LoadMesh(filename, x = 0, y = 0, z = 0, sclX = 1, sclY = 1, sclZ = 1):
     else:
         return [Mesh(tuple(trS), x, y, z) for trS in matoutputs]
 
-def LoadAniMesh(filename, x=0, y=0, z=0, sclX=1, sclY=1, sclZ=1):
+def LoadAniMesh(filename, x=0.0, y=0.0, z=0.0, sclX=1.0, sclY=1.0, sclZ=1.0):
     looking = True
     a = 0
     st = 0
@@ -1968,11 +1842,20 @@ def LoadAniMesh(filename, x=0, y=0, z=0, sclX=1, sclY=1, sclZ=1):
         
         newMsh[0].append(newFrm)
 
+    # compression time: If a tri from one frame is the same as the one before, replace with -1,
+    # meaning it'll look backwards for the actual triangle.
+
+    # Since it's only run when loading, speed was not a priority, I may come back to this.
+    for frame in range(1, len(frame)):
+        for tri in range(1, len(frame[0])):
+            if VectorEqual(VectorComb(newMsh[0][frame - 1][tri]), VectorComb(newMsh[0][frame][tri])):
+                newMsh[0][frame][tri] = -1
+
     return newMsh
 
 
 ## Deprecated
-def LoadAnimMesh(filename, x=0, y=0, z=0, sclX=1, sclY=1, sclZ=1):
+def LoadAnimMesh(filename, x = 0.0, y = 0.0, z = 0.0, sclX = 1.0, sclY = 1.0, sclZ = 1.0):
     return LoadAniMesh(filename, x, y, z, sclX, sclY, sclZ)
 ##
 
@@ -1989,8 +1872,8 @@ arrowMesh = LoadMesh("z3dpy/mesh/axisZ.obj")
 MeshSetId(arrowMesh, -1)
 MeshSetColour(arrowMesh, (255, 0, 0))
 
-def NewCube(x=0, y=0, z=0):
-    return LoadMesh("z3dpy/mesh/cube.obj", x, y, z)
+def NewCube(x = 0.0, y = 0.0, z = 0.0, sclX = 1.0, sclY = 1.0, sclZ = 1.0):
+    return LoadMesh("z3dpy/mesh/cube.obj", x, y, z, sclX, sclY, sclZ)
 
 def NewCylinder(x=0, y=0, z=0):
     return LoadMesh("z3dpy/mesh/cylinder.obj", x, y, z)
@@ -2028,11 +1911,10 @@ def TriMatrixMul(t, m):
 
 def VecMatrixMul(v, m):
     output = Vec3MatrixMulOneLine(v, m)
-    output.pop()
     return output + [v[3], v[4]]
 
 def Vec3MatrixMulOneLine(v, m):
-    return [v[0] * m[0][0] + v[1] * m[1][0] + v[2] * m[2][0] + m[3][0], v[0] * m[0][1] + v[1] * m[1][1] + v[2] * m[2][1] + m[3][1], v[0] * m[0][2] + v[1] * m[1][2] + v[2] * m[2][2] + m[3][2], v[0] * m[0][3] + v[1] * m[1][3] + v[2] * m[2][3] + m[3][3]]
+    return [v[0] * m[0][0] + v[1] * m[1][0] + v[2] * m[2][0] + m[3][0], v[0] * m[0][1] + v[1] * m[1][1] + v[2] * m[2][1] + m[3][1], v[0] * m[0][2] + v[1] * m[1][2] + v[2] * m[2][2] + m[3][2]]
 
 def MatrixMatrixMul(m1, m2):
     output = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
@@ -2071,9 +1953,9 @@ def PointAtMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
     return ((temp[2][0], temp[2][1], temp[2][2], 0), (temp[1][0], temp[1][1], temp[1][2], 0), (temp[0][0], temp[0][1], temp[0][2], 0), (pos[0], pos[1], pos[2], 1))
 
-def LookAtMatrix(camera):
-    temp = MatrixStuff(CamGetPos(camera), CamGetTargetLocation(camera), CamGetUpVector(camera))
-    return ((temp[2][0], temp[1][0], temp[0][0], 0.0), (temp[2][1], temp[1][1], temp[0][1], 0.0), (temp[2][2], temp[1][2], temp[0][2], 0.0), (-VectorDoP(CamGetPos(camera), temp[2]), -VectorDoP(CamGetPos(camera), temp[1]), -VectorDoP(CamGetPos(camera), temp[0]), 1.0))
+def LookAtMatrix(pos, target, up):
+    temp = MatrixStuff(pos, target, up)
+    return ((temp[2][0], temp[1][0], temp[0][0], 0.0), (temp[2][1], temp[1][1], temp[0][1], 0.0), (temp[2][2], temp[1][2], temp[0][2], 0.0), (-VectorDoP(pos, temp[2]), -VectorDoP(pos, temp[1]), -VectorDoP(pos, temp[0]), 1.0))
 
 def MatrixMakeProjection(fov):
     a = screenSize[0] / screenSize[1]
@@ -2092,7 +1974,7 @@ def MatrixMakeProjection(fov):
 def RayIntersectTri(ray, tri):
     # Using the Moller Trumbore algorithm
     # Credit to whoever decided to include code on the
-    # wikipedia page
+    # wikipedia page.
     deadzone = 0.1
     rayDr = RayGetDirection(ray)
     raySt = ray[1]
@@ -2102,33 +1984,32 @@ def RayIntersectTri(ray, tri):
     h = VectorCrP(rayDr, e2)
     a = VectorDoP(e1, h)
     if a < -deadzone or a > deadzone:
-        f = 1.0 / a
+        f = 1 / a
         o = VectorSub(raySt, tri[0])
         ds = VectorDoP(o, h) * f
         
-        if ds < 0.0 or ds > 1.0:
-            return (False,)
+        if ds > 0.0 and ds < 1.0:
         
-        q = VectorCrP(o, e1)
-        v = VectorDoP(rayDr, q) * f
+            q = VectorCrP(o, e1)
+            v = VectorDoP(rayDr, q) * f
 
-        if v < 0.0 or ds + v > 1.0:
-            return (False,)
+            if v > 0.0 and ds + v < 1.0:
 
-        l = VectorDoP(e2, q) * f
-        if l > deadzone and l < RayGetLength(ray):
-            # Hit
-            #
-            # [0] is wether or not it hit
-            #
-            # [1] is location
-            #
-            # [2] is distance
-            #
-            # [3] is hit normal
-            #
-            
-            return (True, VectorAdd(raySt, VectorMulF(rayDr, l)), l, tri[3])
+                l = VectorDoP(e2, q) * f
+                if l >= 0.0 and l < RayGetLength(ray):
+                    # Hit
+                    #
+                    # [0] is wether or not it hit
+                    #
+                    # [1] is location
+                    #
+                    # [2] is distance
+                    #
+                    # [3] is normal of hit tri
+                    #
+                    # [4] is wpos of hit tri
+                    
+                    return (True, VectorAdd(raySt, VectorMulF(rayDr, l)), l, tri[3], tri[4])
     return (False,)
 
 def RayIntersectMesh(ray, mesh):
@@ -2151,12 +2032,68 @@ def RayIntersectThingComplex(ray, thing):
         if thing[6] == -2:
             trg = thing[2]
         else:
-            trg = RotTo(VectorAdd(m[2], thing[2]), (0.0, 0.0, 1.0))
-        for t in TransformTris(m[0], VectorAdd(m[1], thing[1]), trg, (0.0, 1.0, 0.0)):
+            fullRot = VectorAdd(m[2], thing[2])
+            trg = RotTo(fullRot, (0.0, 0.0, 1.0))
+            up = RotTo(fullRot, (0.0, 1.0, 0.0))
+        for t in TransformTris(m[0], VectorAdd(m[1], thing[1]), trg, up):
             inrts = RayIntersectTri(ray, t)
             if inrts[0]:
                 return inrts
     return (False,)
+
+def TriToRays(tri):
+    return [Ray(tri[0], tri[1]), Ray(tri[1], tri[2]), Ray(tri[2], tri[0])]
+
+# Honestly, I have no idea how this is will perform, but
+# Most Complex Collision Method:
+# Tests against collisions between every tri of every mesh, leading to hopefully accurate collisions.
+def ThingIntersectThingComplex(thing1, thing2):
+    for m in thing1[0]:
+        fullRot = VectorAdd(m[2], thing1[2])
+        trg = RotTo(fullRot, (0.0, 0.0, 1.0))
+        up = RotTo(fullRot, (0.0, 1.0, 0.0))
+        for t in TransformTris(m[0], VectorAdd(m[1], thing1[1]), trg, up):
+            for ray in TriToRays(t):
+                RayIntersectThingComplex(ray, thing2)
+
+
+#==========================================================================
+#  
+# Trains
+#
+#==========================================================================
+
+def BakeTrain(train, passes=1, strength=1.0, amplitude=1.0):
+    scX = len(train)
+    scY = len(train[0])
+    print("Baking Train...")
+    # Blurring to smooth
+    for p in range(passes):
+        for x in range(scX):
+            for y in range(scY):
+                mx = min(x + 1, scX - 1)
+                mn = max(x - 1, 1)
+                my = min(y + 1, scY - 1)
+                ny = max(y - 1, 1)
+
+                # Doing a gaussian blur by de-valuing edges
+                # manually
+                edgeStrength = 0.8 * strength
+                cornerStrength = 0.6 * strength
+
+                p0 = train[x][y]
+                p1 = train[mx][y] * edgeStrength
+                p2 = train[mn][y] * edgeStrength
+                p3 = train[x][my] * edgeStrength
+                p4 = train[x][ny] * edgeStrength
+                p5 = train[mx][my] * cornerStrength
+                p6 = train[mx][ny] * cornerStrength
+                p7 = train[mn][my] * cornerStrength
+                p8 = train[mn][ny] * cornerStrength
+                h = sum((p0, p1, p2, p3, p4, p5, p6, p7, p8)) / 9
+                train[x][y] = h * amplitude
+
+    print("Done!")
 
 
 
@@ -2183,34 +2120,59 @@ def RayIntersectThingComplex(ray, thing):
 
 def GatherCollisions(thingList):
     results = []
-    for me in range(0, len(thingList)):
+    for me in range(len(thingList)):
         if thingList[me][3] != []:
-            for thm in range(0, len(thingList)):
-                if thingList[thm][3] != []:
+            for thm in range(len(thingList)):
 
-                    # In order of speed
-                    if thm != me:
+                if thm != me:
+                    if thingList[thm][3] != []:
                         if ThingGetHitboxId(thingList[thm]) == ThingGetHitboxId(thingList[me]):
-                        
-                            if [thingList[thm], thingList[me]] not in results:
-                                myPos = ThingGetPos(thingList[me])
-                                thPos = ThingGetPos(thingList[thm])
-                                match ThingGetHitboxType(thingList[me]):
-                                    case 0:
-                                        # Sphere
-                                        # If the distance
-                                        distance = DistanceBetweenVectors(myPos, thPos)
-                                        if distance < ThingGetHitboxRadius(thingList[thm]):
-                                            results.append([thingList[me], thingList[thm]])
-                                    case 2:
-                                        # Cube
-                                        # Just a bunch of range checks
-                                        rad = ThingGetHitboxRadius(thingList[me]) + ThingGetHitboxRadius(thingList[thm])
-                                        hgt = ThingGetHitboxHeight(thingList[me]) + ThingGetHitboxHeight(thingList[thm])
-                                        if abs(myPos[0] - thPos[0]) <= rad:
-                                            if abs(myPos[1] - thPos[1]) <= hgt:
-                                                if abs(myPos[2] - thPos[2]) <= rad:
-                                                    results.append([thingList[me], thingList[thm]])
+                            if DistanceBetweenVectors(thingList[thm][1], thingList[me][1]) < ThingGetHitboxRadius(thingList[thm]) + ThingGetHitboxRadius(thingList[me]):
+                                if [thingList[thm], thingList[me]] not in results:
+
+                                    myPos = ThingGetPos(thingList[me])
+                                    thPos = ThingGetPos(thingList[thm])
+                                    match ThingGetHitboxType(thingList[me]):
+                                        case 0:
+                                            # Sphere
+                                            # If the distance is within range, it's a hit.
+                                            distance = DistanceBetweenVectors(myPos, thPos)
+                                            if distance < ThingGetHitboxRadius(thingList[thm]):
+                                                results.append([thingList[me], thingList[thm]])
+                                        case 1:
+                                            # Slow Cube
+                                            # Slower, but allows for rotation
+                                            # Uses the look at matrix to move and rotate everything else around the hitbox,
+                                            # as if the hitbox was rotating,
+                                            # then we can use the standard box check.
+                                            myRot = thingList[me][2]
+                                            viewMat = LookAtMatrix(myPos, RotTo(myRot, [0, 0, 1]), RotTo(myRot, [0, 1, 0]))
+                                            breakNow = False
+                                            for msh in thingList[thm][0]:
+                                                rot = VectorAdd(msh[2], thingList[thm][2])
+                                                for tr in TransformTris(msh[0], VectorAdd(msh[1], thingList[thm][1]), RotTo(rot, (0, 0, 1)), RotTo(rot, (0, 1, 0))):
+                                                    for point in TriMatrixMul(tr, viewMat):
+                                                        difference = VectorABS(VectorSub(myPos, point))
+                                                        if min(difference[0], difference[2]) <= rad or difference[2] <= hgt:
+                                                            breakNow = True
+                                                            break
+                                                    if breakNow:
+                                                        break
+                                                if breakNow:
+                                                    break
+
+                                                        
+
+
+                                        case 2:
+                                            # Cube
+                                            # Just a bunch of range checks
+                                            rad = ThingGetHitboxRadius(thingList[me]) + ThingGetHitboxRadius(thingList[thm])
+                                            hgt = ThingGetHitboxHeight(thingList[me]) + ThingGetHitboxHeight(thingList[thm])
+                                            if abs(myPos[0] - thPos[0]) <= rad:
+                                                if abs(myPos[1] - thPos[1]) <= hgt:
+                                                    if abs(myPos[2] - thPos[2]) <= rad:
+                                                        results.append([thingList[me], thingList[thm]])
     return results
 
 # BasicHandleCollisions()
@@ -2225,8 +2187,6 @@ def GatherCollisions(thingList):
 #   for collision in GatherCollisions([myCharacter, thatTree, david]):
 #       BasicHandleCollisions(collision)
 #
-
-# Floors are handled just like the 
 
 def BasicHandleCollisions(oth, pivot):
     
@@ -2434,16 +2394,26 @@ def RasterThings(things, emitters=[], sortKey=triSortAverage, sortReverse=True):
                 case -1:
                     # Dupe
                     for m in things[t[0]][0]:
-                        viewed += RasterPt1(m[0], VectorAdd(m[1], t[1]), VectorAdd(m[2], t[2]))
+                        if m[7]:
+                            viewed += RasterPt1(m[0], VectorAdd(m[1], t[1]), VectorAdd(m[2], t[2]))
+                        else:
+                            viewed += RasterPt1NoCull(m[0], VectorAdd(m[1], t[1]), VectorAdd(m[2], t[2]))
                 case _:
+                    # Standard Mesh
                     if t[5]:
                         for m in t[0]:
                             if m[5] == -1:
                                 # Static Mesh
-                                viewed += RasterPt1(m[0], VectorAdd(m[1], t[1]), VectorAdd(m[2], t[2]))
+                                if m[7]:
+                                    viewed += RasterPt1(m[0], VectorAdd(m[1], t[1]), VectorAdd(m[2], t[2]))
+                                else:
+                                    viewed += RasterPt1NoCull(m[0], VectorAdd(m[1], t[1]), VectorAdd(m[2], t[2]))
                             else:
                                 # AniMesh
-                                viewed += RasterPt1(m[0][m[5]][0], VectorAdd(m[1], t[1]), VectorAdd(m[2], t[2]))
+                                if m[7]:
+                                    viewed += RasterPt1(m[0][m[5]][0], VectorAdd(m[1], t[1]), VectorAdd(m[2], t[2]))
+                                else:
+                                    viewed += RasterPt1NoCull(m[0][m[5]][0], VectorAdd(m[1], t[1]), VectorAdd(m[2], t[2]))
                                 # Call the function for that frame
                                 m[0][m[5]][2]()
                                 if m[0][m[5]][1] != -1:
@@ -2451,7 +2421,10 @@ def RasterThings(things, emitters=[], sortKey=triSortAverage, sortReverse=True):
                     else:
                         # Static Thing
                         for m in t[0]:
-                            viewed += RasterPt1Static(m[0], VectorAdd(m[1], t[1]))
+                            if m[7]:
+                                viewed += RasterPt1Static(m[0], VectorAdd(m[1], t[1]))
+                            else:
+                                viewed += RasterPt1StaticNoCull(m[0], VectorAdd(m[1], t[1]))
 
         for em in emitters:
             for p in em[0]:
@@ -2503,8 +2476,6 @@ def DebugRaster(train=[], sortKey=triSortAverage, sortReverse=True):
             if t[3] != []:
                 viewed += RasterPt1Static(t[3][4][0], t[1])
         
-        viewed.sort(key = sortKey, reverse=sortReverse)
-
         
 
         for l in lights:
@@ -2527,13 +2498,13 @@ def DebugRaster(train=[], sortKey=triSortAverage, sortReverse=True):
             for x in range(len(train)):
                 for y in range(len(train[0])):
                     viewed += RasterPt1Static(dotMesh[0], [x, train[x][y], y])
-
+        viewed.sort(key = sortKey, reverse=sortReverse)
         finished += RasterPt3(viewed)
         return finished
 
 def RasterPt1(tris, pos, rot):
-    trg = VectorAdd(pos, RotTo(rot, (0.0, 0.0, 1.0)))
-    up = RotTo(rot, (0.0, 1.0, 0.0))
+    trg = VectorAdd(pos, RotTo(rot, [0.0, 0.0, 1.0]))
+    up = RotTo(rot, [0.0, 1.0, 0.0])
     return RasterPt2NoPos(TransformTris(tris, pos, trg, up))
 
 def RasterPt1PointAt(tris, pos, target, up):
@@ -2574,7 +2545,7 @@ def RasterPt3(tris):
 
 # Low-Level Raster Functions
 # Rastering is based on Javidx9's C++ series, although
-# the resemblance might be 
+# the resemblance is drifting further.
 #
 # My version has 4 stages: Transform, Translate, View, and Project.
 #
@@ -2633,13 +2604,13 @@ def TranslateTri(tri, pos):
     return newTri
 
 def ViewTris(tris):
-    return [TriMatrixMul(tri, intMatV) for tri in tris]
+    return (TriMatrixMul(tri, intMatV) for tri in tris)
 
 def ViewTri(tri):
     return TriMatrixMul(tri, intMatV)
                     
 def ProjectTris(tris):
-    return [TriMul(TriAdd(ProjectTri(tri), [1, 1, 0]), [iC[3], iC[2], 1]) for tri in tris]
+    return (TriMul(TriAdd(ProjectTri(tri), [1, 1, 0]), [iC[3], iC[2], 1]) for tri in tris)
 
 #==========================================================================
 #  
@@ -2873,8 +2844,13 @@ def FlatLightingBaked(tri):
 
 # Baked Lighting:
 # Do the FlatLighting(), and bake it to the triangle's shader variable
-def BakeLighting(things, expensive=False, lights=lights, shadowcasters=GatherThings()):
+def BakeLighting(things=-1, expensive=False, lights=lights, shadowcasters=-1):
     print("Baking Lighting...")
+    if things == -1:
+        things = GatherThings()
+        shadowcasters = GatherThings()
+    if shadowcasters == -1:
+        shadowcasters = things
     for th in things:
         for m in th[0]:
             for t in m[0]:
@@ -2941,10 +2917,6 @@ def FillTriangleLinePt2(list, fSlope):
         diff2 = list[2][0] - list[1][0]
         diff4 = list[1][0] - list[0][0]
         slope2 = (list[2][1] - list[1][1]) / diff2
-        #for x in range(0, int(diff2) + 1, sign(diff2)):
-            #lStart = 
-            #lEnd = (x + list[1][0], (fSlope * (x + diff4)) + list[0][1])
-            #output.append((lStart, lEnd))
     return [((x + list[1][0], (slope2 * x) + list[1][1]), (x + list[1][0], (fSlope * (x + diff4)) + list[0][1])) for x in range(0, int(diff2) + 1, sign(diff2))]
 
 # TriToPixels()
@@ -3301,9 +3273,7 @@ def TkPixelShaderPt2(list, fSlope, diff, diffX, canvas, texture, tX, tY):
 #==========================================================================
 
 def Projection(vector):
-    vector += [[], []]
     if vector[2] != 0:
-        # 
         return [(vector[0] * howX) / vector[2], (vector[1] * howY) / vector[2], 1, vector[3], vector[4]]
     return vector
         
@@ -3327,9 +3297,8 @@ def RGBToHex(vector):
 
 # Instead of a matrix, it's now [(X * howX) / Z, (Y * howY) / Z, 1]
 
-# I've already calculated the constants for an FOV of 90, at 16:9: 
-# To recalculate, use FindHowVars(fFov). It's quite speedy now, but nevertheless 
-# should be done once at the start.
+# I've already calculated the constants for an FOV of 90, at 16:9
+# To recalculate, use FindHowVars(fFov, *aspectRatio).
 
 howX = 0.56249968159
 howY = 1.0
@@ -3361,10 +3330,9 @@ def SimpleFormula(x, m):
 def Compare(m, fullGraph):
     score = 0
     for x in range(len(fullGraph)):
-        rY = fullGraph[x]
-        aY = SimpleFormula(x, m)
-        # More difference is bad.
-        score += abs(rY - aY)
+        realY = fullGraph[x]
+        guessY = SimpleFormula(x, m)
+        score += abs(realY - guessY)
     return score
 
 calc = True
@@ -3378,9 +3346,7 @@ calc = True
 # Written as a brute-forcer because it's meant to find a constant for any formula
 
 def CalculateCam(foV, farClip, aspectRatio):
-    print("")
     print("Calculating Camera Constants")
-    print("")
     fov = foV * 0.0174533
     print("Graphing real formulas...")
     fullXGraph = []
@@ -3397,27 +3363,27 @@ def CalculateCam(foV, farClip, aspectRatio):
         bestM = 1
         noImp = 0
         srchRad = 12
-        aiM = 1
+        guessM = 1
         calc = True
         while calc:
             match z:
                 case 0:
-                    Score = Compare(aiM, fullXGraph)
+                    Score = Compare(guessM, fullXGraph)
                 case 1:
-                    Score = Compare(aiM, fullYGraph)
+                    Score = Compare(guessM, fullYGraph)
             if Score < currentScore:
-                bestM = aiM
+                bestM = guessM
                 currentScore = Score
             else:
                 noImp += 1
-                aiM = bestM
+                guessM = bestM
             if noImp > 50:
                 srchRad /= 2
                 noImp = 0
             if srchRad < 0.00001:
                 calc = False
                 finished.append(bestM)
-            aiM = bestM + ((rand.random() - 0.5) * srchRad)
+            guessM = bestM + ((rand.random() - 0.5) * srchRad)
     print("Done!")
     print("z3dpy.SetHowVars(" + str(finished[0]) + ", " + str(finished[1]) + ")")
     return finished
@@ -3457,23 +3423,23 @@ z3dpy.HandleEmitters([myEmitter])
 def HandleEmitters(emitters=emitters):
     for em in emitters:
         for p in range(len(em[0])):
-            if p == len(em[0]):
-                break
             pt = em[0][p]
             pt[0] -= delta
             if pt[0] <= 0:
                 # Removal from list
                 em[0] = em[0][:p] + em[0][p+1:]
-                # Accounting for the removal
                 p -= 1
                 continue
             # Basic version of physics for particles
-            pt[2] = VectorMul(pt[2], [airDrag * sign(pt[2][0]), airDrag * sign(pt[2][1]), airDrag * sign(pt[2][2])])
+            pt[2] = VectorSub(pt[2], [airDrag * sign(pt[2][0]), airDrag * sign(pt[2][1]), airDrag * sign(pt[2][2])])
             pt[2] = VectorAdd(pt[2], VectorMulF(VectorMulF(EmitterGetGravity(em), 5), delta))
             pt[1] = VectorAdd(VectorMulF(pt[2], delta), pt[1])
         if em[6]:
             if len(em[0]) < EmitterGetMax(em):
-                em[0] = em[0] + (Part(EmitterGetPos(em), EmitterGetVelocity(em), EmitterGetLifetime(em)),)
+                if em[8] > 0.0:
+                    em[0] += (Part(EmitterGetPos(em), VectorAdd(EmitterGetVelocity(em), ((rand.random() - 0.5) * em[8], (rand.random() - 0.5) * em[8], (rand.random() - 0.5) * em[8])), EmitterGetLifetime(em)),)
+                else:
+                    em[0] += (Part(EmitterGetPos(em), EmitterGetVelocity(em), EmitterGetLifetime(em)),)
 
 ## Deprecated
 def TickEmitters(emitters=emitters):
@@ -3570,3 +3536,21 @@ def TkScreen(width, height, bgCol, tkinter):
     canvas = tkinter.Canvas(width=width, height=height, background=bgCol)
     canvas.pack()
     return canvas
+
+def ListExclude(list, index):
+    return list[:index] + list[index+1:]
+
+try:
+    import z3dpyfast
+except:
+    print("z3dpyfast is not installed.")
+else:
+    # Instead of having separate C functions, z3dpyfast
+    # replaces the Python functions
+    DistanceBetweenVectors = z3dpyfast.DistanceBetweenVectors
+    DirectionBetweenVectors = z3dpyfast.DirectionBetweenVectors
+    ShortestPointToPlane = z3dpyfast.ShortestPointToPlane
+    VectorUVIntersectPlane = z3dpyfast.VectorUVIntersectPlane
+    RotTo = z3dpyfast.RotTo
+    GetNormal = z3dpyfast.GetNormal
+    print("z3dpyfast loaded.")
