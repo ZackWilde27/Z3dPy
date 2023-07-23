@@ -1,18 +1,13 @@
-// Z3dPy C++ Extension To Speed Up Python, Because Python Is Unfortunately Way Too Slow
-// or ZPC++ETSUPBPIUWTS for short
-// I was originally going to write it in C, but C doesn't have <vector> so...
+//-zw
+// z3dpyfast - The Z3dPy Math Library
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <cmath>
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <sstream>
 
 
 typedef struct {
-    double x, y;
+    float x, y;
 } Vector2;
 
 typedef struct {
@@ -20,17 +15,17 @@ typedef struct {
 } Vector3;
 
 typedef struct {
-    double x, y, z, w;
+    float x, y, z, w;
 } Vector4;
 
 typedef struct {
-    double x, y, z, u, v;
+    double x, y, z;
+    Vector2 uv;
 } VectorUV;
 
 typedef struct {
     VectorUV p1, p2, p3;
-    Vector3 normal, colour, wpos;
-    double shade;
+    Vector3 normal, colour, wpos, shade;
     int id;
 } Triangle;
 
@@ -39,84 +34,21 @@ typedef struct {
 } BasicTri;
 
 typedef struct {
-    std::vector <Triangle> tris;
-} Mesh;
-
-typedef struct {
-    std::vector <Mesh> frames;
-} AniMesh;
-
-typedef struct {
-    std::vector<Mesh> meshes;
-} Thing;
-
-typedef struct {
-    double m[4][4];
+    float m[4][4];
 } Matrix;
-
-typedef struct {
-    Vector3 pos, colour;
-    float strength, radius;
-    int intId;
-} Light_Point;
-
-std::vector<Light_Point> lights = {};
 
 Vector3 CamTrg = { 0.f, 0.f, 1.f };
 Vector3 CamPos = { 0.f, 0.f, 0.f };
 
-std::vector<Thing> things = {};
-std::vector<AniMesh> animeshes = {};
+float scrW = 1280.0;
+float scrH = 720.0;
 
-double howX = 0.56249968159;
-double howY = 1.0;
+//=======================
+//     Converter Functions
+//=======================
 
-double scrW = 1280.0;
-double scrH = 720.0;
 
-static Vector3 VectorAdd(Vector3 v1, Vector3 v2)
-{
-    return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
-}
-
-static VectorUV VectorUVAdd(VectorUV v1, Vector3 v2)
-{
-    return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z, v1.u, v1.v };
-}
-
-static Vector3 VectorSub(Vector3 v1, Vector3 v2)
-{
-    return { v1.x - v2.x, v1.y - v2.y, v1.z - v2.z };
-}
-
-static Vector3 VectorMul(Vector3 v1, Vector3 v2)
-{
-    return { v1.x * v2.x, v1.y * v2.y, v1.z * v2.z };
-}
-
-static Vector3 VectorMulF(Vector3 v1, float f)
-{
-    return { v1.x * f, v1.y * f, v1.z * f };
-}
-
-static double VectorDoP(Vector3 v1, Vector3 v2)
-{
-    return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v1.z);
-}
-
-static Vector3 VectorCrP(Vector3 v1, Vector3 v2)
-{
-    return { (v1.y * v2.z) - (v1.z * v1.y), (v1.z * v2.x) - (v1.x * v2.z), (v1.x * v2.y) - (v1.y * v2.x) };
-}
-
-static VectorUV VectorUVMulF(VectorUV in, float f)
-{
-    return { in.x * f, in.y * f, in.z * f, in.u, in.v };
-}
-
-// Converter Functions
-
-static PyObject* Vector3ToPyList(Vector3 inV)
+PyObject* Vector3ToPyList(Vector3 inV)
 {
     PyObject* outV = PyList_New(3);
     PyList_SetItem(outV, 0, PyFloat_FromDouble(inV.x));
@@ -125,7 +57,7 @@ static PyObject* Vector3ToPyList(Vector3 inV)
     return outV;
 }
 
-static PyObject* Vector4ToPyList(Vector4 inV)
+PyObject* Vector4ToPyList(Vector4 inV)
 {
     PyObject* outV = PyList_New(4);
     PyList_SetItem(outV, 0, PyFloat_FromDouble(inV.x));
@@ -135,7 +67,7 @@ static PyObject* Vector4ToPyList(Vector4 inV)
     return outV;
 }
 
-static PyObject* VectorUVToPyList(VectorUV inV)
+PyObject* VectorUVToPyList(VectorUV inV)
 {
     PyObject* outV = PyList_New(5);
     PyObject* UV = PyList_New(2);
@@ -143,51 +75,157 @@ static PyObject* VectorUVToPyList(VectorUV inV)
     PyList_SetItem(outV, 1, PyFloat_FromDouble(inV.y));
     PyList_SetItem(outV, 2, PyFloat_FromDouble(inV.z));
     PyList_SetItem(outV, 3, Py_BuildValue("[fff]", 0.f, 0.f, 0.f));
-    PyList_SetItem(UV, 0, PyFloat_FromDouble(inV.u));
-    PyList_SetItem(UV, 1, PyFloat_FromDouble(inV.v));
+    PyList_SetItem(UV, 0, PyFloat_FromDouble(inV.uv.x));
+    PyList_SetItem(UV, 1, PyFloat_FromDouble(inV.uv.y));
     PyList_SetItem(outV, 4, UV);
     return outV;
 }
 
-static Vector3 PyVectorToVector3(PyObject* inLst)
+Vector2 PyListToVector2(PyObject* inV)
+{
+    return { (float)PyFloat_AsDouble(PyList_GetItem(inV, 0)),  (float)PyFloat_AsDouble(PyList_GetItem(inV, 1)) };
+}
+
+Vector2 PyTupleToVector2(PyObject* inV)
+{
+    return { (float)PyFloat_AsDouble(PyTuple_GetItem(inV, 0)),  (float)PyFloat_AsDouble(PyTuple_GetItem(inV, 1)) };
+}
+
+Vector2 PyVectorToVector2(PyObject* inV)
+{
+    if (PyList_Check(inV))
+        return PyListToVector2(inV);
+    return PyTupleToVector2(inV);
+}
+
+Vector3 PyListToVector3(PyObject* inLst)
 {
     return { PyFloat_AsDouble(PyList_GetItem(inLst, 0)),  PyFloat_AsDouble(PyList_GetItem(inLst, 1)), PyFloat_AsDouble(PyList_GetItem(inLst, 2)) };
 }
 
-static VectorUV PyVectorToVectorUV(PyObject* inLst)
+Vector3 PyTupleToVector3(PyObject* inLst)
 {
-    VectorUV output;
-    output.x = PyFloat_AsDouble(PyList_GetItem(inLst, 0));
-    output.y = PyFloat_AsDouble(PyList_GetItem(inLst, 1));
-    output.z = PyFloat_AsDouble(PyList_GetItem(inLst, 2));
-    output.u = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(inLst, 4), 0));
-    output.v = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(inLst, 4), 1));
-    return output;
+    return { PyFloat_AsDouble(PyTuple_GetItem(inLst, 0)),  PyFloat_AsDouble(PyTuple_GetItem(inLst, 1)), PyFloat_AsDouble(PyTuple_GetItem(inLst, 2)) };
 }
 
-static Vector3 VUVToV3(VectorUV v)
+Vector3 PyVectorToVector3(PyObject* inV)
+{
+    if (PyList_Check(inV))
+        return PyListToVector3(inV);
+    return PyTupleToVector3(inV);
+}
+
+VectorUV PyListToVectorUV(PyObject* inLst)
+{
+    return { PyFloat_AsDouble(PyList_GetItem(inLst, 0)), PyFloat_AsDouble(PyList_GetItem(inLst, 1)),  PyFloat_AsDouble(PyList_GetItem(inLst, 2)), PyVectorToVector2(PyList_GetItem(inLst, 4)) };
+}
+
+VectorUV PyTupleToVectorUV(PyObject* inLst)
+{
+    return { PyFloat_AsDouble(PyTuple_GetItem(inLst, 0)), PyFloat_AsDouble(PyTuple_GetItem(inLst, 1)),  PyFloat_AsDouble(PyTuple_GetItem(inLst, 2)), PyVectorToVector2(PyList_GetItem(inLst, 4)) };
+}
+
+VectorUV PyVectorToVectorUV(PyObject* inLst)
+{
+    if (PyList_Check(inLst))
+        return PyListToVectorUV(inLst);
+    return PyTupleToVectorUV(inLst);
+}
+
+Vector3 VUVToV3(VectorUV v)
 {
     return { v.x, v.y, v.z };
 }
 
-static VectorUV V3ToVUV(Vector3 vec3, double u, double v)
+VectorUV V3ToVUV(Vector3 vec3, float u, float v)
 {
-    return { vec3.x, vec3.y, vec3.z, u, v };
+    return { vec3.x, vec3.y, vec3.z, { u, v } };
 }
 
-static Triangle PyTriToCTri(PyObject* tri)
+Triangle PyListToTri(PyObject* tri)
 {
-    return { PyVectorToVectorUV(PyList_GetItem(tri, 0)), PyVectorToVectorUV(PyList_GetItem(tri, 1)), PyVectorToVectorUV(PyList_GetItem(tri, 2)), PyVectorToVector3(PyList_GetItem(tri, 3)), PyVectorToVector3(PyList_GetItem(tri, 4)), PyFloat_AsDouble(PyList_GetItem(tri, 5)) };
+    return { PyVectorToVectorUV(PyList_GetItem(tri, 0)), PyVectorToVectorUV(PyList_GetItem(tri, 1)), PyVectorToVectorUV(PyList_GetItem(tri, 2)), PyVectorToVector3(PyList_GetItem(tri, 3)), PyVectorToVector3(PyList_GetItem(tri, 4)), PyVectorToVector3(PyList_GetItem(tri, 5)), PyVectorToVector3(PyList_GetItem(tri, 6)), PyLong_AsLong(PyList_GetItem(tri, 7)) };
 }
 
-static double VectorGetLength(Vector3 v)
+Triangle PyTupleToTri(PyObject* tri)
 {
-    return sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z));
+    return { PyVectorToVectorUV(PyTuple_GetItem(tri, 0)), PyVectorToVectorUV(PyTuple_GetItem(tri, 1)), PyVectorToVectorUV(PyTuple_GetItem(tri, 2)), PyVectorToVector3(PyTuple_GetItem(tri, 3)), PyVectorToVector3(PyTuple_GetItem(tri, 4)), PyVectorToVector3(PyTuple_GetItem(tri, 5)), PyVectorToVector3(PyTuple_GetItem(tri, 6)), PyLong_AsLong(PyTuple_GetItem(tri, 7)) };
 }
 
-static Vector3 VectorNormalize(Vector3 v)
+Triangle PyTriToCTri(PyObject* tri)
 {
-    float l = abs(VectorGetLength(v));
+    if (PyList_Check(tri))
+        return PyListToTri(tri);
+    return PyTupleToTri(tri);
+}
+
+PyObject* TriToPyList(Triangle inTri)
+{
+    PyObject* tri = PyList_New(8);
+    PyList_SetItem(tri, 0, VectorUVToPyList(inTri.p1));
+    PyList_SetItem(tri, 1, VectorUVToPyList(inTri.p2));
+    PyList_SetItem(tri, 2, VectorUVToPyList(inTri.p3));
+    PyList_SetItem(tri, 3, Vector3ToPyList(inTri.normal));
+    PyList_SetItem(tri, 4, Vector3ToPyList(inTri.wpos));
+    PyList_SetItem(tri, 5, Vector3ToPyList(inTri.shade));
+    PyList_SetItem(tri, 6, Vector3ToPyList(inTri.colour));
+    PyList_SetItem(tri, 7, PyLong_FromLong(inTri.id));
+    return tri;
+}
+
+Vector3 Vector4ToVector3(Vector4 v)
+{
+    Vector3 output;
+    output.x = v.x;
+    output.y = v.y;
+    output.z = v.z;
+    return output;
+}
+
+
+//=======================
+//     Vector3 Functions
+//=======================
+
+
+Vector3 VectorAdd(Vector3 v1, Vector3 v2)
+{
+    return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
+}
+
+Vector3 VectorSub(Vector3 v1, Vector3 v2)
+{
+    return { v1.x - v2.x, v1.y - v2.y, v1.z - v2.z };
+}
+
+Vector3 VectorMul(Vector3 v1, Vector3 v2)
+{
+    return { v1.x * v2.x, v1.y * v2.y, v1.z * v2.z };
+}
+
+Vector3 VectorMulF(Vector3 v1, float f)
+{
+    return { v1.x * f, v1.y * f, v1.z * f };
+}
+
+float VectorDoP(Vector3 v1, Vector3 v2)
+{
+    return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
+}
+
+Vector3 VectorCrP(Vector3 v1, Vector3 v2)
+{
+    return { (v1.y * v2.z) - (v1.z * v2.y), (v1.z * v2.x) - (v1.x * v2.z), (v1.x * v2.y) - (v1.y * v2.x) };
+}
+
+float VectorGetLength(Vector3 v)
+{
+    return sqrtf((v.x * v.x) + (v.y * v.y) + (v.z * v.z));
+}
+
+Vector3 VectorNormalize(Vector3 v)
+{
+    float l = fabs(VectorGetLength(v));
     if (l != 0.f)
     {
         return { v.x / l, v.y / l, v.z / l };
@@ -195,23 +233,133 @@ static Vector3 VectorNormalize(Vector3 v)
     return { v.x, v.y, v.z };
 }
 
-static float DistanceBetweenVectors(Vector3 v1, Vector3 v2)
+float DistanceBetweenVectors(Vector3 v1, Vector3 v2)
 {
-    double x = (v2.x - v1.x) * (v2.x - v1.x);
-    double y = (v2.y - v1.y) * (v2.y - v1.y);
-    double z = (v2.z - v1.z) * (v2.z - v1.z);
-    return sqrtf(x + y + z);
+    float x = (v2.x - v1.x);
+    float y = (v2.y - v1.y);
+    float z = (v2.z - v1.z);
+    return sqrtf((x * x) + (y * y) + (z * z));
 }
 
-static Vector3 DirectionBetweenVectors(Vector3 v1, Vector3 v2)
+Vector3 DirectionBetweenVectors(Vector3 v1, Vector3 v2)
 {
     return VectorNormalize(VectorSub(v2, v1));
 }
 
+
+void WrapRot(Vector3* rot)
+{
+    while (rot->x < 0.f)
+        rot->x += 360.f;
+    while (rot->y < 0.f)
+        rot->y += 360.f;
+    while (rot->z < 0.f)
+        rot->z += 360.f;
+
+    rot-> x = fmod(rot->x, 360.f);
+    rot->y = fmod(rot->y, 360.f);
+    rot->z = fmod(rot->z, 360.f);
+}
+
+
+
+
+//=======================
+//     Vector UV Functions
+//=======================
+
+
+VectorUV VectorUVAdd(VectorUV v1, Vector3 v2)
+{
+    return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z, v1.uv };
+}
+
+VectorUV VectorUVSub(VectorUV v1, Vector3 v2)
+{
+    return { v1.x - v2.x, v1.y - v2.y, v1.z - v2.z, v1.uv };
+}
+
+VectorUV VectorUVDiv(VectorUV v1, Vector3 v2)
+{
+    return { v1.x / v2.x, v1.y / v2.y, v1.z / v2.z, v1.uv };
+}
+
+VectorUV VectorUVDivF(VectorUV v1, float f)
+{
+    return { v1.x / f, v1.y / f, v1.z / f, v1.uv };
+}
+
+VectorUV VectorUVMul(VectorUV v1, Vector3 v2)
+{
+    return { v1.x * v2.x, v1.y * v2.y, v1.z * v2.z, v1.uv };
+}
+
+VectorUV VectorUVMulF(VectorUV in, float f)
+{
+    return { in.x * f, in.y * f, in.z * f, in.uv };
+}
+
+
+//=======================
+//     Triangle Functions
+//=======================
+
+
 Vector3 TriangleAverage(Triangle tri)
 {
-    return { (tri.p1.x + tri.p2.x + tri.p3.x) * 0.333333, (tri.p1.y + tri.p2.y + tri.p3.y) * 0.333333, (tri.p1.z + tri.p2.z + tri.p3.z) * 0.333333 };
+    return { (tri.p1.x + tri.p2.x + tri.p3.x) * 0.333333f, (tri.p1.y + tri.p2.y + tri.p3.y) * 0.333333f, (tri.p1.z + tri.p2.z + tri.p3.z) * 0.333333f };
 }
+
+Vector3 GetNormal(BasicTri tri)
+{
+    Vector3 line1 = VectorSub(tri.p2, tri.p1);
+    Vector3 line2 = VectorSub(tri.p3, tri.p1);
+    return VectorMul(VectorNormalize(VectorCrP(line1, line2)), { 1.0, -1.0, -1.0 });
+}
+
+PyObject* CGetNormal(PyObject* self, PyObject* args)
+{
+    PyObject* tri;
+    if (!PyArg_ParseTuple(args, "O", &tri))
+        return NULL;
+
+    return Vector3ToPyList(GetNormal({ PyVectorToVector3(PyList_GetItem(tri, 0)), PyVectorToVector3(PyList_GetItem(tri, 1)), PyVectorToVector3(PyList_GetItem(tri, 2)) }));
+}
+
+Vector3 VectorIntersectPlane(Vector3 pPos, Vector3 pNrm, Vector3 lSta, Vector3 lEnd)
+{
+    pNrm = VectorNormalize(pNrm);
+    double plane_d = -VectorDoP(pNrm, pPos);
+    double ad = VectorDoP(lSta, pNrm);
+    double bd = VectorDoP(lEnd, pNrm);
+    double t = (-plane_d - ad) / (bd - ad);
+    Vector3 lineStartToEnd = VectorSub(lEnd, lSta);
+    Vector3 lineToIntersect = VectorMulF(lineStartToEnd, t);
+    return VectorAdd(lSta, lineToIntersect);
+}
+
+VectorUV VectorUVIntersectPlane(Vector3 pPos, Vector3 pNrm, VectorUV lSta, VectorUV lEnd)
+{
+    pNrm = VectorNormalize(pNrm);
+    double plane_d = -VectorDoP(pNrm, pPos);
+    double ad = VectorDoP(VUVToV3(lSta), pNrm);
+    double bd = VectorDoP(VUVToV3(lEnd), pNrm);
+    double t = (-plane_d - ad) / (bd - ad);
+    VectorUV lineStartToEnd = VectorUVSub(lEnd, VUVToV3(lSta));
+    VectorUV lineToIntersect = VectorUVMulF(lineStartToEnd, t);
+    return VectorUVAdd(lSta, VUVToV3(lineToIntersect));
+}
+
+float ShortestPointToPlane(Vector3 point, Vector3 plNrm, Vector3 plPos)
+{
+    return VectorDoP(plNrm, point) - VectorDoP(plNrm, plPos);
+}
+
+
+//=======================
+//     Matrix Functions
+//=======================
+
 
 Matrix TemplateMatrix()
 {
@@ -226,9 +374,9 @@ Matrix TemplateMatrix()
     return output;
 }
 
-Matrix MakeRotMatX(double deg)
+Matrix MakeRotMatX(float deg)
 {
-    double rad = deg * 0.0174533;
+    float rad = deg * 0.0174533f;
     Matrix output = TemplateMatrix();
     output.m[0][0] = 1.0;
     output.m[1][1] = cosf(rad);
@@ -239,9 +387,9 @@ Matrix MakeRotMatX(double deg)
     return output;
 }
 
-Matrix MakeRotMatY(double deg)
+Matrix MakeRotMatY(float deg)
 {
-    double rad = deg * 0.0174533;
+    float rad = deg * 0.0174533f;
     Matrix output = TemplateMatrix();
     output.m[0][0] = cosf(rad);
     output.m[0][2] = sinf(rad);
@@ -252,9 +400,9 @@ Matrix MakeRotMatY(double deg)
     return output;
 }
 
-Matrix MakeRotMatZ(double deg)
+Matrix MakeRotMatZ(float deg)
 {
-    double rad = deg * 0.0174533;
+    float rad = deg * 0.0174533f;
     Matrix output = TemplateMatrix();
     output.m[0][0] = cosf(rad);
     output.m[0][1] = sinf(rad);
@@ -263,18 +411,6 @@ Matrix MakeRotMatZ(double deg)
     output.m[2][2] = 1.0;
     output.m[3][3] = 1.0;
     return output;
-}
-
-static void ThingsRemoveItem(int index)
-{
-    int size = (int)things.size();
-    std::vector<Thing> nT;
-    for (int t = 0; t < things.size(); t++)
-    {
-        if (t != index)
-            nT.push_back(things[t]);
-    }
-    things = nT;
 }
 
 BasicTri MatrixStuff(Vector3 pos, Vector3 target, Vector3 up)
@@ -312,7 +448,7 @@ Matrix MakeLookMat(Vector3 pos, Vector3 target, Vector3 up)
 
 Matrix matV = MakeLookMat(CamPos, CamTrg, { 0.f, 1.f, 0.f });
 
-static Matrix MatrixMatrixMul(Matrix m1, Matrix m2)
+Matrix MatrixMatrixMul(Matrix m1, Matrix m2)
 {
     Matrix output = TemplateMatrix();
     for (int x = 0; x < 4; x++)
@@ -325,22 +461,13 @@ static Matrix MatrixMatrixMul(Matrix m1, Matrix m2)
     return output;
 }
 
-Vector3 Vector4ToVector3(Vector4 v)
-{
-    Vector3 output;
-    output.x = v.x;
-    output.y = v.y;
-    output.z = v.z;
-    return output;
-}
-
 Vector3 Vector3MatrixMul(Vector3 v, Matrix m)
 {
     Vector3 output;
     output.x = v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + m.m[3][0];
     output.y = v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + m.m[3][1];
     output.z = v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + m.m[3][2];
-    double w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + m.m[3][3];
+    float w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + m.m[3][3];
     if (w != 0.0)
         return { output.x / w, output.y / w, output.z / w };
     return output;
@@ -349,588 +476,134 @@ Vector3 Vector3MatrixMul(Vector3 v, Matrix m)
 VectorUV VectorUVMatrixMul(VectorUV v, Matrix m)
 {
     Vector3 result = Vector3MatrixMul({ v.x, v.y, v.z }, m);
-    return { result.x, result.y, result.z, v.u, v.v };
+    return { result.x, result.y, result.z, v.uv };
 }
 
-static Triangle TriangleAdd(Triangle tri, Vector3 pos)
-{
-    return { VectorUVAdd(tri.p1, pos), VectorUVAdd(tri.p2, pos), VectorUVAdd(tri.p3, pos), tri.normal, tri.wpos, tri.shade };
-}
-
-// Modifies the input vector of triangles.
-static std::vector<Triangle> TranslateTriangles(std::vector <Triangle> inTris, Vector3 pos)
-{
-    Triangle ntri;
-    std::vector<Triangle> output;
-    for (const Triangle tri : inTris)
-    {
-        ntri = TriangleAdd(tri, pos);
-        ntri.wpos = TriangleAverage(ntri);
-        output.push_back(ntri);
-    }
-    return output;
-}
-
-static Triangle TriMatrixMul(Triangle tri, Matrix m)
+Triangle TriMatrixMul(Triangle tri, Matrix m)
 {
     return { VectorUVMatrixMul(tri.p1, m), VectorUVMatrixMul(tri.p2, m), VectorUVMatrixMul(tri.p3, m), tri.normal, tri.wpos, tri.shade };
 }
 
-static Vector3 GetNormal(Triangle tri)
+Vector3 VectorRotateX(Vector3 v, float deg)
 {
-    Vector3 that = { 0.f, 0.f, 0.f };
-    Vector3 output, line1, line2;
-    line1.x = tri.p2.x - tri.p1.x;
-    line1.y = tri.p2.y - tri.p1.y;
-    line1.z = tri.p2.z - tri.p1.z;
-    line2.x = tri.p3.x - tri.p1.x;
-    line2.y = tri.p3.y - tri.p1.y;
-    line2.z = tri.p3.z - tri.p1.z;
-    output = VectorCrP(line1, line2);
-    return VectorMul(VectorNormalize(output), { 1.f, -1.f, -1.f });
+    return Vector3MatrixMul(v, MakeRotMatX(deg));
 }
 
-// Raster Functions
-
-// Returns a new vector of triangles.
-static std::vector <Triangle> TransformTriangles(std::vector <Triangle> tris, Vector3 rot, Vector3 camTrg)
+Vector3 VectorRotateY(Vector3 v, float deg)
 {
-    Triangle f;
-    std::vector <Triangle> output;
-    Matrix mw = MakeRotMatX(rot.x);
-    mw = MatrixMatrixMul(mw, MakeRotMatY(rot.y));
-    mw = MatrixMatrixMul(mw, MakeRotMatZ(rot.z));
-    for (const Triangle tri : tris)
-    {
-        f = TriMatrixMul(tri, mw);
-        f.normal = GetNormal(f);
-        f.colour = tri.colour;
-        output.push_back(f);
-    }
-    return output;
+    return Vector3MatrixMul(v, MakeRotMatY(deg));
 }
 
-static Triangle TransformTriangle(Triangle tri, Matrix matrix)
+Vector3 VectorRotateZ(Vector3 v, float deg)
 {
-    Triangle output = TriMatrixMul(tri, matrix);
-    output.normal = GetNormal(output);
-    output.colour = tri.colour;
-    return output;
+    return Vector3MatrixMul(v, MakeRotMatZ(deg));
 }
 
-static std::vector<Triangle> ViewTriangles(std::vector<Triangle> tris, Vector3 pos, Vector3 target)
+Vector3 RotTo(Vector3 rot, Vector3 target)
 {
-    std::vector<Triangle> output;
-    for (const Triangle tri : tris)
-    {
-        output.push_back(TriMatrixMul(tri, matV));
-    }
-    return output;
-}
-
-static Triangle ViewTriangle(Triangle tri, Matrix m)
-{
-    return TriMatrixMul(tri, m);
+    WrapRot(&rot);
+    Vector3 output = VectorRotateX(target, rot.x);
+    output = VectorRotateZ(output, rot.z);
+    return VectorRotateY(output, rot.y);
 }
 
 
+//=======================
+//     Python Entrypoints
+//=======================
 
-static VectorUV HowProjection(VectorUV in)
+
+PyObject* CShortestPointToPlane(PyObject* self, PyObject* args)
 {
-    if (in.z != 0.0)
-        return { (in.x * howX) / in.z, (in.y * howY) / in.z, 1.0, in.u, in.v };
-    return in;
-}
-
-static Triangle HowProjectTri(Triangle in)
-{
-    return { HowProjection(in.p1), HowProjection(in.p2), HowProjection(in.p3), in.normal, in.wpos, in.shade };
-}
-
-
-static Triangle ProjectTriangle(Triangle tri)
-{
-    Triangle output;
-    output = TriangleAdd(HowProjectTri(tri), { 1.0, 1.0, 0.0 });
-    output.p1 = VectorUVMulF(output.p1, scrW);
-    output.p2 = VectorUVMulF(output.p1, scrH);
-    return output;
-}
-
-static Vector3 VectorIntersectPlane(Vector3 pPos, Vector3 pNrm, Vector3 lSta, Vector3 lEnd)
-{
-    pNrm = VectorNormalize(pNrm);
-    float plane_d = -VectorDoP(pNrm, pPos);
-    float ad = VectorDoP(lSta, pNrm);
-    float bd = VectorDoP(lEnd, pNrm);
-    float t = (-plane_d - ad) / (bd - ad);
-    Vector3 lineStartToEnd = VectorSub(lEnd, lSta);
-    Vector3 lineToIntersect = VectorMulF(lineStartToEnd, t);
-    return VectorAdd(lSta, lineToIntersect);
-}
-
-static float ShortestPointToPlane(Vector3 point, Vector3 plNrm, Vector3 plPos)
-{
-    return VectorDoP(plNrm, point) - VectorDoP(plNrm, plPos);
-}
-
-
-
-static std::vector<Triangle> TriClipAgainstPlane(Triangle tri, Vector3 pPos, Vector3 pNrm)
-{
-    pNrm = VectorNormalize(pNrm);
-    std::vector<VectorUV> insideP, outsideP;
-    float d1 = ShortestPointToPlane(VUVToV3(tri.p1), pNrm, pPos);
-    float d2 = ShortestPointToPlane(VUVToV3(tri.p2), pNrm, pPos);
-    float d3 = ShortestPointToPlane(VUVToV3(tri.p3), pNrm, pPos);
-
-    if (d1 >= 0.f)
-        insideP.push_back(tri.p1);
-    else
-        outsideP.push_back(tri.p1);
-    if (d2 >= 0.f)
-        insideP.push_back(tri.p2);
-    else
-        outsideP.push_back(tri.p2);
-    if (d3 >= 0.f)
-        insideP.push_back(tri.p3);
-    else
-        outsideP.push_back(tri.p3);
-    
-    int iS = insideP.size();
-    int oS = outsideP.size();
-    if (iS == 0)
-        return {  };
-
-    if (iS == 3)
-        return { tri };
-
-    if (iS == 1 && oS == 2)
-    {
-        return { { insideP[0], V3ToVUV(VectorIntersectPlane(pPos, pNrm, VUVToV3(insideP[0]), VUVToV3(outsideP[1])), tri.p2.u, tri.p2.v), V3ToVUV(VectorIntersectPlane(pPos, pNrm, VUVToV3(insideP[0]), VUVToV3(outsideP[0])), tri.p3.u, tri.p3.v), tri.normal, tri.wpos, tri.shade } };
-    }
-
-    if (iS == 2 && oS == 1)
-    {
-        Triangle t1, t2;
-        t1.p1 = insideP[0];
-        t1.p2 = insideP[1];
-        t1.p3 = V3ToVUV(VectorIntersectPlane(pPos, pNrm, VUVToV3(insideP[1]), VUVToV3(outsideP[0])), tri.p3.u, tri.p3.v);
-        t2.p1 = insideP[0];
-        t2.p2 = t1.p3;
-        t2.p3 = V3ToVUV(VectorIntersectPlane(pPos, pNrm, VUVToV3(insideP[0]), VUVToV3(outsideP[0])), tri.p3.u, tri.p3.v);
-
-        t1.normal = tri.normal;
-        t1.shade = tri.shade;
-        t2.normal = tri.normal;
-        t2.shade = tri.shade;
-        t1.wpos = tri.wpos;
-        t2.wpos = tri.wpos;
-        return { t1, t2 };
-    }
-    return {  };
-}
-
-static std::vector<Triangle> TriClipAgainstScreenEdges(Triangle tri)
-{
-    std::vector<Triangle> output;
-    for (const Triangle t : TriClipAgainstPlane(tri, { 0.0, 0.0, 0.0 }, { 0.0, 1.0, 0.0 }))
-        for (const Triangle r : TriClipAgainstPlane(t, { 0.0,  scrH - 1, 0.0 }, { 0.0, -1.0, 0.0 }))
-            for (const Triangle i : TriClipAgainstPlane(r, { 0.0, 0.0, 0.0 }, { 1.0, 0.0, 0.0 }))
-                for (const Triangle s : TriClipAgainstPlane(i, { scrW - 1,  0.0, 0.0 }, { -1.0, 0.0, 0.0 }))
-                    output.push_back(s);
-    return output;
-}
-
-static PyObject* CTriClipAgainstScreenEdges(PyObject* self, PyObject* args)
-{
-    PyObject* inTri, * pTri;
-    if (!PyArg_ParseTuple(args, "O", &inTri))
+    PyObject* pythonPoint, * pythonNrm, * pythonPos;
+    if (!PyArg_ParseTuple(args, "OOO", &pythonPoint, &pythonNrm, &pythonPos))
         return NULL;
-    Triangle in;
-    std::vector<Triangle> out;
-    in = PyTriToCTri(inTri);
-    out = TriClipAgainstScreenEdges(in);
-    int nd = out.size();
-    
-    if (nd > 0)
-    {
-        PyObject* ret = PyList_New(nd);
-        for (int t = 0; t < nd; t++)
-        {
-            pTri = PyList_New(6);
-            PyList_SetItem(pTri, 0, VectorUVToPyList(out[t].p1));
-            PyList_SetItem(pTri, 1, VectorUVToPyList(out[t].p2));
-            PyList_SetItem(pTri, 2, VectorUVToPyList(out[t].p3));
-            PyList_SetItem(pTri, 3, Vector3ToPyList(out[t].normal));
-            PyList_SetItem(pTri, 4, Vector3ToPyList(out[t].wpos));
-            PyList_SetItem(pTri, 5, PyFloat_FromDouble(out[t].shade));
-            PyList_SetItem(ret, t, pTri);
-        }
-        return ret;
-    }
-    return PyList_New(0);
+    Vector3 nrm = PyVectorToVector3(pythonNrm);
+
+    return PyFloat_FromDouble(ShortestPointToPlane(PyVectorToVector3(pythonPoint), nrm, PyVectorToVector3(pythonPos)));
 }
 
-static PyObject* CTriClipAgainstZ(PyObject* self, PyObject* args)
+PyObject* CVectorIntersectPlane(PyObject* self, PyObject* args)
 {
-    PyObject* inTri, * pTri;
-    if (!PyArg_ParseTuple(args, "O", &inTri))
-        return NULL;
-    Triangle in;
-    std::vector<Triangle> out;
-    in = PyTriToCTri(inTri);
-
-    out = TriClipAgainstPlane(in, { 0.0, 0.0, 0.1 }, { 0.0, 0.0, 1.0 });
-    int nd = out.size();
-    if (nd > 0)
-    {
-        PyObject* ret = PyList_New(nd);
-
-        for (int t = 0; t < nd; t++)
-        {
-            pTri = PyList_New(6);
-            PyList_SetItem(pTri, 0, VectorUVToPyList(out[t].p1));
-            PyList_SetItem(pTri, 1, VectorUVToPyList(out[t].p2));
-            PyList_SetItem(pTri, 2, VectorUVToPyList(out[t].p3));
-            PyList_SetItem(pTri, 3, Vector3ToPyList(out[t].normal));
-            PyList_SetItem(pTri, 4, Vector3ToPyList(out[t].wpos));
-            PyList_SetItem(pTri, 5, PyFloat_FromDouble(out[t].shade));
-            PyList_SetItem(ret, t, pTri);
-        }
-        return ret;
-    }
-    return PyList_New(0);
-}
-
-static void CSetInternalCamera(PyObject* self, PyObject* args)
-{
-    PyObject* inCam;
-    if (!PyArg_ParseTuple(args, "O", &inCam))
-        return;
-    CamPos = PyVectorToVector3(PyList_GetItem(inCam, 0));
-    scrW = PyFloat_AsDouble(PyList_GetItem(inCam, 3));
-    scrH = PyFloat_AsDouble(PyList_GetItem(inCam, 2));
-    CamTrg = PyVectorToVector3(PyList_GetItem(inCam, 8));
-    matV = MakeLookMat(CamPos, CamTrg, { 0.f, 1.f, 0.f });
-}
-
-static PyObject* CRasterPt1(PyObject* self, PyObject* args)
-{
-    int pyInd;
-    int frm;
-    PyObject* ppos, * prot;
-    Vector3 pos, rot;
-
-    if (!PyArg_ParseTuple(args, "iOOi", &pyInd, &ppos, &prot, &frm))
+    PyObject* inPos, * inNrm, * inSta, * inEnd;
+    if (!PyArg_ParseTuple(args, "OOOO", &inPos, &inNrm, &inSta, &inEnd))
         return NULL;
 
-    pos = PyVectorToVector3(ppos);
-    rot = PyVectorToVector3(prot);
-    Triangle transformed, translated, viewed, projected;
-    std::vector<Triangle> rastered;
-    Matrix mW;
-
-    mW = MakeRotMatX(rot.x);
-    mW = MatrixMatrixMul(mW, MakeRotMatY(rot.y));
-    mW = MatrixMatrixMul(mW, MakeRotMatZ(rot.z));
-    
-    Vector3 nrmTrg = VectorNormalize(VectorSub(CamTrg, CamPos));
-
-    // Rastering
-    if (frm == -1)
-    {
-        for (const Mesh mesh : things[pyInd].meshes)
-        {
-            for (const Triangle tri : mesh.tris)
-            {
-                transformed = TransformTriangle(tri, mW);
-                transformed.normal = GetNormal(transformed);
-                if (VectorDoP(transformed.normal, nrmTrg) > -0.4)
-                {
-                    translated = TriangleAdd(transformed, pos);
-                    translated.wpos = TriangleAverage(translated);
-                    for (const Triangle tr : TriClipAgainstPlane(translated, { 0.0, 0.0, 0.1 }, { 0.0, 0.0, 1.0 }))
-                    {
-                        rastered.push_back(tr);
-                    }
-                }
-            }
-        }
-    }
-    else
-    {
-        for (const Triangle tri : animeshes[pyInd].frames[frm].tris)
-        {
-            transformed = TransformTriangle(tri, mW);
-            transformed.normal = GetNormal(transformed);
-            if (VectorDoP(transformed.normal, nrmTrg) > -0.4)
-            {
-                translated = TriangleAdd(transformed, pos);
-                translated.wpos = TriangleAverage(translated);
-                for (const Triangle tr : TriClipAgainstPlane(translated, { 0.0, 0.0, 0.1 }, { 0.0, 0.0, 1.0 }))
-                {
-                    rastered.push_back(tr);
-                }
-            }
-        }
-    }
-    
-
-    // Converting C triangle to Python list
-    PyObject* newList = PyList_New(rastered.size());
-    PyObject* triList;
-    for (int b = 0; b < rastered.size(); b++)
-    {
-        // Converting C vector to Python list
-        triList = PyList_New(6);
-        PyList_SetItem(triList, 0, VectorUVToPyList(rastered[b].p1));
-        PyList_SetItem(triList, 1, VectorUVToPyList(rastered[b].p2));
-        PyList_SetItem(triList, 2, VectorUVToPyList(rastered[b].p3));
-        PyList_SetItem(triList, 3, Vector3ToPyList(rastered[b].normal));
-        PyList_SetItem(triList, 4, Vector3ToPyList(rastered[b].wpos));
-        PyList_SetItem(triList, 5, PyFloat_FromDouble(rastered[b].shade));
-
-        PyList_SetItem(newList, b, triList);
-    }
-    return newList;
+    return Vector3ToPyList(VectorIntersectPlane(PyVectorToVector3(inPos), PyVectorToVector3(inNrm), PyVectorToVector3(inSta), PyVectorToVector3(inEnd)));
 }
 
-static PyObject* CRasterPt2(PyObject* self, PyObject* args)
+PyObject* CDistanceBetweenVectors(PyObject* self, PyObject* args)
 {
-    int frm;
-    PyObject* ptri;
-
-    if (!PyArg_ParseTuple(args, "O", &ptri))
+    PyObject* v1, * v2;
+    if (!PyArg_ParseTuple(args, "OO", &v1, &v2))
         return NULL;
 
-    Triangle in = PyTriToCTri(ptri);
-    Triangle projected;
-    std::vector<Triangle> out;
-
-    Vector3 nrmTrg = VectorNormalize(VectorSub(CamTrg, CamPos));
-
-    projected = ProjectTriangle(in);
-    out.push_back(projected);
-
-    // Converting C triangle to Python triangle
-    PyObject* newList = PyList_New(out.size());
-    PyObject* triList;
-    int size = out.size();
-    for (int b = 0; b < size; b++)
-    {
-        // Converting C vector to Python list
-        triList = PyList_New(6);
-        PyList_SetItem(triList, 0, VectorUVToPyList(out[b].p1));
-        PyList_SetItem(triList, 1, VectorUVToPyList(out[b].p2));
-        PyList_SetItem(triList, 2, VectorUVToPyList(out[b].p3));
-        PyList_SetItem(triList, 3, Vector3ToPyList(out[b].normal));
-        PyList_SetItem(triList, 4, Vector3ToPyList(out[b].wpos));
-        PyList_SetItem(triList, 5, PyFloat_FromDouble(out[b].shade));
-
-        PyList_SetItem(newList, b, triList);
-    }
-    return newList;
+    return PyFloat_FromDouble(DistanceBetweenVectors(PyVectorToVector3(v1), PyVectorToVector3(v2)));
 }
 
-
-
-static PyObject* AddLight(PyObject* self, PyObject* args)
+PyObject* CDirectionBetweenVectors(PyObject* self, PyObject* args)
 {
-    PyObject* light;
-    if (PyArg_ParseTuple(args, "O", &light))
-    {
-        Light_Point nL;
-        nL.pos = PyVectorToVector3(PyList_GetItem(light, 0));
-        nL.strength = PyFloat_AsDouble(PyList_GetItem(light, 1));
-        nL.radius = PyFloat_AsDouble(PyList_GetItem(light, 2));
-        nL.intId = (int)lights.size();
-        lights.push_back(nL);
-        return PyLong_FromLong(nL.intId);
-    }
-    else
-        return NULL;
-}
-
-static PyObject* CheapFlatLighting(PyObject* self, PyObject* args)
-{
-    float *px, *py, *pz, *nx, *ny, *nz;
-    if (!PyArg_ParseTuple(args, "ffffff", &px, &py, &pz, &nx, &ny, &nz))
+    PyObject* v1, * v2;
+    if (!PyArg_ParseTuple(args, "OO", &v1, &v2))
         return NULL;
 
-    if (lights.size() != 0)
-    {
-        float shading = 0.f;
-        double intensity = 0.f;
-        Vector3 pos;
-        Vector3 nrm;
-        pos = { *px, *py, *pz };
-        nrm = VectorMul({ *nx, *ny, *nz }, { -1.0, 1.0, 1.0 });
-        for (const auto l : lights)
-        {
-            float dist = DistanceBetweenVectors(pos, l.pos);
-            if (dist <= l.radius)
-            {
-                Vector3 lightDir = DirectionBetweenVectors(l.pos, pos);
-                
-                float dis = dist / l.radius;
-                intensity = (double)dis * (double)dis;
-                shading += VectorDoP(lightDir, nrm) * (1 - intensity) * l.strength;
-                shading = std::min(shading, 1.f);
-                shading = std::max(shading, 0.f);
-            }
-        }
-        return PyFloat_FromDouble(shading);
-    }
-    return PyFloat_FromDouble(0.0);
+    return Vector3ToPyList(DirectionBetweenVectors(PyVectorToVector3(v1), PyVectorToVector3(v2)));
 }
 
-static PyObject* CAddThing(PyObject* self, PyObject* args)
+PyObject* CRotTo(PyObject* self, PyObject* args)
 {
-    PyObject* pyMeshes;
-    if (!PyArg_ParseTuple(args, "O", &pyMeshes))
-    {
+    PyObject* rot, * trg;
+    if (!PyArg_ParseTuple(args, "OO", &rot, &trg))
         return NULL;
-    }
-    PyObject* oM, *oTr, *trList, *frList;
-    Thing nT;
-    int xS = PyList_GET_SIZE(pyMeshes);
-    Mesh nM;
-    AniMesh aM;
-    for (int x = 0; x < xS; x++)
-    {
-        nM.tris = {};
-        oM = PyList_GetItem(pyMeshes, x);
-        int frm = PyLong_AsLong(PyList_GetItem(oM, 5));
-        if (frm == -1)
-        {
-            trList = PyList_GetItem(oM, 0);
 
-            Py_ssize_t yS = PyList_GET_SIZE(trList);
-            for (Py_ssize_t y = 0; y < yS; y++)
-            {
-                oTr = PyTuple_GetItem(trList, y);
-                nM.tris.push_back({ PyVectorToVectorUV(PyList_GetItem(oTr, 0)), PyVectorToVectorUV(PyList_GetItem(oTr, 1)), PyVectorToVectorUV(PyList_GetItem(oTr, 2)), PyVectorToVector3(PyList_GetItem(oTr, 3)), PyVectorToVector3(PyList_GetItem(oTr, 4)), PyFloat_AsDouble(PyList_GetItem(oTr, 5)) });
-            }
-            nT.meshes.push_back(nM);
-            Py_ssize_t rt = things.size();
-            things.push_back(nT);
-            return PyLong_FromSsize_t(rt);
-        }
-        else
-        {
-            aM.frames = {};
-            frList = PyList_GetItem(oM, 0);
-            int yZ = PyList_GET_SIZE(frList);
-            for (int z = 0; z < yZ; z++)
-            {
-                trList = PyList_GetItem(frList, z);
-                int yS = PyList_GET_SIZE(trList);
-                for (int y = 0; y < yS; y++)
-                {
-                    oTr = PyTuple_GetItem(trList, y);
-                    nM.tris.push_back({ PyVectorToVectorUV(PyList_GetItem(oTr, 0)), PyVectorToVectorUV(PyList_GetItem(oTr, 1)), PyVectorToVectorUV(PyList_GetItem(oTr, 2)), PyVectorToVector3(PyList_GetItem(oTr, 3)), PyVectorToVector3(PyList_GetItem(oTr, 4)), PyFloat_AsDouble(PyList_GetItem(oTr, 5)) });
-                }
-                aM.frames.push_back(nM);
-            }
-            Py_ssize_t rt = animeshes.size();
-            animeshes.push_back(aM);
-            return PyLong_FromSsize_t(rt);
-        }
-        
-    }
-    
+    return Vector3ToPyList(RotTo(PyVectorToVector3(rot), PyVectorToVector3(trg)));
 }
 
-static PyObject* CTriToPixels(PyObject* self, PyObject* args)
+PyObject* CVectorUVIntersectPlane(PyObject* self, PyObject* args)
 {
-    PyObject* tri;
-    if (!PyArg_ParseTuple(args, "O", &tri))
-    {
+    PyObject* pos, * nrm, * sta, * end;
+    if (!PyArg_ParseTuple(args, "OOOO", &pos, &nrm, &sta, &end))
         return NULL;
-    }
-    PyObject* pixels = PyList_New(0);
-    PyObject* newPxl;
-    Triangle in = PyTriToCTri(tri);
-    std::vector<VectorUV> Points = { in.p1, in.p2, in.p3, in.p3 };
-    // Sorting by X
-    if (Points[1].x < Points[0].x)
-    {
-        Points[3] = Points[0];
-        Points[0] = Points[1];
-        Points[1] = Points[3];
-    }
-    if (Points[2].x < Points[1].x)
-    {
-        Points[3] = Points[1];
-        Points[1] = Points[2];
-        Points[2] = Points[3];
-    }
-    float diffX2 = Points[2].x - Points[0].x;
-    if (diffX2 != 0)
-    {
-        float slope2 = (Points[2].y - Points[0].y) / diffX2;
-        float diffX1 = Points[1].x - Points[0].x;
-        Vector2 uv1 = { Points[0].u, Points[0].v };
-        Vector2 uv2 = { Points[1].u, Points[1].v };
-        Vector2 uv3 = { Points[2].u, Points[2].v };
-        // UV deltas
-        float uvD1 = uv2.x - uv1.x;
-        float uvD2 = uv2.y - uv1.y;
-        float uvD3 = uv3.x - uv1.x;
-        float uvD4 = uv3.y - uv1.y;
-        if (diffX1 != 0.f)
-        {
-            float diffY1 = Points[1].y - Points[0].y;
-            float slope1 = diffY1 / diffX1;
-            for (int x = 0; x < (int)diffX1 + 1; x++)
-            {
-                // Get the Y of the two points to interpolate.
-                int range1 = slope1 * x + Points[0].y;
-                int range2 = slope2 * x + Points[0].y;
-                int range3 = range2 - range1;
-                // Normalize from both line's perspectives.
-                float nX1 = (x / diffX1);
-                float nX2 = (x / diffX2);
-                // Calculating UV of these new points
-                float UVndX = nX2 * uvD3 + uv1.x;
-                float UVndY = nX2 * uvD4 + uv1.y;
-                float UVstX = nX1 * uvD1 + uv1.x;
-                float UVstY = nX1 * uvD2 + uv1.y;
-                // And the delta between the UVs
-                float uvDy = UVndY - UVstY;
-                float uvDx = UVndX - UVstX;
-                int sgn = (range3 > 0) ? 1 : -1;
-                for (int y = 0; y < range3; y += sgn)
-                {
-                    float nY = y / range3;
-                    // And finally we can get the UV of the current pixel.
-                    float uvY = nY * uvDy + UVstY;
-                    float uvX = nY * uvDx + UVstX;
-                    newPxl = PyList_New(4);
-                    PyList_SetItem(newPxl, 0, PyLong_FromLong(x + (int)Points[0].x));
-                    PyList_SetItem(newPxl, 1, PyLong_FromLong(y + (int)Points[0].y));
-                    PyList_SetItem(newPxl, 2, PyLong_FromLong(uvX));
-                    PyList_SetItem(newPxl, 3, PyLong_FromLong(uvY));
-                    PyList_Append(pixels, newPxl);
-                }
-            }
-            return pixels;
-        }
-    }
 
+    return VectorUVToPyList(VectorUVIntersectPlane(PyVectorToVector3(pos), PyVectorToVector3(nrm), PyVectorToVectorUV(sta), PyVectorToVectorUV(end)));
 }
+
+PyObject* CVector3MatrixMul(PyObject* self, PyObject* args)
+{
+    PyObject* vec, * mat;
+    if (!PyArg_ParseTuple(args, "OO", &vec, &mat))
+        return NULL;
+    double v0 = PyFloat_AsDouble(PyList_GetItem(vec, 0));
+    double v1 = PyFloat_AsDouble(PyList_GetItem(vec, 1));
+    double v2 = PyFloat_AsDouble(PyList_GetItem(vec, 2));
+    double m00 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 0), 0));
+    double m10 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 1), 0));
+    double m20 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 2), 0));
+    double m30 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 3), 0));
+    double m01 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 0), 1));
+    double m11 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 1), 1));
+    double m21 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 2), 1));
+    double m31 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 3), 1));
+    double m02 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 0), 2));
+    double m12 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 1), 2));
+    double m22 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 2), 2));
+    double m32 = PyFloat_AsDouble(PyTuple_GetItem(PyTuple_GetItem(mat, 3), 2));
+    return Vector3ToPyList({ (float)((v0 * m00) + (v1 * m10) + (v2 * m20) + m30), (float)((v0 * m01) + (v1 * m11) + (v2 * m21) + m31), (float)((v0 * m02) + (v1 * m12) + (v2 * m22) + m32) });
+}
+
+
+//=======================
+//     Python Stuff
+//=======================
+
 
 static PyMethodDef z3dpyfast_methods[] = {
-    { "CAddThing", (PyCFunction)CAddThing, METH_VARARGS, nullptr },
-    { "CRasterPt1", (PyCFunction)CRasterPt1, METH_VARARGS, nullptr },
-    { "CRasterPt2", (PyCFunction)CRasterPt2, METH_VARARGS, nullptr },
-    { "CAddLight", (PyCFunction)AddLight, METH_VARARGS, nullptr },
-    { "CFlatLighting", (PyCFunction)CheapFlatLighting, METH_VARARGS, nullptr },
-    { "CTriClipAgainstScreenEdges", (PyCFunction)CTriClipAgainstScreenEdges, METH_VARARGS, nullptr },
-    { "CTriClipAgainstZ", (PyCFunction)CTriClipAgainstZ, METH_VARARGS, nullptr },
-    { "CSetInternalCamera", (PyCFunction)CSetInternalCamera, METH_VARARGS, nullptr },
-    { "CTriToPixels", (PyCFunction)CTriToPixels, METH_VARARGS, nullptr },
+    { "DistanceBetweenVectors", (PyCFunction)CDistanceBetweenVectors, METH_VARARGS, nullptr },
+    { "DirectionBetweenVectors", (PyCFunction)CDirectionBetweenVectors, METH_VARARGS, nullptr },
+    { "ShortestPointToPlane", (PyCFunction)CShortestPointToPlane, METH_VARARGS, nullptr },
+    { "VectorUVIntersectPlane", (PyCFunction)CVectorUVIntersectPlane, METH_VARARGS, nullptr },
+    { "RotTo", (PyCFunction)CRotTo, METH_VARARGS, nullptr },
+    { "GetNormal", (PyCFunction)CGetNormal, METH_VARARGS, nullptr },
     { nullptr, nullptr, 0, nullptr }
 };
 
