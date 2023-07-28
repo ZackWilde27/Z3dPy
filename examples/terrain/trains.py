@@ -12,11 +12,11 @@ zp.screenSize = (1280, 720)
 zp.SetHowVars(0.7330638661047614, 1.3032245935576736)
 
 # Cam(x, y, z)
-myCamera = zp.Camera(0, 0, -4)
+myCamera = zp.Cam(0, 0, -4)
 
 # LoadMesh(filename, x, y, z)
 # Thing(meshList, x, y, z)
-cube = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj", 0, 0, 0)], 0, 0, 3)
+cube = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj", [0, 0, 0])], 0, 0, 3)
 
 zp.ThingSetupPhysics(cube)
 zp.ThingSetupHitbox(cube, 2, 0, 1, 1)

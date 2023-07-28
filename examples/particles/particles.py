@@ -20,14 +20,14 @@ zp.SetInternalCam(myCamera)
 myMesh = zp.LoadMesh("z3dpy/mesh/dot.obj")
 
 # Emitter(vPos, mshTemplate, iMax, vVelocity, fLifetime, vGravity)
-myEmitter = zp.Emitter([0, 0, 0], myMesh, 100, [0, 15, 0], 3, [4, 20, 0])
+myEmitter = zp.Emitter([0, 0, 0], myMesh, 100, [0, 15, 0], 1.0, [4, 1, 0])
 
 # Add to global list
 zp.emitters.append(myEmitter)
 
 
 # The Ground
-plane = zp.LoadMesh("z3dpy/mesh/plane.obj", 0, 0, 0, 5, 5, 5)
+plane = zp.LoadMesh("z3dpy/mesh/plane.obj", [0, 0, 0], [5, 5, 5])
 ground = zp.Thing([plane], 0, 2, 15)
 zp.AddThing(ground)
 

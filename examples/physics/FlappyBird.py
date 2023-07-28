@@ -13,7 +13,7 @@ currentTime = time.time()
 # Changing Gravity
 zp.gravity = [0, 10, 0]
 
-zp.worldColour = (0.2, 0.2, 0.4)
+zp.worldColour = (0.15, 0.15, 0.2)
 
 # Initialize PyGame
 pygame.init()
@@ -30,12 +30,15 @@ myCamera = zp.Cam(0, 0, 0)
 # The Bird
 
 # Use the LoadMesh function to load an OBJ file
-birdBody = zp.LoadMesh("mesh/bird.obj", 0, 0, 0, 0.75, 0.75, 0.75)
-birdBeak = zp.LoadMesh("mesh/beak.obj", 0, 0, 0, 0.75, 0.75, 0.75)
+birdBody = zp.LoadMesh("mesh/bird.obj", [0, 0, 0], [0.75, 0.75, 0.75])
+birdBeak = zp.LoadMesh("mesh/beak.obj", [0, 0, 0], [0.75, 0.75, 0.75])
 
 # Setting Bird Colour
 zp.MeshSetColour(birdBody, [255, 214, 91])
 zp.MeshSetColour(birdBeak, [255, 52, 38])
+
+zp.MeshSetId(birdBody, 1)
+zp.MeshSetId(birdBeak, 1)
 
 # Group two meshes with different colours into one Thing
 bird = zp.Thing([birdBody, birdBeak], 0, 0, 5)
@@ -58,7 +61,7 @@ plane = zp.Thing([planeMesh], 0, 5, 0)
 pipeMesh = zp.LoadMesh("mesh/pipe.obj")
 
 # Offset the second pipe upwards
-otherPipeMesh = zp.LoadMesh("mesh/pipe.obj", 0, -11, 0)
+otherPipeMesh = zp.LoadMesh("mesh/pipe.obj", [0, -11, 0])
 zp.MeshSetRot(otherPipeMesh, [0, 0, 180])
 
 # Setting the colour to green
@@ -87,7 +90,7 @@ theSun = zp.Light_Sun((0, 0.5, 0.5), 2, 1, (255, 255, 255))
 zp.lights.append(theSun)
 
 # BakeLighting(things, *bExpensive, *lights, *shadowcasters)
-zp.BakeLighting([bird, pipe, plane])
+zp.BakeLighting()
 
 zp.CamSetPos(myCamera, [zp.ThingGetPosX(bird), zp.ThingGetPosY(bird), -3])
 
@@ -115,7 +118,6 @@ while True:
     # Smoothly following the bird
     # CamChase(camera, targetLocation, speed)
     zp.CamChase(myCamera, [zp.ThingGetPosX(bird), zp.ThingGetPosY(bird), -3], 10)
-
     zp.CamSetTargetDir(myCamera, [0, 0, 1])
 
     zp.SetInternalCam(myCamera)
@@ -135,7 +137,10 @@ while True:
 
     # Render 3D
     for tri in zp.Raster():
-        zp.PgDrawTriFLB(tri, screen, pygame)
+        if zp.TriGetId(tri) == 0:
+            zp.PgDrawTriFLB(tri, screen, pygame)
+        else:
+            zp.PgDrawTriFL(tri, screen, pygame)
 
     # Update display
     pygame.display.flip()

@@ -1,18 +1,17 @@
 import z3dpy as zp
 import tkinter as tk
 import time
+import keyboard
 
 currentTime = time.time()
 
-res = input("Half resolution? (y/n): ")
+res = "n"
 
 tK = tk.Tk()
 
-if res in "yY":
-    canvas = tk.Canvas(width=320, height=240, background="black")
-    zp.screenSize = (320, 240)
-else:
-    canvas = zp.TkScreen(640, 480, "black", tk)
+canvas = tk.Canvas(width=640, height=480, background="black")
+zp.screenSize = (640, 480)
+canvas.pack()
 
 zp.FindHowVars(90, 3/4)
 
@@ -29,18 +28,43 @@ zp.ThingSetRot(plane, [90, 0, 0])
 
 zp.AddThing(plane)
 
+cooldown = 0
+turnSpeed = 2
+
 while True:
 
+    # Input
+    if keyboard.is_pressed("SHIFT"):
+        speed = 0.05
+    else:
+        speed = 0.25
+
+    if keyboard.is_pressed("w"):
+        zp.ThingAddPosZ(plane, speed)
+    if keyboard.is_pressed("s"):
+        zp.ThingAddPosZ(plane, -speed)
+    if keyboard.is_pressed("a"):
+        zp.ThingAddPosX(plane, -speed)
+    if keyboard.is_pressed("d"):
+        zp.ThingAddPosX(plane, speed)
+
+    if keyboard.is_pressed("LEFT"):
+        zp.ThingAddRot(plane, [0, -turnSpeed, 0])
+    if keyboard.is_pressed("RIGHT"):
+        zp.ThingAddRot(plane, [0, turnSpeed, 0])
+
     zp.SetInternalCam(myCamera)
+
+    canvas.delete("all")
 
     for tri in zp.Raster():
         zp.TkPixelShader(tri, canvas)
         
     tK.update()
-    canvas.delete("all")
-
+    
     zp.ThingAddRot(plane, [0, 0, 5])
 
     # FPS Calc
-    tK.title(str(int(1 / (time.time() - currentTime))) + " FPS")
+    delta = time.time() - currentTime
+    tK.title(str(int(1 / max(delta, 0.01))) + " FPS")
     currentTime = time.time()

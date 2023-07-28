@@ -14,7 +14,7 @@ zp.screenSize = (1280, 720)
 # Cam(x, y, z)
 myCamera = zp.Cam(0, 0, 0)
 
-# LoadMesh(filename, *x, *y, *z, *sclX, *sclY, *sclZ)
+# LoadMesh(filename, *vPos, *VScale)
 myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj")
 
 # Thing(meshList, x, y, z)

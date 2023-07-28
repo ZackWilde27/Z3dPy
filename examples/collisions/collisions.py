@@ -1,6 +1,8 @@
 import z3dpy as zp
 import pygame
 
+zp.FindHowVars(75, 240/320)
+
 # Variables
 isCube = True
 speed = 0.25
@@ -27,24 +29,29 @@ print("Space to jump")
 print("Up and Down arrow to move platform")
 
 # z3dpy.Camera(x, y, z)
-myCamera = zp.Cam(0, -2, -4)
+myCamera = zp.Cam(0, 0, -2)
 
 # z3dpy.LoadMesh(filename, x, y, z)
-smallCube = zp.LoadMesh("z3dpy/mesh/cube.obj", 0, 0, 0, 0.1, 0.1, 0.1)
+smallCube = zp.LoadMesh("z3dpy/mesh/cube.obj", [0, 0, 0], [0.1, 0.1, 0.1])
 
 # z3dpy.Thing(meshList, x, y, z)
-char = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj", 0, 0, 0, 0.5, 0.5, 0.5)], 0, 1, 3)
+char = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj", [0, 0, 0], [0.5, 0.5, 0.5])], 0, 1, 3)
 zp.ThingSetupHitbox(char, 2, 0, 0.5, 0.5)
 zp.ThingSetupPhysics(char)
+
+char2 = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj", [0, 0, 0], [0.5, 0.5, 0.5])], 5, -1, 3)
+zp.ThingSetupHitbox(char2, 2, 0, 0.5, 0.5)
+zp.ThingSetupPhysics(char2)
+zp.ThingSetBounciness(char2, 0.75)
 
 bar = zp.Thing([smallCube], 0.5, 0, 3)
 zp.ThingSetupHitbox(bar, 2, 0, 2, 0.5)
 
 plane = zp.Thing([zp.LoadMesh("z3dpy/mesh/plane.obj")], 0, 2, 0)
 
-zp.AddThings([char, bar, plane])
+zp.AddThings([char, bar, plane, char2])
 
-myLight = zp.Light_Sun((0, 1, 1), 1, 0)
+myLight = zp.Light_Sun((0, 1, 1), 0.8, 0)
 zp.lights.append(myLight)
 
 while True:
@@ -77,9 +84,9 @@ while True:
     if keys[pygame.K_SPACE] and zp.ThingGetVelocityY(char) >= -0.3:
         zp.ThingSetVelocity(char, [0, -13, 0])
 
-    zp.HandlePhysicsFloor([char], 2)
+    zp.HandlePhysicsFloor([char, char2], 2)
 
-    zp.PhysicsCollisions([char, bar])
+    zp.PhysicsCollisions([char, bar, char2])
 
     camLoc = zp.VectorSub(zp.ThingGetPos(char), [0, 2, 5])
     
