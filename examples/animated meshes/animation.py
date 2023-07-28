@@ -2,15 +2,17 @@ import z3dpy as zp
 import pygame
 
 pygame.init()
-screen = zp.PgScreen(1680, 720, "black", pygame)
+screen = pygame.display.set_mode((1680, 720))
 clock = pygame.time.Clock()
+
+zp.screenSize = (1680, 720)
 
 # Setting up 21:9 FOV
 #zp.FindHowVars(65, 9/21)
 zp.SetHowVars(0.6727219660070214, 1.5696847505584837)
 
-# z3dpy.Camera(x, y, z, scrW, scrH)
-myCamera = zp.Camera(-10, -2, 3)
+# z3dpy.Camera(x, y, z)
+myCamera = zp.Cam(-10, -2, 3)
 
 zp.CamSetTargetDir(myCamera, [1, 0, 0])
 
@@ -18,8 +20,8 @@ zp.SetInternalCam(myCamera)
 
 # z3dpy.LoadAnimMesh(filename, x, y, z)
 # z3dpy.Thing(meshList, x, y, z)
-anim = zp.LoadAnimMesh("mesh/anim/anim.obj")
-anim2 = zp.LoadAnimMesh("mesh/char2/char2.obj")
+anim = zp.LoadAniMesh("mesh/anim/anim.obj")
+anim2 = zp.LoadAniMesh("mesh/char2/char2.obj")
 
 
 zp.MeshSetColour(anim, [0, 255, 0])
