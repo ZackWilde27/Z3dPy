@@ -28,13 +28,13 @@ zp.MeshSetColour(gunWood, [214, 138, 102])
 # Combine them into one Thing
 Gun = zp.Thing([gunMetal, gunWood], 0, 0, 0)
 
-world = zp.Thing([zp.LoadMesh("mesh/world4.obj", 0, 0, 0)], 0, 0, 0)
+world = zp.Thing([zp.LoadMesh("mesh/world4.obj", [0, 0, 0])], 0, 0, 0)
 
-hideout = zp.Thing([zp.LoadMesh("mesh/world4_2.obj", 0, 0, 0)], 0, 0, 0)
+hideout = zp.Thing([zp.LoadMesh("mesh/world4_2.obj", [0, 0, 0])], 0, 0, 0)
 
-world2 = zp.Thing([zp.LoadMesh("mesh/tourus.obj", 0, 0, 0)], -40, 0, -25)
+world2 = zp.Thing([zp.LoadMesh("mesh/tourus.obj", [0, 0, 0])], -40, 0, -25)
 
-name = zp.Thing([zp.LoadMesh("z3dpy/mesh/z3dpy.obj", 30, -5, -15, 5, 5, 5)], 0, 0, 0)
+name = zp.Thing([zp.LoadMesh("z3dpy/mesh/z3dpy.obj", [30, -5, -15], [5, 5, 5])], 0, 0, 0)
 
 zp.ThingSetRot(name, [0, -90, 0])
 
