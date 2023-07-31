@@ -15,7 +15,7 @@ Documentation can be found <a href="https://github.com/ZackWilde27/pythonRasteri
 
 # Installation Guide
 
-Download the release build and extract the zip folder to the same folder as your script, then import it with:
+Download the zip folder, extract it somewhere, and create a new script in the same directory. Import it with:
 ```python
 import z3dpy as zp
 ```
