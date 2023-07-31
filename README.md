@@ -156,7 +156,7 @@ Everything is coloured with it's normal direction, so X is red, Y is green, Z is
 Export your mesh as an OBJ file.
 - UV coordinates are used in the pixel shaders.
 - LoadMesh() will triangulate all n-gons
-- If materials are exported, LoadMesh() will automatically separate it into a list of meshes.
+- If materials are exported, LoadMesh() will automatically separate it into a list of meshes, and colour them based on the mtl file.
 <br>
 Up axis is -Y, and Forward axis is Z.
 
