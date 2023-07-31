@@ -28,7 +28,7 @@ Builds that end in an odd number are nightly builds, which may be unstable / lac
 
 ![example](https://github.com/ZackWilde27/Z3dPy/assets/115175938/49541f9d-d88c-491c-934f-5e22b65402b2)
 
-We'll import the engine and use PyGame for the screen. Tkinter version can be found <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Tkinter">here</a>
+I'll use PyGame for the screen. The Tkinter version can be found <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Tkinter">here</a>
 
 ```python
 import z3dpy as zp
@@ -37,19 +37,15 @@ import pygame
 # PyGame stuff
 pygame.init()
 pygame.display.set_mode((1280, 720))
-clock = pygame.time.Clock()
 ```
 
-In 0.2.6+, the screen size is now global instead of inside cameras.
-```python
-zp.screenSize = (1280, 720)
-```
-
-Next create a camera object. Placing it at 0, 0, 0 will make placing the mesh easier.
+Next create a camera object, and set the screen size to match PyGame.
 
 ```python
 # Create our camera (x, y, z)
 myCamera = zp.Cam(0, 0, 0)
+
+zp.screenSize = (1280, 720)
 ```
 
 Now load a mesh to draw, I'll use the built-in susanne.
@@ -93,17 +89,19 @@ zp.SetInternalCam(myCamera)
 # Raster Loop
 while True:
 
+    # Clear screen
     screen.fill("black")
-    
-    for tri in zp.RasterMeshList([myMesh]):
 
+    # Render 3D
+    for tri in zp.RasterMeshList([myMesh]):
         zp.PgDrawTriRGBF(tri, zp.TriGetNormal(tri), screen, pygame)
 
+    # Update screen
     pygame.display.flip()
     
     # Rotate mesh
     # MeshAddRot(mesh, vector)
-    zp.MeshAddRot(myMesh, [1, 4, 3])
+    zp.MeshAddRot(myMesh, [1, 2, 3])
 ```
 
 Final Script:
@@ -117,10 +115,9 @@ pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
-zp.screenSize = (1280, 720)
-
 # Create our camera (x, y, z)
 myCamera = zp.Cam(0, 0, 0)
+zp.screenSize = (1280, 720)
 
 # Use the LoadMesh function to load an OBJ file (filename, x, y, z)
 myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 2)
@@ -134,17 +131,15 @@ while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
-    # Make sure FPS stays the same across various machines.
-    clock.tick(30)
+
     screen.fill("black")
     
     for tri in zp.RasterMeshList([myMesh]):
-
         zp.PgDrawTriRGBF(tri, zp.TriGetNormal(tri), screen, pygame)
 
     pygame.display.flip()
     
-    zp.MeshAddRot(myMesh, [1, 4, 3])
+    zp.MeshAddRot(myMesh, [1, 2, 3])
 ```
 
 Everything is coloured with it's normal direction, so X is red, Y is green, Z is blue.
