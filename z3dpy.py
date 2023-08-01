@@ -1,6 +1,7 @@
 # -zw
 '''
-Z3dPy v0.3.0
+Z3dPy v0.3.1
+*Nightly build, wiki/examples are based on the release version.
 
 LEGEND:
 - Parameters marked with * are optional
@@ -11,102 +12,27 @@ Change Notes:
 
 C++
 
-- z3dpyfast is back, it's been scaled down to a library
-for the more complicated math functions.
+- z3dpyfast now also replaces MatrixStuff().
 
-Instead of having CFunctions, it now replaces the Python
-functions, so nothing changes except the speed.
-
-
-MORE STREAMLINING
-
-- Light_Point() now has a vPos argument instead of separated
-x, y and z. It can still be separated with [x, y, z]
-
-- LoadMesh() now has a vPos and VScale argument instead of
-separated x, y, z, sclX, sclY, and sclZ
-
-- Removed deprecated functions for AnimMesh. Use AniMesh.
-
-- Removed deprecated CamSetTargetVector() and
-CamSetTargetLocation() functions. Use CamSetTargetDir() or
-CamSetTargetLoc()
-
-- Removed the global x, y, and z, as it's not much faster
-than just (0, 0, 1)
-
-- Removed NewCube(), NewSusanne(), NewSphere(), etc as
-it was meant for cases where z3dpy was installed globally.
-
-- CamDivPos() now uses a vector parameter instead of
-separated x, y, and z.
+- Applied the clipping texture fix to z3dpyfast as well.
 
 
 LIGHTING
 
-- BakeLighting(*things, *bExpensive, *lights, *shadowcasters)
-has been fixed: by default will gather everything
-from all layers, and shadowcasters will be equal to things.
-
-- Fixed LightAddPos() bug.
+- I thought I already fixed it, but tri world position was
+broken. I've applied a quick fix for now but I need to do
+some verification.
 
 
-PIXEL SHADER
+PIXEL SHADERS
 
-- Fixed triangle-clipping messing up textures.
-
-
-MESHES
-
-- Meshes and AniMeshes now have bCull, which if False,
-will not cull it's triangles.
-
-- LoadMesh() now prints when the filename was not found
-and is being replaced, instead of just silently replacing it.
-
-- LoadMesh() now looks in the mtl file exported with
-materials to automatically colour the meshes.
-
-
-COLLISION
-
-- Added ThingIntersectThingComplex(thing1, thing2) which is
-the most expensive, but accurate collision method.
-
-Turns each triangle of thing1 into rays and tests for
-collisions of triangles in thing2.
-
-
-PHYSICS
-
-- PhysicsCollisions() between two physics objects has been
-re-worked, It's now a combination of pushing and
-BasicHandleCollisions().
+- UVs are set per-triangle instead of per-vertex, as
+verticies can be shared by multiple triangles.
 
 
 MISC
 
-- Added TriToRays(tri) which converts the edges into rays,
-returning a list.
-
-- Functions for creating objects now have optional
-parameters to customize things like id, colour, or rotation
-on creation.
-
-- Made changes to object functions to make them
-more efficient.
-
-- Renamed VectorIntersectPlane() to VectorUVIntersectPlane(),
-and added a new VectorIntersectPlane() for standard vectors.
-
-- Moved VectorIntersectPlane() and ShortestPointToPlane()
-to the Vectors section, I think it makes more sense there.
-
-- LookAtMatrix(pos, target, up) has that argument list,
-instead of a camera
-
-- More random changes for optimization, everything is the
-same, just slightly faster.
+- More optimizations.
 
 '''
 
@@ -121,7 +47,7 @@ import math
 
 # z3dpyfast is imported at the bottom of the script to replace functions.
 
-print("Z3dPy v0.3.0")
+print("Z3dPy v0.3.1")
 
 #==========================================================================
 #  
@@ -470,22 +396,6 @@ def Light_Point(vPos, FStrength, fRadius, vColour=(255, 255, 255)):
 def Light_Sun(VDirection, FStrength, fRadius, vColour=(255, 255, 255)):
     return [1, VDirection, FStrength, fRadius, VectorDivF(vColour, 255), 0, 0]
 
-# My own list interpolator
-def ListInterpolate(list, fIndex):
-    first = list[math.floor(fIndex)]
-    second = list[math.ceil(fIndex)]
-    difference = fIndex - math.floor(fIndex)
-    return (second - first) * difference + first
-
-def TrainInterpolate(train, fX, fY):
-    if fX > 0.0 and fY > 0.0:
-        if fX < len(train) - 1 and fY < len(train[0]) - 1:
-            first = ListInterpolate(train[math.floor(fX)], fY)
-            second = ListInterpolate(train[math.ceil(fX)], fY)
-            difference = fX - math.floor(fX)
-            return (second - first) * difference + first
-    return 0
-
 # Rays:
 #
 # Used for debug drawing rays in world space, or ray
@@ -550,7 +460,7 @@ z3dpy.dots.append(z3dpy.ThingGetPos(myCharacter))
 
 z3dpy.dots = [myVector, z3dpy.ThingGetPos(myCharacter)]
 
-# Now when debug rastering, it'll be drawn as a small trigon.
+# Now when debug rastering, it'll be drawn as a small trigon, with an id of -1.
 
 
 for tri in DebugRaster():
@@ -608,7 +518,14 @@ Amplitude is multiplied by the final output to amplify.
 Normally 1.0 / no change.
 '''
 
-
+def TrainInterpolate(train, fX, fY):
+    if fX > 0.0 and fY > 0.0:
+        if fX < len(train) - 1 and fY < len(train[0]) - 1:
+            first = ListInterpolate(train[math.floor(fX)], fY)
+            second = ListInterpolate(train[math.ceil(fX)], fY)
+            difference = fX - math.floor(fX)
+            return (second - first) * difference + first
+    return 0
 
 # Emitters:
 #
@@ -1782,6 +1699,7 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
     triangles = []
     mattriangles = []
     mat = -1
+    storedUVs = []
 
     while (currentLine := file.readline()):
         match currentLine[0]:
@@ -1791,19 +1709,24 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
                     uvs.append([float(currentLine[0]), float(currentLine[1])])
                 else:
                     currentLine = currentLine[2:].split(' ')
-                    verts.append([float(currentLine[0]) * VScale[0], float(currentLine[1]) * VScale[1], float(currentLine[2]) * VScale[2], [0, 0, 0], [float(currentLine[0]) * VScale[0], float(currentLine[1]) * VScale[1]], 0])
+                    verts.append([float(currentLine[0]) * VScale[0], float(currentLine[1]) * VScale[1], float(currentLine[2]) * VScale[2], [0, 0, 0], [0, 0], 0])
             case 'f':
                 currentLine = currentLine[2:]
+                
+                
                 if '/' in currentLine:
-                    newLine = []
+                    # Face includes UVs
+                    newLine = ""
+                    storedUVs.append([])
                     currentLine = currentLine.split(' ')
                     for cl in currentLine:
                         cl = cl.split('/')
-                        verts[int(cl[0]) - 1][4] = uvs[int(cl[1]) - 1]
-                        newLine.append(cl[0])
+                        storedUVs[-1].append(uvs[int(cl[1]) - 1])
+                        newLine += cl[0]
                     currentLine = newLine
                 else:
                     currentLine = currentLine.split(' ')
+
                 if len(currentLine) < 4:
                     p1 = int(currentLine[0]) - 1
                     p2 = int(currentLine[1])- 1
@@ -1863,22 +1786,31 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
             mattriangles.append([])
             mat += 1
 
+    # Averaging normals if more than one triangle uses
+    # the same vert.
     for v in verts:
         v[3] = VectorDivF(v[3], v[5])
 
-    output = [Tri(verts[tr[0]], verts[tr[1]], verts[tr[2]]) for tr in triangles]
-
-    for trL in mattriangles:
-        index = len(matoutputs)
-        matoutputs.append([])
-        for tr in trL:
-            nt = Tri(verts[tr[0]], verts[tr[1]], verts[tr[2]])
-            matoutputs[index].append(nt)
-
     file.close()
     if mat == -1:
+        output = []
+        for tr in range(len(triangles)):
+            output.append(Tri(verts[triangles[tr][0]], verts[triangles[tr][1]], verts[triangles[tr][2]]))
+            if tr < len(storedUVs):
+                output[-1][0][4] = storedUVs[tr][0]
+                output[-1][1][4] = storedUVs[tr][1]
+                output[-1][2][4] = storedUVs[tr][2]
+
         return Mesh(tuple(output), vPos[0], vPos[1], vPos[2])
     else:
+
+        for trL in mattriangles:
+            index = len(matoutputs)
+            matoutputs.append([])
+            for tr in trL:
+                nt = Tri(verts[tr[0]], verts[tr[1]], verts[tr[2]])
+                matoutputs[index].append(nt)
+
         meshes = [Mesh(tuple(trS), vPos[0], vPos[1], vPos[2]) for trS in matoutputs]
         for m in range(len(meshes)):
             MeshSetColour(meshes[m], colours[m + 1])
@@ -2208,43 +2140,45 @@ def GatherCollisions(thingList):
 
 def BasicHandleCollisions(oth, pivot):
     
-    match ThingGetHitboxType(oth):
+    match oth[3][0]:
         case 0:
             # Sphere Collisions
             # Simple offset the direction away from pivot.
-            ThingSetPos(oth, VectorMulF(DirectionBetweenVectors(ThingGetPos(oth), ThingGetPos(pivot)), ThingGetHitboxRadius(oth) + ThingGetHitboxRadius(pivot)))
+            oth[1] = VectorMulF(DirectionBetweenVectors(oth[1], pivot[1]), oth[3][2] + pivot[3][2])
         case 2:
             # Cube Collisions
 
-            if ThingGetPosX(oth) + ThingGetHitboxRadius(oth) < (ThingGetPosX(pivot) - ThingGetHitboxRadius(pivot)) + 0.5:
+            if oth[1][0] + oth[3][2] < (pivot[1][0] - pivot[3][2]) + 0.5:
                 # +X Wall Collision
-                ThingSetPosX(oth, ThingGetPosX(pivot) - ThingGetHitboxRadius(pivot) - ThingGetHitboxRadius(oth))
+                oth[1][0] = pivot[1][0] - pivot[3][2] - oth[3][2]
                 return
             
-            if ThingGetPosX(oth) - ThingGetHitboxRadius(oth) > (ThingGetPosX(pivot) + ThingGetHitboxRadius(pivot)) - 0.5:
+            if oth[1][0] - oth[3][2] > (pivot[1][0] + pivot[3][2]) - 0.5:
                 # -X Wall Collision
-                ThingSetPosX(oth, ThingGetPosX(pivot) + ThingGetHitboxRadius(pivot) + ThingGetHitboxRadius(oth))
+                oth[1][0] = pivot[1][0] + pivot[3][2] + oth[3][2]
                 return
             
-            if ThingGetPosZ(oth) + ThingGetHitboxRadius(oth) < (ThingGetPosZ(pivot) - ThingGetHitboxRadius(pivot)) + 0.5:
+            if oth[1][2] + oth[3][2] < (pivot[1][2] - pivot[3][2]) + 0.5:
                 # +Z Wall Collision
-                ThingSetPosZ(oth, ThingGetPosZ(pivot) - ThingGetHitboxRadius(pivot) - ThingGetHitboxRadius(oth))    
+                oth[1][2] = pivot[1][2] - pivot[3][2] - oth[3][2]    
                 return
             
-            if ThingGetPosZ(oth) - ThingGetHitboxRadius(oth) > (ThingGetPosZ(pivot) + ThingGetHitboxRadius(pivot)) - 0.5:
+            if oth[1][2] - oth[3][2] > (pivot[1][2] + pivot[3][2]) - 0.5:
                 # -Z Wall Collision
-                ThingSetPosZ(oth, ThingGetPosZ(pivot) + ThingGetHitboxRadius(pivot) + ThingGetHitboxRadius(oth))
+                oth[1][2] = pivot[1][2] + pivot[3][2] + oth[3][2]
                 return
 
-            if ThingGetPosY(oth) > ThingGetPosY(pivot):
+            if oth[1][1] > pivot[1][1]:
                 # Ceiling Collision
-                ThingSetPosY(oth, ThingGetPosY(pivot) + ThingGetHitboxHeight(pivot) + ThingGetHitboxHeight(oth))
-                ThingSetVelocityY(oth, 0)
+                oth[1][1] = pivot[1][1] + pivot[3][3] + oth[3][3]
+                if oth[4] != []:
+                    # Set vertical velocity to 0
+                    oth[4][0][1] = 0
                 return
 
             # Floor Collision
-            ThingSetPosY(oth, ThingGetPosY(pivot) - ThingGetHitboxHeight(pivot) - ThingGetHitboxHeight(oth))
-            if ThingGetPhysics(oth) != []:
+            oth[1][1] = pivot[1][1] - pivot[3][3] - oth[3][3]
+            if oth[4] != []:
                 GroundBounce(oth)
 
 
@@ -2505,8 +2439,6 @@ def DebugRaster(train=[], sortKey=triSortAverage, sortReverse=True):
 
         viewed.sort(key = sortKey, reverse=sortReverse)
         
-        
-
         for l in lights:
             match l[0]:
                 case 0:
@@ -2602,7 +2534,7 @@ def TransformTris(tris, pos, trg, up=(0.0, 1.0, 0.0)):
         nt = TriMatrixMul(t, mW)
         nt[3] = GetNormal(nt)
         if VectorDoP(VectorMul(nt[3], (-1, 1, 1)), iC[6]) > -0.4:
-            nt[4] = TriAverage(nt)
+            nt[4] = VectorAdd(t[4], nt[1])
             yield nt
 
 def WTransformTris(tris, rot):
@@ -2765,13 +2697,13 @@ def FlatLighting(tri, lights=lights):
 
 # CheapLighting takes the direction towards the light source, no shadow checks or anything.
 def CheapLighting(tri, lights=lights):
-    # Shading is the direction based, Intensity is the distance based.
-    shading = 0.0
     colour = (0.0, 0.0, 0.0)
     intensity = 0.0
     nNormal = VectorMul(tri[3], (-1, 1, 1))
     pos = tri[4]
     num = 0
+    if len(lights) == 0:
+        return (0, 0, 0)
     for l in lights:
         match l[0]:
             case 0:
@@ -2781,20 +2713,14 @@ def CheapLighting(tri, lights=lights):
                     if (dot := VectorDoP(lightDir, nNormal)) > 0:
                         d = dist/l[3]
                         intensity = (1 - (d * d)) * l[2]
-                        shading += dot
-                        colour = VectorAdd(colour, VectorMulF(l[4], intensity))
+                        colour = VectorAdd(colour, VectorMulF(l[4], intensity * dot))
                         num += 1
             case 1:
                 if (dot := VectorDoP(l[1], nNormal)) > 0:
-                    shading += dot
                     intensity = dot * l[2]
                     colour = VectorAdd(colour, VectorMulF(l[4], intensity))
                     num += 1
-    if num != 0:
-        colour = VectorDivF(colour, num)
-    else:
-        colour = (0, 0, 0)
-    return VectorMax(VectorMinF(VectorMulF(colour, shading), 1.0), worldColour)
+    return VectorMax(VectorMinF(VectorDivF(colour, max(num, 1)), 1.0), worldColour)
 
 # ExpensiveLighting uses the direction towards the light source, and tests for ray collisions to create shadows.
 def ExpensiveLighting(tri, shadowcasters=GatherThings(), lights=lights):
@@ -3464,8 +3390,9 @@ z3dpy.HandleEmitters([myEmitter])
 
 def HandleEmitters(emitters=emitters):
     for em in emitters:
-        for p in range(len(em[0])):
-            if p >= len(em[0]):
+        length = len(em[0])
+        for p in range(length):
+            if p >= length:
                 break
             pt = em[0][p]
             pt[0] -= delta
@@ -3580,6 +3507,13 @@ def TkScreen(width, height, bgCol, tkinter):
     canvas = tkinter.Canvas(width=width, height=height, background=bgCol)
     canvas.pack()
     return canvas
+
+# My own list interpolator
+def ListInterpolate(list, fIndex):
+    first = list[math.floor(fIndex)]
+    second = list[math.ceil(fIndex)]
+    difference = fIndex - math.floor(fIndex)
+    return (second - first) * difference + first
 
 def ListExclude(list, index):
     return list[:index] + list[index+1:]
