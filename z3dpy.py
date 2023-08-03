@@ -10,6 +10,9 @@ Capitals mean normalized.
 
 Change Notes:
 
+Patch 1
+- Forgot to add the line replacing MatrixStuff() at the bottom, that has been fixed.
+
 C++
 
 - z3dpyfast now also replaces MatrixStuff().
@@ -26,8 +29,7 @@ some verification.
 
 PIXEL SHADERS
 
-- UVs are set per-triangle instead of per-vertex, as
-verticies can be shared by multiple triangles.
+- UVs are set per-triangle instead of per-vertex.
 
 
 MISC
@@ -3529,4 +3531,5 @@ else:
     VectorUVIntersectPlane = z3dpyfast.VectorUVIntersectPlane
     RotTo = z3dpyfast.RotTo
     GetNormal = z3dpyfast.GetNormal
+    MatrixStuff = z3dpyfast.MatrixStuff
     print("z3dpyfast loaded.")
