@@ -39,12 +39,17 @@ pygame.init()
 pygame.display.set_mode((1280, 720))
 ```
 
-Next create a camera object, and set the screen size to match PyGame.
+First, create a camera to view from.
 
 ```python
-# Create our camera (x, y, z)
-myCamera = zp.Cam(0, 0, 0)
+# Create a camera
+# Cam(vPosition)
+myCamera = zp.Cam([0, 0, 0])
+```
 
+Then, set the render size to match the output screen
+
+```python
 zp.screenSize = (1280, 720)
 ```
 
@@ -53,10 +58,11 @@ Now load a mesh to draw, I'll use the built-in susanne.
 For games it's handy to combine meshes into Things, but this example doesn't need those.
 
 ```python
-# Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 2)
+# Use the LoadMesh function to load an OBJ file (filename, *vPos, *VScale)
+myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", [0, 0, 2])
 # Z is forward in this case, so it's placed in front of the camera
 ```
+*Parameters marked with a * are optional*
 
 Rendering 3D is done in 3 stages:
 - Set the internal camera
@@ -115,12 +121,13 @@ pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 
-# Create our camera (x, y, z)
-myCamera = zp.Cam(0, 0, 0)
+# Create a camera
+# Cam(vPosition)
+myCamera = zp.Cam([0, 0, 0])
 zp.screenSize = (1280, 720)
 
-# Use the LoadMesh function to load an OBJ file (filename, x, y, z)
-myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", 0, 0, 2)
+# Use the LoadMesh function to load an OBJ file (filename, *vPos, *VScale)
+myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", [0, 0, 2])
 
 zp.SetInternalCam(myCamera)
 
