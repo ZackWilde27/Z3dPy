@@ -281,9 +281,7 @@ Vector3 TriangleAverage(Triangle tri)
 
 Vector3 GetNormal(BasicTri tri)
 {
-    Vector3 line1 = VectorSub(tri.p2, tri.p1);
-    Vector3 line2 = VectorSub(tri.p3, tri.p1);
-    return VectorMul(VectorNormalize(VectorCrP(line1, line2)), { 1.0, -1.0, -1.0 });
+    return VectorNormalize(VectorCrP(VectorSub(tri.p2, tri.p1), VectorSub(tri.p3, tri.p1)));
 }
 
 Vector3 VectorIntersectPlane(Vector3 pPos, Vector3 pNrm, Vector3 lSta, Vector3 lEnd)
@@ -418,11 +416,6 @@ VectorUV VectorUVMatrixMul(VectorUV v, Matrix m)
     return { result.x, result.y, result.z, v.uv };
 }
 
-Triangle TriMatrixMul(Triangle tri, Matrix m)
-{
-    return { VectorUVMatrixMul(tri.p1, m), VectorUVMatrixMul(tri.p2, m), VectorUVMatrixMul(tri.p3, m), tri.normal, tri.wpos, tri.shade };
-}
-
 Vector3 VectorRotateX(Vector3 v, float deg)
 {
     return Vector3MatrixMul(v, MakeRotMatX(deg));
@@ -451,7 +444,6 @@ Vector3 CheapLighting(Triangle tri, PyObject* lights)
     float shading = 0.f;
     Vector3 colour = { 0.0, 0.0, 0.0 };
     float intensity = 0.f;
-    Vector3 nNormal = VectorMul(tri.normal, { -1, 1, 1 });
     Vector3 pos = tri.wpos;
     PyObject* light;
     int num = 0;
@@ -465,7 +457,7 @@ Vector3 CheapLighting(Triangle tri, PyObject* lights)
         if (dist <= radius)
         {
             Vector3 lightDir = DirectionBetweenVectors(lpos, pos);
-            float dot = VectorDoP(lightDir, nNormal);
+            float dot = VectorDoP(lightDir, tri.normal);
             if (dot > 0)
             {
                 float d = dist / radius;
@@ -555,6 +547,18 @@ PyObject* CGetNormal(PyObject* self, PyObject* args)
     return Vector3ToPyList(GetNormal({ PyVectorToVector3(PyList_GetItem(tri, 0)), PyVectorToVector3(PyList_GetItem(tri, 1)), PyVectorToVector3(PyList_GetItem(tri, 2)) }));
 }
 
+PyObject* CMatrixMakePointAt(PyObject* self, PyObject* args)
+{
+    PyObject* pyPos, * pyTrg, * pyUp;
+    if (!PyArg_ParseTuple(args, "OOO", &pyPos, &pyTrg, &pyUp))
+        return NULL;
+
+    Vector3 pos = PyVectorToVector3(pyPos);
+    BasicTri stuff = MatrixStuff(pos, PyVectorToVector3(pyTrg), PyVectorToVector3(pyUp));
+
+    return Py_BuildValue("((ffff)(ffff)(ffff)(ffff))", stuff.p3.x, stuff.p3.y, stuff.p3.z, 0.0, stuff.p2.x, stuff.p2.y, stuff.p2.z, 0.0, stuff.p1.x, stuff.p1.y, stuff.p1.z, 0.0, pos.x, pos.y, pos.z, 1.0);
+}
+
 
 //=======================
 //     Python Stuff
@@ -569,6 +573,7 @@ static PyMethodDef z3dpyfast_methods[] = {
     { "RotTo", (PyCFunction)CRotTo, METH_VARARGS, nullptr },
     { "GetNormal", (PyCFunction)CGetNormal, METH_VARARGS, nullptr },
     { "MatrixStuff", (PyCFunction)CMatrixStuff, METH_VARARGS, nullptr },
+    { "MatrixMakePointAt", (PyCFunction)CMatrixMakePointAt, METH_VARARGS, nullptr },
     { nullptr, nullptr, 0, nullptr }
 };
 
