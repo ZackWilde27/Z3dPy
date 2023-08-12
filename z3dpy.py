@@ -9,6 +9,10 @@ Capitals mean normalized.
 
 Change Notes:
 
+PATCH 1
+
+- Forgot a + sign when calulating world position that fixes the y axis.
+
 C++
 
 - z3dpyfast now also replaces MatrixStuff(), and
@@ -2576,7 +2580,7 @@ def TransformTris(tris, pos, trg, up=(0.0, 1.0, 0.0)):
         if VectorDoP(nt[3], iC[6]) < 0.4:
             nt[4] = TriAverage(nt)
             nt[4][2] += pos[2]
-            nt[4][1] = pos[1]
+            nt[4][1] += pos[1]
             yield nt
 
 def WTransformTris(tris, rot):
