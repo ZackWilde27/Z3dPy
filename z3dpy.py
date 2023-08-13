@@ -9,9 +9,11 @@ Capitals mean normalized.
 
 Change Notes:
 
-PATCH 1
+PATCH 2
 
-- Forgot a + sign when calulating world position that fixes the y axis.
+- Fixed MeshAddRot(), MeshSubRot(), MeshMulRot() and MeshDivRot()
+
+- World position on the y axis has been fixed.
 
 C++
 
@@ -763,22 +765,22 @@ def MeshSetRot(mesh, vRot):
 def MeshAddRot(mesh, vector):
     mesh[2][0] += vector[0]
     mesh[2][1] += vector[1]
-    mesh[2][3] += vector[2]
+    mesh[2][2] += vector[2]
 
 def MeshSubRot(mesh, vector):
     mesh[2][0] -= vector[0]
     mesh[2][1] -= vector[1]
-    mesh[2][3] -= vector[2]
+    mesh[2][2] -= vector[2]
 
 def MeshMulRot(mesh, vector):
     mesh[2][0] *= vector[0]
     mesh[2][1] *= vector[1]
-    mesh[2][3] *= vector[2]
+    mesh[2][2] *= vector[2]
 
 def MeshDivRot(mesh, vector):
     mesh[2][0] /= vector[0]
     mesh[2][1] /= vector[1]
-    mesh[2][3] /= vector[2]
+    mesh[2][2] /= vector[2]
 
 def MeshGetRot(mesh):
     return mesh[2]
