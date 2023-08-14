@@ -43,6 +43,7 @@ First, create a camera to view from.
 # Create a camera
 # Cam(vPosition)
 myCamera = zp.Cam([0, 0, 0])
+# Vectors are lists: [x, y, z]
 ```
 
 Then, set the render size to match the output screen
