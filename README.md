@@ -3,11 +3,9 @@
 
 Z3dPy is my open-source 3D engine written in Python, packaged into a module.
 
-Still in active development, though it's nearing completion, should mostly be fixes and optimizations from here on out.
-
-You'll need something to drive the screen and handle the controls, but other than that, this module has no dependencies.
-
 It does all the math for 3D rendering, but also lighting, rays, collisions, and has a basic physics engine.
+
+You'll need something to drive the screen and handle the controls, as it's meant to adapt. You could use Tkinter, PyGame, Pyglet, or even a custom setup with pixel or line functions.
 
 Documentation can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
 
