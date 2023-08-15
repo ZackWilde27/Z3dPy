@@ -78,8 +78,8 @@ zp.SetInternalCam(myCamera)
 for tri in zp.RasterMeshList([myMesh]):
 
     # Draw the triangles
-    # Colouring the triangles with their normal value.
-    zp.PgDrawTriRGBF(tri, zp.TriGetNormal(tri), screen, pygame)
+    colour = zp.VectorMulF(zp.TriGetNormal(tri), -1)
+    zp.PgDrawTriRGBF(tri, colour, screen, pygame)
 
 # Also update the display afterwards
 pygame.display.flip()
@@ -99,7 +99,7 @@ while True:
 
     # Render 3D
     for tri in zp.RasterMeshList([myMesh]):
-        zp.PgDrawTriRGBF(tri, zp.TriGetNormal(tri), screen, pygame)
+        zp.PgDrawTriRGBF(tri, zp.VectorMulF(zp.TriGetNormal(tri), -1), screen, pygame)
 
     # Update screen
     pygame.display.flip()
@@ -141,7 +141,7 @@ while True:
     screen.fill("black")
     
     for tri in zp.RasterMeshList([myMesh]):
-        zp.PgDrawTriRGBF(tri, zp.TriGetNormal(tri), screen, pygame)
+        zp.PgDrawTriRGBF(tri, zp.VectorMulF(zp.TriGetNormal(tri), -1), screen, pygame)
 
     pygame.display.flip()
     
