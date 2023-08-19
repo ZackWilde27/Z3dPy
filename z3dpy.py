@@ -1,6 +1,8 @@
 # -zw
 '''
-Z3dPy v0.3.2
+Z3dPy v0.3.3
+
+*Nightly build, wiki/examples are based on the release build.
 
 LEGEND:
 - Parameters marked with * are optional
@@ -9,115 +11,43 @@ Capitals mean normalized.
 
 Change Notes:
 
-PATCH 2
+DRAWING
 
-- Fixed MeshAddRot(), MeshSubRot(), MeshMulRot() and MeshDivRot()
+- Added TriToTexels(), which will convert a triangle into pixels with UV coordinates.
+UVs are normalized, so you'll have to multiply and modulo by the size of the texture.
 
-- World position on the y axis has been fixed.
+- Completely changed how TriTo__() works, instead of a for loop, the functions take
+a draw method.
 
-C++
+For example:
 
-- z3dpyfast now also replaces MatrixStuff(), and
-PointAtMatrix()
+def MyDraw(x, y):
+    pixelArray[x][y] = z3dpy.TriGetColour(tri)
 
-- Applied the clipping texture fix to z3dpyfast as well.
+while True:
+    for tri in z3dpy.Raster():
+        z3dpy.TriToPixels(tri, MyDraw)
 
+TriToPixels(tri, draw)
+    draw function is given 2 parameters, x, y
+TriToLines(tri, draw)
+    draw function is given 4 parameters, sx, sy, ex, ey
+TriToTexels(tri, draw)
+    draw function is given 4 parameters, x, y, u, v
 
-LIGHTING
+- Removed PgPixelShader() and TkPixelShader(), as there's no longer overhead with
+TriToTexels()
 
-- Applied a more robust fix to Tri World Position.
-
-- Expensive lighting now compares world position to reject
-self intersections, so there should be fewer lighting bugs.
-
-- Light_Sun(vRot, FStrength, unused, *vColour) now uses
-rot instead of direction.
-
-
-DRAW TRI OUTLINE
-
-- TkDrawTriOutl() used to fill, that has been fixed.
-
-- PgDrawTriOutl() and TkDrawTriOutl() now take raw RGB,
-not normalized.
-
-
-RASTERING
-
-- DebugRaster(*train, *sortKey, *reverseSort, *clearRays)
-now has clearRays, which if True, will clear the rays list
-before returning.
-
-
-MESHES
-
-- LoadMesh()'s per-vertex normals weren't being calculated
-correctly for P1, this has been fixed.
-
-- AniMesh functions are now just Mesh functions.
-Such as:
-MeshGetFrame()
-MeshSetFrame()
-
-- Removed frame functions and iNext from animesh frames,
-as the same functionality can be achieved with a match/case
-before incrementing.
-
-
-HITS
-
-- Added object functions for hits:
-
-HitCheck(hit) -> bool - wether or not it hit
-HitPos(hit) -> vector - location of hit
-HitDistance(hit) -> float - distance of hit
-HitNormal(hit) -> vector - normal of hit tri.
-HitTriPos(hit) -> vector - world position of hit tri
-
-- Hits now have world position of the hit triangle,
-at index [4]
-
-
-NORMALS
-
-- After some debugging, triangle normals have been
-corrected.
-
-
-YET MORE STREAMLINING
-
-- Removed deprecated TickEmitters(), use
-HandleEmitters() instead.
-
-- Removed deprecated Camera(), use Cam() instead.
-
-- Almost every function with separated x, y,
-and z is now vPos. This includes:
-
-Thing(meshes, vPos)
-Cam(vPos, *scW, *scH)
-Mesh(tris, *vPos, ...)
-AniMesh(tris, *vPos, ...)
-
-
-PIXEL SHADERS
-
-- UVs are set per-triangle instead of per-vertex.
+- Fixed TriToPixels() and TriToLines() visual glitches, which extends to TriToTexels().
 
 
 MISC
 
-- More optimizations in
-TriToLines(), LoadMesh(), Raster(), CamChase(), etc.
+- SetInternalCam() error message displays again, I optimized it too far last time.
 
-- RGBToHex() has been fixed, meant to use rjust instead of ljust.
+- Renamed susanne.obj to suzanne.obj.
 
-- DebugRaster() now visualizes emitters as dots.
-
-- Updated the documentation inside the script. I realized
-some of it is very outdated.
-
-- Removed unused indexes from Dupes.
+- Renamed Vec3MatrixMulOneLine() to just Vec3MatrixMul().
 
 '''
 
@@ -132,7 +62,7 @@ import math
 
 # z3dpyfast is imported at the bottom of the script to replace functions.
 
-print("Z3dPy v0.3.2")
+print("Z3dPy v0.3.3")
 
 #==========================================================================
 #  
@@ -373,9 +303,14 @@ def Dupe(iIndex, vPos, vRot):
 
 def Cam(vPos, scW=0, scH=0):
     global screenSize
-    if scW and scH:
-        screenSize = (scW, scH)
-    return [0, vPos, [0, 0, 0], 0.1, 1500, [0, 0, 1], [0, 1, 0]]
+    try:
+        vPos[0]
+    except:
+        raise Exception("Cam() needs a vector: [x, y, z] or (x, y, z)")
+    else:
+        if scW and scH:
+            screenSize = (scW, scH)
+        return [0, vPos, [0, 0, 0], 0.1, 1500, [0, 0, 1], [0, 1, 0]]
 
 # Internal Camera
 #
@@ -401,8 +336,6 @@ def SetInternalCam(camera):
     global intMatV
     global iC
     iC = [CamGetPos(camera), CamGetRot(camera), screenSize[1] * 0.5, screenSize[0] * 0.5, CamGetNCl(camera), CamGetFCl(camera), CamGetTargetDir(camera), CamGetUpVector(camera)]
-    # Storing the look at matrix, since it doesn't need to be updated as long as
-    # the camera hasn't moved.
     intMatV = LookAtMatrix(CamGetPos(camera), CamGetTargetLoc(camera), CamGetUpVector(camera))
 
 # Lights:
@@ -755,6 +688,26 @@ def MeshGetTris(mesh):
 
 def MeshSetPos(mesh, vPos):
     mesh[1] = vPos
+
+def MeshAddPos(mesh, vector):
+    mesh[1][0] += vector[0]
+    mesh[1][1] += vector[1]
+    mesh[1][2] += vector[2]
+
+def MeshSubPos(mesh, vector):
+    mesh[1][0] -= vector[0]
+    mesh[1][1] -= vector[1]
+    mesh[1][2] -= vector[2]
+
+def MeshMulPos(mesh, vector):
+    mesh[1][0] -= vector[0]
+    mesh[1][1] -= vector[1]
+    mesh[1][2] -= vector[2]
+
+def MeshDivPos(mesh, vector):
+    mesh[1][0] -= vector[0]
+    mesh[1][1] -= vector[1]
+    mesh[1][2] -= vector[2]
 
 def MeshGetPos(mesh):
     return mesh[1]
@@ -1219,20 +1172,30 @@ def CamSetYaw(cam, deg):
 def CamSetRot(cam, vector):
     cam[2] = vector
 
-def CamAddRot(cam, v):
-    cam[2] = VectorAdd(cam[2], v)
+def CamAddRot(cam, vector):
+    cam[2][0] += vector[0]
+    cam[2][1] += vector[1]
+    cam[2][2] += vector[2]
 
-def CamSubRot(cam, v):
-    cam[2] = VectorSub(cam[2], v)
+def CamSubRot(cam, vector):
+    cam[2][0] -= vector[0]
+    cam[2][1] -= vector[1]
+    cam[2][2] -= vector[2]
 
-def CamMulRot(cam, v):
-    cam[2] = VectorMul(cam[2], v)
+def CamMulRot(cam, vector):
+    cam[2][0] *= vector[0]
+    cam[2][1] *= vector[1]
+    cam[2][2] *= vector[2]
 
-def CamDivRot(cam, v):
-    cam[2] = [cam[2][0] / v[0], cam[2][1] / v[1], cam[2][2] / v[2]]
+def CamDivRot(cam, vector):
+    cam[2][0] /= vector[0]
+    cam[2][1] /= vector[1]
+    cam[2][2] /= vector[2]
 
-def CamDivRotF(cam, v):
-    cam[2] = VectorDivF(cam[2], v)
+def CamDivRotF(cam, float):
+    cam[2][0] /= float
+    cam[2][1] /= float
+    cam[2][2] /= float
 
 def CamGetRot(cam):
     return cam[2]
@@ -1266,7 +1229,7 @@ def CamGetTargetDir(cam):
 # target vector
 def CamSetTargetFP(cam):
     dir = RotTo(CamGetRot(cam), [0, 0, 1])
-    CamSetTargetDir(cam, dir)
+    cam[5] = VectorAdd(cam[1], dir)
 
 
 def CamSetUpVector(cam, vector):
@@ -1280,11 +1243,11 @@ def CamGetRightVector(cam):
 
 def CamChase(cam, location, speed=0.25):
     dspeed = speed * delta
-    line = (cam[1][0] - location[0], cam[1][1] - location[1], cam[1][2] - location[2])
-    if VectorGetLength(line) < 0.05:
-        CamSetPos(cam, location)
+    line = VectorMulF((cam[1][0] - location[0], cam[1][1] - location[1], cam[1][2] - location[2]), dspeed)
+    if VectorGetLength(line) < dspeed:
+        cam[1] = location
         return True
-    CamSubPos(cam, VectorMulF(line, dspeed))
+    CamSubPos(cam, line)
     return False
 
 def CamGetUserVar(cam):
@@ -1561,13 +1524,13 @@ def VectorPureDirection(v):
     return VectorZero(VectorNormalize(v), 1.0)
 
 def VectorRotateX(vec, deg):
-    return Vec3MatrixMulOneLine(vec, MatrixMakeRotX(deg))
+    return Vec3MatrixMul(vec, MatrixMakeRotX(deg))
 
 def VectorRotateY(vec, deg):
-    return Vec3MatrixMulOneLine(vec, MatrixMakeRotY(deg))
+    return Vec3MatrixMul(vec, MatrixMakeRotY(deg))
 
 def VectorRotateZ(vec, deg):
-    return Vec3MatrixMulOneLine(vec, MatrixMakeRotZ(deg))
+    return Vec3MatrixMul(vec, MatrixMakeRotZ(deg))
 
 def VectorZero(vec, thresh):
     return [axis if axis >= thresh else 0 for axis in vec]
@@ -1690,7 +1653,7 @@ def TriClipAgainstPlane(tri, pPos, pNrm):
             yield outT2
 
 def GetNormal(tri):
-    return VectorNormalize(VectorMulF(VectorCrP(VectorSub(tri[1], tri[0]), VectorSub(tri[2], tri[0])), 1))
+    return VectorNormalize(VectorCrP(VectorSub(tri[1], tri[0]), VectorSub(tri[2], tri[0])))
 
 def TriAverage(tri):
     return [(tri[0][0] + tri[1][0] + tri[2][0]) * 0.333333, (tri[0][1] + tri[1][1] + tri[2][1]) * 0.333333, (tri[0][1] + tri[1][1] + tri[2][1]) * 0.33333]
@@ -1710,11 +1673,12 @@ def TriClipAgainstZ(tri, distance=iC[4]):
     return TriClipAgainstPlane(tri, (0.0, 0.0, distance), (0.0, 0.0, 1.0))
 
 def TriClipAgainstScreenEdges(tri):
+    output = []
     for t in TriClipAgainstPlane(tri, (0.0, 0.0, 0.0), (0.0, 1.0, 0.0)):
         for r in TriClipAgainstPlane(t, (0.0, screenSize[1] - 1.0, 0.0), (0.0, -1.0, 0.0)):
             for i in TriClipAgainstPlane(r, (0.0, 0.0, 0.0), (1.0, 0.0, 0.0)):
-                for s in TriClipAgainstPlane(i, (screenSize[0] - 1.0, 0.0, 0.0), (-1.0, 0.0, 0.0)):
-                    yield s
+                output += TriClipAgainstPlane(i, (screenSize[0] - 1.0, 0.0, 0.0), (-1.0, 0.0, 0.0))
+    return output
 
 #==========================================================================
 #  
@@ -1776,13 +1740,11 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
                     p3 = int(currentLine[2]) - 1
                     qTri = [verts[p1], verts[p2], verts[p3]]
                     
-                    # Adding the normals, to be averaged
                     normal = GetNormal(qTri)
                     verts[p1][3] = VectorAdd(verts[p1][3], normal)
                     verts[p2][3] = VectorAdd(verts[p2][3], normal)
                     verts[p3][3] = VectorAdd(verts[p3][3], normal)
 
-                    # Counting triangles per vertex, for averaging
                     verts[p1][5] += 1
                     verts[p2][5] += 1
                     verts[p3][5] += 1
@@ -1792,7 +1754,6 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
                         triangles.append([p1, p2, p3])
                 else:
                     # Triangulating n-gon
-                    # Starts with the first 3 points, and sweeps through, connecting triangles.
                     points = [0, 1]
                     for n in range(2, len(currentLine)):
                         points.append(n)
@@ -1865,8 +1826,7 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
         colours = colours[1:]
         colours.reverse()
 
-        for m in range(len(meshes)):
-            MeshSetColour(meshes[m], colours[m])
+        map(MeshSetColour, meshes, colours)
         return meshes
 
 def LoadAniMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
@@ -1948,13 +1908,9 @@ def MatrixMakeRotZ(deg):
     return ((math.cos(rad), math.sin(rad), 0, 0), (-math.sin(rad), math.cos(rad), 0, 0), (0, 0, 1, 0), (0, 0, 0, 1))
 
 def TriMatrixMul(t, m):
-    return [VecMatrixMul(t[0], m), VecMatrixMul(t[1], m), VecMatrixMul(t[2], m), t[3], t[4], t[5], t[6], t[7]]
+    return [Vec3MatrixMul(t[0], m) + [t[0][3], t[0][4]], Vec3MatrixMul(t[1], m) + [t[1][3], t[1][4]], Vec3MatrixMul(t[2], m) + [t[2][3], t[2][4]], t[3], t[4], t[5], t[6], t[7]]
 
-def VecMatrixMul(v, m):
-    output = Vec3MatrixMulOneLine(v, m)
-    return output + [v[3], v[4]]
-
-def Vec3MatrixMulOneLine(v, m):
+def Vec3MatrixMul(v, m):
     return [v[0] * m[0][0] + v[1] * m[1][0] + v[2] * m[2][0] + m[3][0], v[0] * m[0][1] + v[1] * m[1][1] + v[2] * m[2][1] + m[3][1], v[0] * m[0][2] + v[1] * m[1][2] + v[2] * m[2][2] + m[3][2]]
 
 def MatrixMatrixMul(m1, m2):
@@ -2002,7 +1958,8 @@ def MatrixMakeProjection(fov):
 def RayIntersectTri(ray, tri):
     # Using the Moller Trumbore algorithm
     # Credit to whoever decided to include code on the
-    # wikipedia page.
+    # wikipedia page. (Not the best source, but it
+    # works so...)
     deadzone = 0.1
     rayDr = RayGetDirection(ray)
     raySt = ray[1]
@@ -2355,7 +2312,7 @@ def sign(f):
 #
 #==========================================================================
 
-# Raster functions return new triangles. Will not overwrite the old triangles.
+# Raster functions do not overwrite the original triangles.
 
 # Raster()
 # Uses the internal lists
@@ -2367,18 +2324,22 @@ def sign(f):
 #
 # z3dpy.AddThing(myCharacter)
 #
-# for tri in z3dpy.Raster():
-#
-#   z3dpy.PgDrawTriFL(tri, surface, pygame)
+# while True:
+#   for tri in z3dpy.Raster():
+#       z3dpy.PgDrawTriFL(tri, surface, pygame)
 #
 
-def Raster(fnSortKey=triSortAverage, bReverse=True):
+
+def Raster(sortKey=triSortAverage, bReverse=True):
     finished = []
     llen = len(layers)
     llayer = min(llen - 1, 2)
     for l in range(llen):
-        finished += RasterThings(layers[l], emitters if l == llayer else [], fnSortKey, bReverse)
+        finished += RasterThings(layers[l], emitters if l == llayer else [], sortKey, bReverse)
     return finished
+
+
+
 
 # RasterThings()
 # Specify your own list of things to raster.
@@ -2391,7 +2352,7 @@ def Raster(fnSortKey=triSortAverage, bReverse=True):
 #    
 def RasterThings(things, emitters=[], sortKey=triSortAverage, bReverse=True):
     try:
-        intMatV
+        intMatV[0][0]
     except:
         print("Internal Camera is not set. Use z3dpy.SetInternalCam(yourCamera) before rastering.")
         return []
@@ -2448,10 +2409,9 @@ def RasterThings(things, emitters=[], sortKey=triSortAverage, bReverse=True):
 #    
 def RasterMeshList(meshList, sortKey=triSortAverage, bReverse=True):
     try:
-        intMatV
+        intMatV[0][0]
     except:
         print("Internal Camera is not set. Use z3dpy.SetInternalCam(yourCamera) before rastering.")
-        return []
     else:
         viewed = []
         for m in meshList:
@@ -2465,13 +2425,12 @@ def RasterMeshList(meshList, sortKey=triSortAverage, bReverse=True):
 # Triangles from debug objects will have an id of -1
 def DebugRaster(train=[], sortKey=triSortAverage, bReverse=True, clearRays=False):
     try:
-        intMatV
+        intMatV[0][0]
     except:
         print("Internal Camera is not set. Use z3dpy.SetInternalCam(yourCamera) before rastering.")
         return []
     else:
         global rays
-        finished = []
         viewed = []
         for t in GatherThings():
             for m in t[0]:
@@ -2503,9 +2462,6 @@ def DebugRaster(train=[], sortKey=triSortAverage, bReverse=True, clearRays=False
             else:
                 viewed += RasterPt2NoPos([[r[1] + [[0, 0, 0], [0, 0]], VectorAdd(r[1], [0, 0.01, 0]) + [[0, 0, 0], [0, 0]], r[2] + [[0, 0, 0], [0, 0]], (0, 0, 0), (0, 0, 0), (0, 0, 0), (255, 0, 0), -1]])
 
-        if clearRays:
-            rays = []
-
         if train != []:
             for x in range(len(train)):
                 for y in range(len(train[0])):
@@ -2513,13 +2469,15 @@ def DebugRaster(train=[], sortKey=triSortAverage, bReverse=True, clearRays=False
 
         for e in emitters:
             viewed += RasterPt1Static(dotMesh[0], e[1])
+
+        if clearRays:
+            rays = []
         
-        finished += RasterPt3(viewed)
-        return finished
+        return RasterPt3(viewed)
 
 def RasterPt1(tris, pos, rot):
-    trg = VectorAdd(pos, RotTo(rot, [0.0, 0.0, 1.0]))
-    up = RotTo(rot, [0.0, 1.0, 0.0])
+    trg = VectorAdd(pos, RotTo(rot, (0.0, 0.0, 1.0)))
+    up = RotTo(rot, (0.0, 1.0, 0.0))
     return RasterPt2NoPos(TransformTris(tris, pos, trg, up))
 
 def RasterPt1PointAt(tris, pos, target, up):
@@ -2554,8 +2512,7 @@ def RasterPt2NoPos(tris):
 def RasterPt3(tris):
     output = []
     for i in ProjectTris(tris):
-        for s in TriClipAgainstScreenEdges(i):
-            output.append(s)
+        output += TriClipAgainstScreenEdges(i)
     return output
 
 # Low-Level Raster Functions
@@ -2599,7 +2556,7 @@ def TransformTri(tri, rot):
     mW = MatrixMatrixMul(mW, MatrixMakeRotZ(rot[2]))
     nt = TriMatrixMul(tri, mW)
     nt[3] = GetNormal(nt)
-    return nt
+    return nt[:3] + [GetNormal(nt)] + nt[4:]
         
 def TranslateTris(tris, pos):
     for tri in tris:
@@ -2609,8 +2566,7 @@ def TranslateTris(tris, pos):
 
 def TranslateTri(tri, pos):
     newTri = TriAdd(tri, pos)
-    newTri[4] = VectorAdd(TriAverage(newTri), pos)
-    return newTri
+    return newTri[:4] + [VectorAdd(TriAverage(newTri), pos)] + newTri[5:]
 
 def ViewTris(tris):
     return (TriMatrixMul(tri, intMatV) for tri in tris)
@@ -2620,6 +2576,9 @@ def ViewTri(tri):
                     
 def ProjectTris(tris):
     return (TriMul(TriAdd(ProjectTri(tri), [1, 1, 0]), [iC[3], iC[2], 1]) for tri in tris)
+
+def ProjectTri(tri):
+    return TriMul(TriAdd(ProjectTri(tri), [1, 1, 0]), [iC[3], iC[2], 1])
 
 #==========================================================================
 #  
@@ -2878,10 +2837,11 @@ def FillSort(n):
 
 # Part One: From P1 to P2
 
-def TriToLines(tri):
-    output = []
+def TemplateLineDraw(sx, sy, ex, ey, tri):
+    return
 
-    list = [tri[0], tri[1], tri[2]]
+def TriToLines(tri, draw=TemplateLineDraw):
+    list = [VectorFloor(tri[0]), VectorFloor(tri[1]), VectorFloor(tri[2])]
     list.sort(key=FillSort)
     if list[2][0] != list[0][0]:
         slope = (list[2][1] - list[0][1]) / (list[2][0] - list[0][0])
@@ -2891,24 +2851,20 @@ def TriToLines(tri):
 
             diff3 = (list[1][1] - list[0][1]) / diff
             for x in range(0, diff + 1, sign(diff)):
+                draw(x + list[0][0], (diff3 * x) + list[0][1], x + list[0][0], (slope * x) + list[0][1])
 
-                lStart = (x + list[0][0], (diff3 * x) + list[0][1])
-                lEnd = (x + list[0][0], (slope * x) + list[0][1])
-
-                output.append((lStart, lEnd))
-
-        output += FillTriangleLinePt2(list, slope)
-    return tuple(output)
+        FillTriangleLinePt2(list, slope, draw)
 
 # Part Two: From P2 to P3
 
-def FillTriangleLinePt2(list, fSlope):
+def FillTriangleLinePt2(list, fSlope, draw):
     # If this side is flat, no need.
     if list[2][0] != list[1][0]:
         diff2 = list[2][0] - list[1][0]
         diff4 = list[1][0] - list[0][0]
         slope2 = (list[2][1] - list[1][1]) / diff2
-    return [((x + list[1][0], (slope2 * x) + list[1][1]), (x + list[1][0], (fSlope * (x + diff4)) + list[0][1])) for x in range(0, int(diff2) + 1, sign(diff2))]
+        for x in range(0, int(diff2) + 1, sign(diff2)):
+            draw(x + list[1][0], (slope2 * x) + list[1][1], x + list[1][0], (fSlope * (x + diff4)) + list[0][1])
 
 # TriToPixels()
 # Returns a tuple of pixels to draw on the screen, given a triangle.
@@ -2921,9 +2877,11 @@ def FillTriangleLinePt2(list, fSlope):
 #       y = pixel[1]
 #
 
-def TriToPixels(tri):
-    output = []
-    list = [tri[0], tri[1], tri[2]]
+def TemplatePixelDraw(x, y):
+    return
+
+def TriToPixels(tri, draw=TemplatePixelDraw):
+    list = [VectorFloor(tri[0]), VectorFloor(tri[1]), VectorFloor(tri[2])]
     list.sort(key=FillSort)
 
     diffX = list[2][0] - list[0][0]
@@ -2947,29 +2905,26 @@ def TriToPixels(tri):
 
                 # Pixel:
                 # [0] is the screen x, [1] is the screen y
-                output += [(fX, y) for y in range(ranges[0], ranges[1] + 1)]
+                for y in range(ranges[0], ranges[1] + 1):
+                    draw(fX, y)
 
-        output += FillTrianglePixelPt2(list, slope, diff)
-    return tuple(output)
+        FillTrianglePixelPt2(list, slope, diff, draw)
 
-def FillTrianglePixelPt2(list, fSlope, diff):
-    output = []
+def FillTrianglePixelPt2(list, fSlope, diff, draw):
     if list[2][0] != list[1][0]:
         diff2 = list[2][0] - list[1][0]
-        if diff2 != 0:
-            slope2 = (list[2][1] - list[1][1]) / diff2
+        slope2 = (list[2][1] - list[1][1]) / diff2
 
-            for x in range(int(diff2)):
-                # Repeat the same steps except for this side now.
-                ranges = [int(slope2 * x + list[1][1]), int(fSlope * (x + diff) + list[0][1])]
-                if ranges[0] == ranges[1]:
-                    continue
+        for x in range(int(diff2)):
+            # Repeat the same steps except for this side now.
+            ranges = [int(slope2 * x + list[1][1]), int(fSlope * (x + diff) + list[0][1])]
+            if ranges[0] == ranges[1]:
+                continue
 
-                ranges.sort()
-                fX = int(x + list[1][0])
-
-                output += [(fX, y) for y in range(ranges[0], ranges[1] + 1)]
-    return output
+            ranges.sort()
+            fX = int(x + list[1][0])
+            for y in range(ranges[0], ranges[1] + 1):
+                draw(fX, y)
 
 # PgPixelShader()
 # Calculates texturing, converts the triangle to pixels, then draws them to the screen via a PyGame PixelArray.
@@ -3021,256 +2976,80 @@ def UVCalcPt1(uv1, uv2, uv3, Fx, Fx2, bStage1):
 def UVCalcPt2(Fy, uvDx, uvDy, UVstX, UVstY):
     return (Fy * uvDy + UVstY, Fy * uvDx + UVstX)
 
+def TemplateTexelDraw(x, y, u, v):
+    return
 
-# PixelShader() is just TriToPixels(), but also calculates 
-# UV coordinates, and does the drawing to minimize overhead.
-
-# Uses Affine texture mapping, which means textures will warp
-# like a PS1
-
-# Usage:
-'''
-
-# You'll need to convert the screen to a pygame pixel array
-screen = pygame.display.set_mode((1280, 720))
-screenArray = pygame.PixelArray(screen)
-
-# Next, load a texture or create one
-myTexture = z3dpy.PgLoadTexture("z3dpy/textures/test.png", pygame)
-
-# or
-
-myTexture = (
-            ((255, 255, 255, True), (0, 0, 0, True)),
-            ((0, 0, 0, True), (255, 255, 255, True))
-            )
-
-# Then, during the draw loop, replace PgDrawTri* with PgPixelShader(tri, pixelArray, texture)
-for tri in z3dpy.Raster():
-    z3dpy.PgPixelShader(tri, screenArray, myTexture)
-
-'''
-
-def PgPixelShader(tri, pixelArray, texture=txtr):
-    tX = len(texture)
-    tY = len(texture[0])
-    list = [tri[0], tri[1], tri[2]]
+def TriToTexels(tri, draw=TemplateTexelDraw):
+    list = [VectorFloor(tri[0]) + tri[0][3:], VectorFloor(tri[1]) + tri[1][3:], VectorFloor(tri[2]) + tri[2][3:]]
     list.sort(key=FillSort)
 
     diffX = list[2][0] - list[0][0]
 
     if diffX != 0:
-        # x * slope takes a screen X and turns it into a screen Y, along the P1-P3 line
         slope = (list[2][1] - list[0][1]) / diffX
 
-        # multiplied by 0-1 to get a screen X, along the P1-P2 line (normalized, make 
-        # sure to add back P1's X)
         diff = list[1][0] - list[0][0]
 
-        # If this side's flat, no need.
         if diff != 0:
 
-            uv1 = list[0][4]
-            uv2 = list[1][4]
-            uv3 = list[2][4]
-
             diffY = list[1][1] - list[0][1]
-            # x * diff3 takes a screen x and results in a screen y, on the P1-P2 line 
-            # (normalized, make sure to add back P1's Y)
             diff3 = diffY / diff
 
             for x in range(math.floor(diff) + 1):
 
-                ranges = [math.floor(diff3 * x + list[0][1]), math.floor(slope * x + list[0][1])]
-
-                rangD = ranges[1] - ranges[0]                
-
-                if rangD == 0:
-                    continue
-
-                sgn = sign(rangD)
-
-                # Converting x to 0-1
-                # Normalized between P1 and P2
-                nX = (x / (diff + 1))
-                # Normalized between P1 and P3
-                nX2 = (x / diffX)
-
-                UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, True)
-
-                # Final X coordinate (pre-calculating instead of in the for loop)
                 fX = math.floor(x + list[0][0])
 
                 if fX > 0 and fX < screenSize[0]:
 
+                    ranges = [math.floor(diff3 * x + list[0][1]), math.floor(slope * x + list[0][1])]
+
+                    rangD = ranges[1] - ranges[0]                
+
+                    if rangD == 0:
+                        continue
+
+                    sgn = sign(rangD)
+
+                    UVs = UVCalcPt1(list[0][4], list[1][4], list[2][4], (x / (diff + 1)), (x / diffX), True)
+
+                    # Final X coordinate (pre-calculating instead of in the for loop)
+
                     for y in range(ranges[0], ranges[1] + sgn, sgn):
-
-                        # Convering y to 0-1
-                        nY = (y - ranges[0]) / rangD
+                        if y > 0 and y < screenSize[1]:
+                            # "Texel":
+                            # [0] is the screen x, [1] is the screen y, [2] is u, and [3] is v
+                            fUVs = UVCalcPt2((y - ranges[0]) / rangD, UVs[0], UVs[1], UVs[2], UVs[3])
+                            draw(fX, y, fUVs[0], fUVs[1])
                             
-                        # Pixel:
-                        # [0] is the screen x, [1] is the screen y, [2] is the UV
-                        if y > 0 and y < screenSize[1]:
-                            if pixelArray[fX, y] == 0:
-                                fUVs = UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])
-                                u = fUVs[0] * tX
-                                v = fUVs[1] * tY
-                                u = math.floor(abs(u)) % tX
-                                v = math.floor(abs(v)) % tY
-                                colour = texture[u][v]
-                                if colour[3]:
-                                    pixelArray[fX, y] = colour
+        TriToTexelsPt2(list, slope, diff, diffX, draw)
 
-        PgPixelShaderPt2(list, slope, diff, diffX, pixelArray, texture, tX, tY)
-
-def PgPixelShaderPt2(list, fSlope, diff, diffX, pixelArray, texture, tX, tY):
+def TriToTexelsPt2(list, fSlope, diff, diffX, draw):
     if list[2][0] != list[1][0]:
         diff2 = list[2][0] - list[1][0]
         if diff2 != 0:
             slope2 = (list[2][1] - list[1][1]) / diff2
-            uv1 = list[0][4]
-            uv2 = list[1][4]
-            uv3 = list[2][4]
 
             for x in range(math.floor(diff2) + 1):
-                # Repeat the same steps except for this side now.
-                ranges = [math.floor(slope2 * x + list[1][1]), math.floor(fSlope * (x + diff) + list[0][1])]
 
-                rangd = ranges[1] - ranges[0]
-
-                if rangd == 0:
-                    continue
-
-                sgn = sign(rangd)
-                
-                nX = x / (diff2 + 1)
-                nX2 = (x + diff) / diffX
-                UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, False)
                 fX = math.floor(x + list[1][0])
 
-                for y in range(ranges[0], ranges[1] + sgn, sgn):
+                if fX > 0 and fX < screenSize[0]:
+                    # Repeat the same steps except for this side now.
+                    ranges = [math.floor(slope2 * x + list[1][1]), math.floor(fSlope * (x + diff) + list[0][1])]
 
-                    nY = (y - ranges[0]) / rangd
+                    rangd = ranges[1] - ranges[0]
 
-                    if fX > 0 and fX < screenSize[0]:
+                    if rangd == 0:
+                        continue
+
+                    sgn = sign(rangd)
+
+                    UVs = UVCalcPt1(list[0][4], list[1][4], list[2][4], x / (diff2 + 1), (x + diff) / diffX, False)
+                    
+                    for y in range(ranges[0], ranges[1] + sgn, sgn):
                         if y > 0 and y < screenSize[1]:
-                            if pixelArray[fX, y] == 0:
-                                fUVs = UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])
-                                rU = fUVs[0] * tX
-                                rV = fUVs[1] * tY
-                                u = math.floor(abs(rU)) % tX
-                                v = math.floor(abs(rV)) % tY
-                                colour = texture[u][v]
-                                if colour[3]:
-                                    pixelArray[fX, y] = colour
-
-# Tkinter is slow, so this is not meant for real time.
-def TkPixelShader(tri, canvas, texture=txtr):
-    tX = len(texture)
-    tY = len(texture[0])
-    list = [tri[0], tri[1], tri[2]]
-    list.sort(key=FillSort)
-
-    diffX = list[2][0] - list[0][0]
-
-    if diffX != 0:
-        # x * slope takes a screen X and turns it into a screen Y, along the P1-P3 line
-        slope = (list[2][1] - list[0][1]) / diffX
-
-        # multiplied by 0-1 to get a screen X, along the P1-P2 line (normalized, make 
-        # sure to add back P1's X)
-        diff = list[1][0] - list[0][0]
-
-        # If this side's flat, no need.
-        if diff != 0:
-
-            uv1 = list[0][4]
-            uv2 = list[1][4]
-            uv3 = list[2][4]
-
-            diffY = list[1][1] - list[0][1]
-            # x * diff3 takes a screen x and results in a screen y, on the P1-P2 line 
-            # (normalized, make sure to add back P1's Y)
-            diff3 = diffY / diff
-
-            for x in range(math.floor(diff) + 1):
-
-                range1 = math.floor(diff3 * x + list[0][1])
-                range2 = math.floor(slope * x + list[0][1])
-
-                if range2 - range1 == 0:
-                    continue
-
-                # Converting x to 0-1
-                # Normalized between P1 and P2
-                nX = (x / (diff + 1))
-                # Normalized between P1 and P3
-                nX2 = (x / diffX)
-
-                UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, True)
-
-                # Final X coordinate (pre-calculating instead of in the for loop)
-                fX = math.floor(x + list[0][0])
-
-                sgn = 1 if range1 < range2 else -1
-                for y in range(range1, range2 + sgn, sgn):
-
-                    # Convering y to 0-1
-                    nY = (y - range1) / (range2 - range1)
-                        
-                    # Pixel:
-                    # [0] is the screen x, [1] is the screen y, [2] is the UV
-                    if fX > 0 and fX < screenSize[0]:
-                        if y > 0 and y < screenSize[1]:
-                            fUVs = UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])
-                            rU = fUVs[0] * tX
-                            rV = fUVs[1] * tY
-                            u = math.floor(abs(rU)) % tX
-                            v = math.floor(abs(rV)) % tY
-                            colour = texture[u][v]
-                            if colour[3]:
-                                canvas.create_line(fX, y, fX + 1, y, fill=RGBToHex(colour))
-
-        TkPixelShaderPt2(list, slope, diff, diffX, canvas, texture, tX, tY)
-
-def TkPixelShaderPt2(list, fSlope, diff, diffX, canvas, texture, tX, tY):
-    if list[2][0] != list[1][0]:
-        diff2 = list[2][0] - list[1][0]
-        if diff2 != 0:
-            slope2 = (list[2][1] - list[1][1]) / diff2
-            uv1 = list[0][4]
-            uv2 = list[1][4]
-            uv3 = list[2][4]
-
-            for x in range(math.floor(diff2) + 1):
-                # Repeat the same steps except for this side now.
-                range1 = math.floor(slope2 * x + list[1][1])
-                range2 = math.floor(fSlope * (x + diff) + list[0][1])
-
-                if range2 - range1 == 0:
-                    continue
-                
-                nX = x / (diff2 + 1)
-                nX2 = (x + diff) / diffX
-                UVs = UVCalcPt1(uv1, uv2, uv3, nX, nX2, False)
-                fX = math.floor(x + list[1][0])
-
-                sgn = 1 if range1 < range2 else -1
-
-                for y in range(range1, range2 + sgn, sgn):
-
-                    nY = (y - range1) / (range2 - range1)
-
-                    if fX > 0 and fX < screenSize[0]:
-                        if y > 0 and y < screenSize[1]:
-                            fUVs = UVCalcPt2(nY, UVs[0], UVs[1], UVs[2], UVs[3])
-                            rU = fUVs[0] * tX
-                            rV = fUVs[1] * tY
-                            u = math.floor(abs(rU)) % tX
-                            v = math.floor(abs(rV)) % tY
-                            colour = texture[u][v]
-                            if colour[3]:
-                                canvas.create_line(fX, y, fX + 1, y, fill=RGBToHex(colour))
+                            fUVs = UVCalcPt2((y - ranges[0]) / rangd, UVs[0], UVs[1], UVs[2], UVs[3])  
+                            draw(fX, y, fUVs[0], fUVs[1])
 
 #==========================================================================
 #  
@@ -3446,27 +3225,27 @@ while True:
 '''
 
 def HandleEmitters(emitters=emitters):
-    for em in emitters:
-        for p in range(len(em[0])):
-            if p >= len(em[0]):
+    for emitter in emitters:
+        length = len(emitter[0])
+        for p in range(length):
+            if p >= len(emitter[0]):
                 break
-            pt = em[0][p]
+            pt = emitter[0][p]
             pt[0] -= delta
             if pt[0] <= 0:
-                # Removal from list
-                em[0] = em[0][:p] + em[0][p+1:]
+                emitter[0] = emitter[0][:p] + emitter[0][p+1:]
                 p -= 1
                 continue
             # Basic version of physics for particles
             pt[2] = VectorSub(pt[2], [airDrag * sign(pt[2][0]), airDrag * sign(pt[2][1]), airDrag * sign(pt[2][2])])
-            pt[2] = VectorAdd(pt[2], VectorMulF(VectorMulF(EmitterGetGravity(em), 5), delta))
+            pt[2] = VectorAdd(pt[2], VectorMulF(VectorMulF(emitter[6], 5), delta))
             pt[1] = VectorAdd(VectorMulF(pt[2], delta), pt[1])
-        if em[6]:
-            if len(em[0]) < EmitterGetMax(em):
-                if em[8] > 0.0:
-                    em[0] += (Part(EmitterGetPos(em), VectorAdd(EmitterGetVelocity(em), ((rand.random() - 0.5) * em[8], (rand.random() - 0.5) * em[8], (rand.random() - 0.5) * em[8])), EmitterGetLifetime(em)),)
+        if emitter[6]:
+            if length < emitter[4]:
+                if emitter[8] > 0.0:
+                    emitter[0] += (Part(emitter[1], VectorAdd(emitter[3], ((rand.random() - 0.5) * emitter[8], (rand.random() - 0.5) * emitter[8], (rand.random() - 0.5) * emitter[8])), emitter[5]),)
                 else:
-                    em[0] += (Part(EmitterGetPos(em), EmitterGetVelocity(em), EmitterGetLifetime(em)),)
+                    emitter[0] += (Part(emitter[1], emitter[3], emitter[5]),)
 
 #==========================================================================
 #  
@@ -3492,34 +3271,34 @@ def WhatIs(any):
         match length:
             case 2:
                 try:
-                    test = any[0][0]
+                    any[0][0]
                     return "Ray"
                 except:
                     return "Vector2"
             case 3:
                 try:
-                    test = any[0] + 1
+                    any[0] + 1
                     return "Vector"
                 except:
                     try:
-                        test = any[0][0] + 1
+                        any[0][0] + 1
                         # S for shortened triangle, it only includes the points, and no other information.
                         return "STriangle"
                     except:
                         return "Particle"
             case 4:
                 try:
-                    test = any[0][0]
+                    any[0][0]
                     return "PhysicsBody"
                 except:
                     return "Vector4"
             case 5:
                 try:
-                    test = any[4][0][0]
+                    any[4][0][0]
                     return "Hitbox"
                 except:
                     try:
-                        test = any[4][2]
+                        any[4][2]
                         return "VectorUV"
                     except:
                         return "Light_Point"
@@ -3527,7 +3306,7 @@ def WhatIs(any):
                 return "Triangle"
             case 7:
                 try:
-                    test = any[5][0]
+                    any[5][0]
                     return "Camera"
                 except:
                     if any[5] == -1:
@@ -3536,11 +3315,11 @@ def WhatIs(any):
                         return "AniMesh"
             case 8:
                 try:
-                    test = any[4] + 1
+                    any[4] + 1
                     return "Emitter"
                 except:
                     try:
-                        test = any[6][0]
+                        any[6][0]
                         return "Triangle"
                     except:
                         return "Thing"
@@ -3551,20 +3330,7 @@ def RGBToHex(vColour):
         return hex(max(int, 0))[2:].rjust(2, "0")
     #print("#" + intToHex(int(vector[0])) + intToHex(int(vector[1])) + intToHex(int(vector[2])))
     return "#" + intToHex(math.floor(vColour[0])) + intToHex(math.floor(vColour[1])) + intToHex(math.floor(vColour[2]))
-                    
-def PgScreen(width, height, bgCol, pygame):
-    global screenSize
-    screenSize = (width, height)
-    screen = pygame.display.set_mode((width, height))
-    screen.fill(bgCol)
-    return screen
 
-def TkScreen(width, height, bgCol, tkinter):
-    global screenSize
-    screenSize = (width, height)
-    canvas = tkinter.Canvas(width=width, height=height, background=bgCol)
-    canvas.pack()
-    return canvas
 
 # My own list interpolator
 def ListInterpolate(list, fIndex):
