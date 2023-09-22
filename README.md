@@ -3,11 +3,11 @@
 
 Z3dPy is my open-source 3D engine written in Python, packaged into a module.
 
-It does all the math for 3D rendering, but also lighting, rays, collisions, and has a basic physics engine.
+It does all the math for 3D rendering without any dependencies, and includes some basic features to get you started, like lighting, collisions, physics, and rays.
 
-You'll need something to drive the screen and handle the controls, as it's meant to adapt. You could use Tkinter, PyGame, Pyglet, or even a custom setup with pixel or line functions.
+You'll need a module to drive the screen and handle controls, I recommend PyGame as it's quite fast.
 
-Documentation can be found <a href="https://github.com/ZackWilde27/pythonRasterizer/wiki">here.</a>
+Documentation can be found <a href="https://github.com/ZackWilde27/Z3dPy/wiki">here.</a>
 
 <br>
 
@@ -26,49 +26,49 @@ Builds that end in an odd number are nightly builds, which may be unstable / lac
 
 ![example](https://github.com/ZackWilde27/Z3dPy/assets/115175938/49541f9d-d88c-491c-934f-5e22b65402b2)
 
-I'll use PyGame for the screen. The Tkinter version can be found <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Tkinter">here</a>
+(Don't mind the dithering, just a low quality GIF)
+
+I'll use PyGame to drive the screen.</a>
 
 ```python
-import z3dpy as zp
 import pygame
+import z3dpy as zp
 
 # PyGame stuff
 pygame.init()
 pygame.display.set_mode((1280, 720))
 ```
 
-First, create a camera to view from.
+<br>
+
+First, create a camera to view from, and set the screenSize to match the previously set up window.
 
 ```python
-# Create a camera
-# Cam(vPosition)
+# Vectors are lists or tuples, [x, y, z]
 myCamera = zp.Cam([0, 0, 0])
-# Vectors are lists: [x, y, z]
-```
 
-Then, set the render size to match the output screen
-
-```python
 zp.screenSize = (1280, 720)
 ```
 
-Now load a mesh to draw, I'll use the built-in susanne.
+<br>
+
+Now load a mesh to draw, I'll use the built-in suzanne monkey.
 
 For games it's handy to combine meshes into Things, but this example doesn't need those.
 
 ```python
 # Use the LoadMesh function to load an OBJ file (filename, *vPos, *VScale)
-myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", [0, 0, 2])
+myMesh = zp.LoadMesh("z3dpy/mesh/suzanne.obj", [0, 0, 2])
 # Z is forward in this case, so it's placed in front of the camera
 ```
 *Parameters marked with a * are optional*
 
+<br>
+
 Rendering 3D is done in 3 stages:
 - Set the internal camera
 - Rastering
-- Draw the triangles
-
-The drawing stage has <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Drawing-Triangles">several different functions</a> depending on the desired shading.
+- Draw the triangles (the method will depend on the module handling the screen)
 
 ```python
 # Set Internal Camera
@@ -78,12 +78,42 @@ zp.SetInternalCam(myCamera)
 for tri in zp.RasterMeshList([myMesh]):
 
     # Draw the triangles
-    colour = zp.VectorMulF(zp.TriGetNormal(tri), -1)
-    zp.PgDrawTriRGBF(tri, colour, screen, pygame)
+    colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
+    pygame.draw.polygon(screen, colour, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
 # Also update the display afterwards
 pygame.display.flip()
 ```
+
+<br>
+
+If your display method doesn't have a native triangle drawing function, triangles can be converted into either lines or pixels (although the performance cost of doing so can be drastic, especially with the latter).
+```python
+for tri in zp.RasterMeshList([myMesh]):
+    # Draw the triangles
+    colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
+    for pixel in zp.TriToPixels(tri):
+        x = pixel[0]
+        y = pixel[1]
+        # Drawing a 1 pixel line, although using a pixel array would be faster
+        pygame.draw.line(screen, colour, (x, y), (x + 1, y))
+```
+
+or
+
+```python
+for tri in zp.RasterMeshList([myMesh]):
+    # Draw the triangles
+    colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
+    for line in zp.TriToLines(tri):
+        sx = line[0][0]
+        sy = line[0][1]
+        ex = line[1][0]
+        ey = line[1][1]
+        pygame.draw.line(screen, colour, (sx, sy), (ex, ey))
+```
+
+<br>
 
 Lastly, chuck it in a loop.
 
@@ -99,7 +129,8 @@ while True:
 
     # Render 3D
     for tri in zp.RasterMeshList([myMesh]):
-        zp.PgDrawTriRGBF(tri, zp.VectorMulF(zp.TriGetNormal(tri), -1), screen, pygame)
+        colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
+        pygame.draw.polygon(screen, colour, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
     # Update screen
     pygame.display.flip()
@@ -126,7 +157,7 @@ myCamera = zp.Cam([0, 0, 0])
 zp.screenSize = (1280, 720)
 
 # Use the LoadMesh function to load an OBJ file (filename, *vPos, *VScale)
-myMesh = zp.LoadMesh("z3dpy/mesh/susanne.obj", [0, 0, 2])
+myMesh = zp.LoadMesh("z3dpy/mesh/suzanne.obj", [0, 0, 2])
 
 zp.SetInternalCam(myCamera)
 
@@ -141,7 +172,8 @@ while True:
     screen.fill("black")
     
     for tri in zp.RasterMeshList([myMesh]):
-        zp.PgDrawTriRGBF(tri, zp.VectorMulF(zp.TriGetNormal(tri), -1), screen, pygame)
+        colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
+        pygame.draw.polygon(screen, colour, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
     pygame.display.flip()
     
