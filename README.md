@@ -87,7 +87,7 @@ pygame.display.flip()
 
 <br>
 
-If your display method doesn't have a native triangle drawing function, triangles can be converted into either lines or pixels (although the performance cost of doing so can be drastic, especially with the latter).
+If your display method doesn't have a native triangle drawing function, triangles can be converted into either lines or pixels (although the performance cost of looping through each line or pixel can be drastic, especially with the latter).
 ```python
 for tri in zp.RasterMeshList([myMesh]):
     # Draw the triangles
