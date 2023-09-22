@@ -3,7 +3,7 @@
 
 Z3dPy is my open-source 3D engine written in Python, packaged into a module.
 
-It does all the math for 3D rendering without any dependencies, and includes some basic features to get you started, like lighting, collisions, physics, and rays.
+It does all the math for 3D rendering, and includes some basic features to get you started, like lighting, collisions, physics, and rays.
 
 You'll need a module to drive the screen and handle controls, I recommend PyGame as it's quite fast.
 
