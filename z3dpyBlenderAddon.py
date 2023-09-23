@@ -60,7 +60,7 @@ class Z3dPyRefresh(bpy.types.Operator):
                     mbuffer.append(object.name)
                     meshes += object.name + " = zp.LoadMesh(\"filename.obj\""
                     if object.parent != None:
-                        meshes += " " + (object.parent.location.x - object.location.x) + ", " + (object.parent.location.y - object.location.y) + ", " + (object.parent.location.z - object.location.z)
+                        meshes += " " + str(object.parent.location.x - object.location.x) + ", " + str(object.parent.location.y - object.location.y) + ", " + str(object.parent.location.z - object.location.z)
                     meshes += ")\n"
                 case 'EMPTY':
                     if object.name != "z3dpy_axis":
