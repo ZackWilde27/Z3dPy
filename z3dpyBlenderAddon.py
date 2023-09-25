@@ -22,7 +22,51 @@ def ListConvertRot(rot):
 
 def ConvertCol(col):
     return "[" + str(round(col.r * 255)) + ", " + str(round(col.g * 255)) + ", " + str(round(col.b * 255)) + "]"
-    
+
+class Z3dPyDocs(bpy.types.Operator):
+    """Z3dPy map editor documentation"""
+    bl_idname = "z3dpy.docs"
+    bl_label = "Documentation"
+
+    def execute(self, context):
+        bpy.ops.wm.url_open(url="https://github.com/ZackWilde27/Z3dPy/wiki/Z3dPy-Map-Editor#Using")
+        return { 'FINISHED' }
+
+class Z3dPyExportMeshes(bpy.types.Operator):
+    """For all meshes, reset the transform, export as OBJ, then move it back."""
+    bl_idname = "z3dpy.export"
+    bl_label = "Export Meshes"
+
+    def execute(self, context):
+        for object in bpy.data.objects:
+            if object.type == 'MESH':
+                if object.parent != None:
+                    tLoc = (object.parent.location.x, object.parent.location.y, object.parent.location.z)
+                    tRot = (object.parent.rotation_euler.x, object.parent.rotation_euler.y, object.parent.rotation_euler.z)
+                    object.parent.location = (0, 0, 0)
+                    object.parent.rotation_euler = (0, 0, 0)
+
+                mLoc = (object.location.x, object.location.y, object.location.z)
+                mRot = (object.rotation_euler.x, object.rotation_euler.y, object.rotation_euler.z)
+                object.location = (0, 0, 0)
+                object.rotation_euler = (0, 0, 0)
+                object.select_set(True)
+                try:
+                    bpy.ops.export_scene.obj(filepath=bpy.path.abspath("//mesh/" + object.name + ".obj"), use_selection=True, group_by_material=True, axis_forward='Z', axis_up='-Y')
+                except:
+                    bpy.ops.file.directory_new(bpy.path.abspath("//mesh"), True)
+                    bpy.ops.export_scene.obj(filepath=bpy.path.abspath("//mesh/" + object.name + ".obj"), use_selection=True, group_by_material=True, axis_forward='Z', axis_up='-Y')
+                    
+                object.location = mLoc
+                object.rotation_euler = mRot
+                if object.parent != None:
+                    object.parent.location = tLoc
+                    object.parent.rotation_euler = tRot
+
+                object.select_set(False)
+                
+        return { 'FINISHED' }
+
 class Z3dPyRefresh(bpy.types.Operator):
     """Write changes to script"""      # Use this as a tooltip for menu items and buttons.
     bl_idname = "z3dpy.refresh_script"        # Unique identifier for buttons and menu items to reference.
@@ -96,6 +140,8 @@ class CustomMenu(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator("z3dpy.refresh_script")
+        layout.operator("z3dpy.export")
+        layout.operator("z3dpy.docs")
 
 
 def draw_item(self, context):
@@ -104,6 +150,8 @@ def draw_item(self, context):
   
 def register():
     bpy.utils.register_class(Z3dPyRefresh)
+    bpy.utils.register_class(Z3dPyDocs)
+    bpy.utils.register_class(Z3dPyExportMeshes)
     bpy.utils.register_class(CustomMenu)
         
     
@@ -111,6 +159,8 @@ def register():
     
 def unregister():
     bpy.utils.unregister_class(Z3dPyRefresh)
+    bpy.utils.unregister_class(Z3dPyDocs)
+    bpy.utils.unregister_class(Z3dPyExportMeshes)
     bpy.utils.unregister_class(CustomMenu)
     
     
