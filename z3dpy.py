@@ -1,7 +1,7 @@
 # -zw
 '''
 Z3dPy v0.3.9
-
+THE COMPLETE OVERHAUL UPDATE
 
 *Nightly version, examples are based on the release version,
 
@@ -16,6 +16,14 @@ Capitals mean normalized.
 
 Change Notes:
 
+PATCH 3.1
+
+- The debug meshes now set their colour correctly.
+
+- z3dpyfast no longer causes an error about a missing
+TriToLines function, (still working on it)
+
+
 PATCH 3
 
 - Trains can now be drawn like regular meshes.
@@ -23,6 +31,8 @@ BakeTrain() will create the mesh out of the points, and
 that mesh will be drawn underneath everything in Render()
 
 It's at z3dpy.trainMesh if you want to put it in your own Thing or just include it in RenderMeshList().
+
+- VectorDoP and VectorCrP have been renamed to DotProduct and CrossProduct.
 
 - All of the new objects have a 'user' property now, and every list object has a user property at the end, which can be
 accessed universally with a -1 index
@@ -237,7 +247,7 @@ from math import sqrt, floor, ceil, sin, cos, tan
 
 # z3dpyfast is imported at the bottom of the script to replace functions.
 
-print("Z3dPy v0.3.9_P3")
+print("Z3dPy v0.3.9_P3_1")
 
 #==========================================================================
 #  
@@ -1273,9 +1283,6 @@ def VectorFloor(v):
 def CrossProduct(v1, v2):
     return [(v1[1] * v2[2]) - (v1[2] * v2[1]), (v1[2] * v2[0]) - (v1[0] * v2[2]), (v1[0] * v2[1]) - (v1[1] * v2[0])]
 
-def VectorCrP(v1, v2):
-    return CrossProduct(v1, v2)
-
 def VectorGetLength(v):
     return sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
 
@@ -1906,15 +1913,15 @@ def LoadAniMesh(filename, vPos=[0.0, 0.0, 0.0], VScale=(1.0, 1.0, 1.0)):
 try:
     lightMesh = LoadMesh("z3dpy/mesh/light.obj")
     lightMesh.id = -1
-    lightMesh.SetColour = (255, 0, 0)
+    lightMesh.SetColour(255, 0, 0)
 
     dotMesh = LoadMesh("z3dpy/mesh/dot.obj")
     dotMesh.id = -1
-    dotMesh.SetColour = (255, 0, 0)
+    dotMesh.SetColour(255, 0, 0)
 
     arrowMesh = LoadMesh("z3dpy/mesh/axisZ.obj")
     arrowMesh.id = -1
-    arrowMesh.SetColour = (255, 0, 0)
+    arrowMesh.SetColour(255, 0, 0)
 except:
     print("Failed to load built-in meshes. (is the z3dpy folder missing?)")
 
@@ -3316,7 +3323,7 @@ else:
         global GetNormal
         global MatrixStuff
         global PointAtMatrix
-        global TriToLines
+        #global TriToLines
         DistanceBetweenVectors = z3dpyfast.DistanceBetweenVectors
         DirectionBetweenVectors = z3dpyfast.DirectionBetweenVectors
         ShortestPointToPlane = z3dpyfast.ShortestPointToPlane
@@ -3325,7 +3332,7 @@ else:
         GetNormal = z3dpyfast.GetNormal
         MatrixStuff = z3dpyfast.MatrixStuff
         PointAtMatrix = z3dpyfast.MatrixMakePointAt
-        TriToLines = z3dpyfast.TriToLines
+        #TriToLines = z3dpyfast.TriToLines
         print("z3dpyfast loaded.")
 
 def fast():
@@ -3335,6 +3342,9 @@ def fast():
 
 def VectorDoP(v1, v2):
     return DotProduct(v1, v2)
+
+def VectorCrP(v1, v2):
+    return CrossProduct(v1, v2)
 
 def Raster(sortKey=TriSortAverage, bReverse=True):
     return Render(sortKey, bReverse)
