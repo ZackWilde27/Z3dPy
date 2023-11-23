@@ -60,7 +60,7 @@ myCamera = zp.Cam([0, 0, 0], 1280, 720)
 Now load a mesh to draw, I'll use the built-in suzanne monkey.
 
 ```python
-# Use the LoadMesh function to load an OBJ file (filename, *vPos, *VScale)
+# Use the LoadMesh function to load an OBJ, DAE, or X3D file (filename, *vPos, *VScale)
 myMesh = zp.LoadMesh("z3dpy/mesh/suzanne.obj", [0, 0, 2])
 # Z is forward in this case, so it's placed in front of the camera
 ```
