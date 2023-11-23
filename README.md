@@ -8,6 +8,7 @@ You'll need something to draw on, I recommend PyGame for it's speed.
 - It's Fast (fast enough that the speed will depend on your drawing method)
 - Easy to use
 - 100% Python, but can be sped up even further with an extension
+- Stores vertex animation efficiently with my Animated OBJ format.
 - Built in features for making games, with the expandability to do more.
 
 <br>
