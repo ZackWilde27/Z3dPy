@@ -73,21 +73,19 @@ myMesh = zp.LoadMesh("z3dpy/mesh/suzanne.obj", [0, 0, 2])
 
 <br>
 
-Rendering 3D is done in 3 stages:
+Rendering can be broken down into 3 stages:
 - Set the internal camera
-- Rastering
-- Draw the triangles (the method will depend on the module handling the screen)
+- Rendering
+- Drawing (the method will depend on the module handling the screen)
 
 ```python
 # Set Internal Camera
 zp.SetInternalCam(myCamera)
 
 # Rastering
-for tri in zp.RasterMeshList([myMesh]):
-
-    # Draw the triangles
-    colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
-    pygame.draw.polygon(screen, colour, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
+# For games I'd recommend combining meshes into Things, but for now just use RenderMeshList()
+for tri in zp.RenderMeshList([myMesh]):
+    pygame.draw.polygon(screen, zp.TriGetColour(tri), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
 # Also update the display afterwards
 pygame.display.flip()
@@ -97,29 +95,50 @@ pygame.display.flip()
 
 If your display method doesn't have a native triangle drawing function, triangles can be converted into either lines or pixels (although the performance cost of looping through each line or pixel can be drastic, especially with the latter).
 ```python
-for tri in zp.RasterMeshList([myMesh]):
-    # Draw the triangles
+def MyPixelDraw(x, y)
+    # Draw code here
+    # The current triangle from the for loop can be accessed from here
     colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
-    for pixel in zp.TriToPixels(tri):
-        x = pixel[0]
-        y = pixel[1]
-        # Drawing a 1 pixel line, although using a pixel array would be faster
-        pygame.draw.line(screen, colour, (x, y), (x + 1, y))
+
+for tri in zp.RenderMeshList([myMesh]):
+    # Draw the triangles
+    zp.TriToPixels(tri, MyPixelDraw)
+    
 ```
 
 or
 
 ```python
+def MyLineDraw(sx, sy, ex, ey):
+   # Draw code here
+   colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
+   pygame.draw.line(screen, colour, (sx, sy), (ex, ey))
+
 for tri in zp.RasterMeshList([myMesh]):
     # Draw the triangles
-    colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
-    for line in zp.TriToLines(tri):
-        sx = line[0][0]
-        sy = line[0][1]
-        ex = line[1][0]
-        ey = line[1][1]
-        pygame.draw.line(screen, colour, (sx, sy), (ex, ey))
+    zp.TriToLines(tri, MyLineDraw)
+        
 ```
+
+<br>
+
+Right now, the mesh is using the default shader, SHADER_UNLIT, which will just pass the colour of the triangle through.
+
+(Image to be attached)
+
+To get something shaded, go back to where the mesh was defined and change it's shader to either a built-in option or your own shader function.
+```python
+myMesh = zp.LoadMesh("z3dpy/mesh/suzanne.obj", [0, 0, 2])
+# Z is forward in this case, so it's placed in front of the camera
+
+myMesh.shader = zp.SHADER_SIMPLE
+```
+
+Now the mesh should look like this
+
+(Image to be attached)
+
+More on shaders can be found on the <a href="https://github.com/ZackWilde27/Z3dPy/Meshes-0.4">Meshes</a> page
 
 <br>
 
@@ -136,7 +155,7 @@ while True:
     screen.fill("black")
 
     # Render 3D
-    for tri in zp.RasterMeshList([myMesh]):
+    for tri in zp.RenderMeshList([myMesh]):
         colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
         pygame.draw.polygon(screen, colour, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
@@ -179,7 +198,7 @@ while True:
 
     screen.fill("black")
     
-    for tri in zp.RasterMeshList([myMesh]):
+    for tri in zp.RenderMeshList([myMesh]):
         colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
         pygame.draw.polygon(screen, colour, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
