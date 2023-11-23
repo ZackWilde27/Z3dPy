@@ -1,11 +1,17 @@
 # Z3dPy
-![enginef](https://github.com/ZackWilde27/Z3dPy/assets/115175938/072e0f64-a536-4ae9-bc7e-60f542c3f950)
+<br>
 
-Z3dPy is my open-source 3D engine written in Python, packaged into a module.
+Z3dPy is my open-source 3D renderer written in Python, packaged into a module.
 
-It does all the math for 3D rendering, and includes some basic features to get you started, like lighting, collisions, physics, and rays.
+You'll need something to draw on, I recommend PyGame for it's speed.
 
-You'll need a module to drive the screen and handle controls, I recommend PyGame as it's quite fast.
+- It's Fast (fast enough that the speed will depend on your drawing method)
+- Easy to use
+- Built in features for making games, with the expandability to do more.
+
+<br>
+
+https://github.com/ZackWilde27/Z3dPy/assets/115175938/401e94e4-83dc-46e9-baea-2bb687ff741b
 
 Documentation can be found <a href="https://github.com/ZackWilde27/Z3dPy/wiki">here.</a>
 
