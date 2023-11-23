@@ -39,30 +39,25 @@ Builds that end in an odd number are nightly builds, which may be unstable / lac
 I'll use PyGame to drive the screen.</a>
 
 ```python
-import pygame
 import z3dpy as zp
+import pygame
 
-# PyGame stuff
 pygame.init()
 pygame.display.set_mode((1280, 720))
 ```
 
 <br>
 
-First, create a camera to view from, and set the screenSize to match the previously set up window.
+First, create a camera to view from, and give it the dimensions of the previously set up window.
 
 ```python
+myCamera = zp.Cam([0, 0, 0], 1280, 720)
 # Vectors are lists or tuples, [x, y, z]
-myCamera = zp.Cam([0, 0, 0])
-
-zp.screenSize = (1280, 720)
 ```
 
 <br>
 
 Now load a mesh to draw, I'll use the built-in suzanne monkey.
-
-For games it's handy to combine meshes into Things, but this example doesn't need those.
 
 ```python
 # Use the LoadMesh function to load an OBJ file (filename, *vPos, *VScale)
@@ -98,7 +93,7 @@ If your display method doesn't have a native triangle drawing function, triangle
 def MyPixelDraw(x, y)
     # Draw code here
     # The current triangle from the for loop can be accessed from here
-    colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
+    colour = zp.TriGetColour(tri)
 
 for tri in zp.RenderMeshList([myMesh]):
     # Draw the triangles
@@ -111,8 +106,7 @@ or
 ```python
 def MyLineDraw(sx, sy, ex, ey):
    # Draw code here
-   colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
-   pygame.draw.line(screen, colour, (sx, sy), (ex, ey))
+   pygame.draw.line(screen, zp.TriGetColour(tri), (sx, sy), (ex, ey))
 
 for tri in zp.RasterMeshList([myMesh]):
     # Draw the triangles
@@ -124,7 +118,7 @@ for tri in zp.RasterMeshList([myMesh]):
 
 Right now, the mesh is using the default shader, SHADER_UNLIT, which will just pass the colour of the triangle through.
 
-(Image to be attached)
+![image](https://github.com/ZackWilde27/Z3dPy/assets/115175938/f19598ed-ab67-4ace-af56-57a1dbca62ca)
 
 To get something shaded, go back to where the mesh was defined and change it's shader to either a built-in option or your own shader function.
 ```python
@@ -132,11 +126,15 @@ myMesh = zp.LoadMesh("z3dpy/mesh/suzanne.obj", [0, 0, 2])
 # Z is forward in this case, so it's placed in front of the camera
 
 myMesh.shader = zp.SHADER_SIMPLE
+
+# Shaders are just functions that take a tri and returns a colour for it
+def MyShader(tri):
+    return (255, 0, 0)
 ```
 
-Now the mesh should look like this
+With SHADER_SIMPLE it should look like this
 
-(Image to be attached)
+![image](https://github.com/ZackWilde27/Z3dPy/assets/115175938/6d4a4a74-45cd-49d8-ac40-b8f5206e99ee)
 
 More on shaders can be found on the <a href="https://github.com/ZackWilde27/Z3dPy/Meshes-0.4">Meshes</a> page
 
@@ -156,15 +154,13 @@ while True:
 
     # Render 3D
     for tri in zp.RenderMeshList([myMesh]):
-        colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
-        pygame.draw.polygon(screen, colour, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
+        pygame.draw.polygon(screen, zp.TriGetColour(tri), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
     # Update screen
     pygame.display.flip()
     
     # Rotate mesh
-    # MeshAddRot(mesh, vector)
-    zp.MeshAddRot(myMesh, [1, 2, 3])
+    myMesh.rotation = zp.VectorAdd(myMesh.rotation, [1, 2, 3])
 ```
 
 Final Script:
@@ -173,25 +169,23 @@ Final Script:
 import z3dpy as zp
 import pygame
 
-# PyGame stuff
+
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
-clock = pygame.time.Clock()
 
 # Create a camera
-# Cam(vPosition)
-myCamera = zp.Cam([0, 0, 0])
-zp.screenSize = (1280, 720)
+# Cam(vPosition, *screenWidth, *screenHeight)
+myCamera = zp.Cam([0, 0, 0], 1280, 720)
 
-# Use the LoadMesh function to load an OBJ file (filename, *vPos, *VScale)
+# Use the LoadMesh function to load an OBJ, DAE, or X3D file (filename, *vPos, *VScale)
 myMesh = zp.LoadMesh("z3dpy/mesh/suzanne.obj", [0, 0, 2])
 
 zp.SetInternalCam(myCamera)
 
-# Raster Loop
+# Render Loop
 
 while True:
-    # more PyGame Stuff
+    # PyGame stuff to prevent freezing
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -199,12 +193,11 @@ while True:
     screen.fill("black")
     
     for tri in zp.RenderMeshList([myMesh]):
-        colour = zp.VectorMulF(zp.TriGetNormal(tri), -255)
-        pygame.draw.polygon(screen, colour, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
+        pygame.draw.polygon(screen, zp.TriGetColour(tri), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
 
     pygame.display.flip()
     
-    zp.MeshAddRot(myMesh, [1, 2, 3])
+    myMesh.rotation = zp.VectorAdd(myMesh.rotation, [1, 2, 3])
 ```
 
 Everything is coloured with it's normal direction, so X is red, Y is green, Z is blue.
@@ -213,10 +206,10 @@ Everything is coloured with it's normal direction, so X is red, Y is green, Z is
 
 # Exporting Mesh
 
-Export your mesh as an OBJ file.
-- UV coordinates are used in the pixel shaders.
-- LoadMesh() will triangulate all n-gons
-- If materials are exported, LoadMesh() will automatically separate it into a list of meshes, and colour them based on the mtl file.
+Export your mesh as an OBJ, DAE, or X3D file.
+- UV coordinates are supported, kinda.
+- LoadMesh() will automatically triangulate n-gons.
+- If materials are exported in an OBJ, LoadMesh() will automatically separate it into a list of meshes to be put in a Thing, and colour them based on the mtl file.
 <br>
 Up axis is -Y, and Forward axis is Z.
 
