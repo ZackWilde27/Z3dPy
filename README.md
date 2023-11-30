@@ -125,14 +125,16 @@ To get something shaded, go back to where the mesh was defined and change it's m
 myMesh = zp.LoadMesh("z3dpy/mesh/suzanne.obj", [0, 0, 2])
 # Z is forward in this case, so it's placed in front of the camera
 
+# There are 4 built-in options:
+# MATERIAL_UNLIT
+# - colour is passed through
+# MATERIAL_SIMPLE
+# - shaded based on an isolated normal axis.
+# MATERIAL_DYNAMIC
+# - dynamic lighting, with the lights in z3dpy.lights
+# MATERIAL_STATIC
+# - shaded based on the tri's baked shade. Requires a BakeLighting() call.
 myMesh.material = zp.MATERIAL_SIMPLE
-
-# Materials are a group of shaders that are run on different stages of rendering
-# Shaders are functions that take a tri and return a colour for it
-def MyShader(tri):
-    return (255, 0, 0)
-
-myMaterial = zp.Material(world = MyShader)
 ```
 
 With MATERIAL_SIMPLE it should look like this
@@ -205,14 +207,12 @@ while True:
     myMesh.rotation = zp.VectorAdd(myMesh.rotation, [1, 2, 3])
 ```
 
-Everything is coloured with it's normal direction, so X is red, Y is green, Z is blue.
-
 <br>
 
 # Exporting Mesh
 
 Export your mesh as an OBJ, DAE, or X3D file.
-- UV coordinates are supported, kinda.
+- UVs are supported, kinda.
 - LoadMesh() will automatically triangulate n-gons.
 - If materials are exported in an OBJ, LoadMesh() will automatically separate it into a list of meshes to be put in a Thing, and colour them based on the mtl file.
 <br>
