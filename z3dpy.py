@@ -1,9 +1,7 @@
 # -zw
 '''
-Z3dPy v0.3.9
+Z3dPy v0.4.0
 THE COMPLETE OVERHAUL UPDATE
-
-*Nightly version, examples are based on the release version,
 
 LEGEND:
 - Parameters marked with * are optional
@@ -16,36 +14,36 @@ Capitals mean normalized.
 
 Change Notes:
 
-PATCH 3.1
+- Shaders have been made a bit more complicated but are a lot more powerful.
 
-- The debug meshes now set their colour correctly.
+Instead of giving a mesh a shader, you give it a material.
+Materials have 3 shaders that run at different stages of the pipeline.
+Local, the shader is run before any transformations.
+World, the shader is run for each world triangle
+View, the shader is run for each view triangle
 
-- z3dpyfast no longer causes an error about a missing
-TriToLines function, (still working on it)
+You can either pick the stage, or make it multi-stage.
 
+    def MyShader(tri):
+        return z3dpy.TriGetColour(tri)
 
-PATCH 3
+    myMaterial = z3dpy.Material(world = z3dpy.SHADER_DYNAMIC, view = MyShader)
 
-- Trains can now be drawn like regular meshes.
-BakeTrain() will create the mesh out of the points, and
-that mesh will be drawn underneath everything in Render()
+- Ok, NOW the debug meshes set their colour correctly.
 
-It's at z3dpy.trainMesh if you want to put it in your own Thing or just include it in RenderMeshList().
+- Collada UVs and Normals are now optional.
 
-- VectorDoP and VectorCrP have been renamed to DotProduct and CrossProduct.
+- Fixed ListInterpolate
 
-- All of the new objects have a 'user' property now, and every list object has a user property at the end, which can be
-accessed universally with a -1 index
+- Scale is now dynamic, Meshes and Things have a scale property.
 
-- Shaders are now given the world triangle instead of the view triangle.
+- Meshes and Things now have a visible property.
 
-- Realized there were two functions called ProjectTri, changed that.
+- Added constants for hitbox type just like light type, including HITBOX_BOX and HITBOX_SPHERE
 
-- Projected Tris now keep the depth information from the view stage for depth buffers, stored in each point's z axis.
+- Things now have AddPos() and AddRot() to replace having to do myThing.rotation = VectorAdd(myThing.rotation, ...)
 
-- I've started renaming function parameters to follow the python_standard, instead of camelCase.
-
-- LoadMesh() now supports Collada's UV and Normals
+- WhatIs() has been updated, Vectors, Tris, and Rays should now be identified correctly.
 
 
 THE RETURN OF OBJECTS
@@ -65,6 +63,10 @@ Smaller objects like Vectors, Rays, Tris, Dupes, Hits, and Particles are still t
 
 - WhatIs() has been simplified and made faster.
 
+- All of the new objects have a 'user' property now, and every list object has a user property at the end, which can be
+accessed universally with a -1 index
+
+
 RENDERING
 
 - Raster functions have been renamed to Render functions.
@@ -77,19 +79,19 @@ RenderMeshList()
 The old functions will still be there for backwards compatibility
 
 
-SHADERS
+SHADERS AND MATERIALS
 
 - Instead of having a separate draw function
-for each shade, I'm introducing a shader system.
+for each shade, I'm introducing a material system.
 
-Each mesh now has a shader property. It's a function
-that returns the colour for a given triangle.
+Each mesh now has a material property. It's a group of shaders
+that determine the final colour of a given triangle.
 
 For example:
 
     myMesh = z3dpy.LoadMesh("z3dpy/mesh/suzanne.obj")
 
-    myMesh.shader = z3dpy.SHADER_SIMPLE
+    myMesh.material = z3dpy.MATERIAL_SIMPLE
 
     then during the draw loop...
 
@@ -100,28 +102,32 @@ For example:
         # You may need a VectorFloor() or VectorCeil() to keep things integer-only.
 
 
-shader has 5 built-in options:
+There are 5 built-in options:
 
-SHADER_UNLIT (default)
+MATERIAL_UNLIT (default)
     Tri's colour is unchanged
 
-SHADER_SIMPLE
+MATERIAL_SIMPLE
     Basic direction shading.
 
-SHADER_STATIC
+MATERIAL_STATIC
     Baked lighting
 
-SHADER_DYNAMIC
+MATERIAL_DYNAMIC
     Dynamic lighting
 
-For example:
+To make a custom one:
 
+    # Shaders are functions that take a tri and return a colour for it.
     def MyShader(tri):
         return z3dpy.TriGetColour(tri)
 
-    myMesh = z3dpy.LoadMesh("mesh/cube.obj")
+    # You can pick a pipeline stage, or make it multi-stage.
+    # Material(*local, *world, *view)
+    myMaterial = z3dpy.Material(world = SHADER_DYNAMIC, view = MyShader)
 
-    myMesh.shader = MyShader
+    myMesh = z3dpy.LoadMesh("mesh/cube.obj")
+    myMesh.material = myMaterial
 
 - PgDrawTri__() and TkDrawTri__() are now deprecated, though can still be used.
 
@@ -132,6 +138,7 @@ DRAWING
 a draw method to make it much faster.
 
     def MyDraw(x, y):
+        # The current triangle in the upcoming for loop can be accessed from here.
         pixelArray[x][y] = z3dpy.TriGetColour(tri)
 
     while True:
@@ -143,8 +150,6 @@ TriToPixels(tri, draw)
 
 TriToLines(tri, draw)
     draw function is given 4 parameters, sx, sy, ex, ey
-
-The current triangle in the draw function can be accessed as 'tri', without having to pass it in.
 
 - Fixed TriToPixels() and TriToLines() visual glitches.
 
@@ -171,17 +176,11 @@ there are still a few problems.
 
 ANIMATED MESHES
 
-- Fixed broken animated meshes
+- Fixed animated meshes
 
 - Created my own Animated OBJ format (.aobj) because Blender's method is
 inefficient. My method only stores the locations of verticies when they change, and
 combines it all into one file.
-
-It starts with the first OBJ file as normal, before an 'a' on it's own line, then
-it switches to a format of "(vert number) x y z" for each vert that moves, and
-a "next" on it's own line when a new frame begins. If the amount of verticies changes
-from one frame to the next, there will be a 'new' instead of 'next', followed by
-the OBJ file of the next frame, before switching back after an 'a'.
 
 OBJ sequences will automatically be converted to an aobj file on loading, with
 a printed message about it. I've also included a separate script for converting.
@@ -189,11 +188,17 @@ a printed message about it. I've also included a separate script for converting.
 
 MESHES
 
-- LoadMesh() now supports Collada (.dae), and Extensible 3D (.x3d) files.
+- LoadMesh() now supports Collada (.dae with UVs and normals), and Extensible 3D (.x3d, only the geometry, with triangulation).
 
 - Fixed LoadMesh() throwing an error when the file wasn't found, and a "/" was not in the filename.
 
 - Renamed susanne.obj to suzanne.obj after realizing my mistake.
+
+- Trains can now be drawn like regular meshes.
+BakeTrain() will create the mesh out of the points, and
+that mesh will be drawn underneath everything in Render()
+
+It's at z3dpy.trainMesh if you want to put it in your own Thing or just include it in RenderMeshList().
 
 
 Z3DPYFAST
@@ -219,6 +224,12 @@ HitGetPos()
 HitGetNormal()
 HitGetWorldPos()
 
+- Realized there were two functions called ProjectTri, changed that.
+
+- Projected Tris now keep the depth information from the view stage for depth buffers, stored in each point's z axis.
+
+- I've started renaming function parameters to follow the python_standard, instead of camelCase.
+
 - When defining a Tri(), Vectors will be converted into VectorUVs.
 
 - SetInternalCam() error message displays again, I optimized it too far last time.
@@ -226,6 +237,8 @@ HitGetWorldPos()
 - Added ListNDFlatten(list), as looking online it seems like NumPy is the only other option
 
 - Renamed Vec3MatrixMulOneLine() to just Vec3MatrixMul().
+
+- VectorDoP and VectorCrP have been renamed to DotProduct and CrossProduct.
 
 - Renamed sign() to Sign(), triSort__() to TriSort__(), and fast() to Fast() to fit the rules.
 
@@ -243,7 +256,7 @@ from struct import unpack
 # Math for, well...
 from math import sqrt, floor, ceil, sin, cos, tan
 
-
+from utils import ListInterpolate, ListNDFlatten, ListExclude
 
 # z3dpyfast is imported at the bottom of the script to replace functions.
 
@@ -254,11 +267,6 @@ print("Z3dPy v0.3.9_P3_1")
 # Variables
 #
 #==========================================================================
-
-def SHADER_UNLIT(tri): return tri[6]
-def SHADER_SIMPLE(tri): return VectorMulF(tri[6], max(-tri[3][2], 0))
-def SHADER_DYNAMIC(tri): return VectorMul(tri[6], CheapLighting(tri))
-def SHADER_STATIC(tri): return VectorMul(tri[6], tri[5])
 
 # Delta calculations
 timer = time()
@@ -364,16 +372,47 @@ def Tri(vector1, vector2, vector3):
 # where a tri came from.
 #
 
+def SHADER_UNLIT(tri): return tri[6]
+
+def SHADER_SIMPLE(tri): return VectorMulF(tri[6], max(-tri[3][2], 0))
+
+def SHADER_DYNAMIC(tri): return VectorMul(tri[6], CheapLighting(tri))
+
+def SHADER_STATIC(tri): return VectorMul(tri[6], tri[5])
+
+class Material():
+    def Local(tri):
+        return
+    
+    def World(tri):
+        return
+
+    def View(tri):
+        return
+
+    def __init__(self, local=SHADER_UNLIT, world=SHADER_UNLIT, view=SHADER_UNLIT):
+        self.Local = local
+        self.World = world
+        self.View = view
+
+
+MATERIAL_UNLIT = Material(view = SHADER_UNLIT)
+MATERIAL_SIMPLE = Material(view = SHADER_SIMPLE)
+MATERIAL_DYNAMIC = Material(world = SHADER_DYNAMIC)
+MATERIAL_STATIC = Material(view = SHADER_STATIC)
+
 class Mesh():
-    def __init__(self, tris, vPos=[0.0, 0.0, 0.0], vRot=[0.0, 0.0, 0.0], vColour=(255, 255, 255), iId=0, bCull=True, shader=SHADER_UNLIT, shaderFunction=None):
+    def __init__(self, tris, vPos=[0.0, 0.0, 0.0], vRot=[0.0, 0.0, 0.0], vColour=(255, 255, 255), iId=0, bCull=True, material=MATERIAL_UNLIT):
         self.tris = tris
         self.position = vPos
         self.rotation = vRot
         self.colour = (255, 255, 255)
+        self.scale = [1.0, 1.0, 1.0]
         self.id = iId
         self.cull = bCull
-        self.shader = shader
+        self.material = material
         self.frame = -1
+        self.visible = True
         self.user = 0
 
     def SetColour(self, vColour):
@@ -386,26 +425,18 @@ class Mesh():
                 for tri in frame:
                     TriSetColour(tri, vColour)
     
+    def AddPos(self, vector):
+        self.position[0] += vector[0]
+        self.position[1] += vector[1]
+        self.position[2] += vector[2]
+    
+    def AddRot(self, vector):
+        self.rotation[0] += vector[0]
+        self.rotation[1] += vector[1]
+        self.rotation[2] += vector[2]
+    
     def __repr__(self):
-        return "Z3dPy Mesh:\n\tPos: " + str(self.position) + "\n\tRot: " + str(self.rotation) + "\n\tColour: " + str(self.colour) + "\n\tId: " + str(self.id) + "\n\tFrame: " + str(self.frame)
-
-# Usage:
-'''
-
-# The mesh will be exported as numbered frames, remove the number from the name.
-# So, if my list of OBJs was anim1.obj, anim2.obj, and so on:
-enemyMesh = LoadAniMesh("mesh/anim.obj")
-
-enemy = z3dpy.Thing([enemyMesh], 0, 5, 2)
-
-while True:
-
-    # Then during the draw loop, increment the animation.
-
-    # ThingIncFrames() will increment the frame counter of all animeshes in a thing.
-    z3dpy.ThingIncFrames(enemy)
-
-'''
+        return "Z3dPy Mesh:\n\tPos: " + str(self.position) + "\n\tRot: " + str(self.rotation) + "\n\tScale: " + str(self.scale) + "\n\tColour: " + str(self.colour) + "\n\tId: " + str(self.id) + "\n\tFrame: " + str(self.frame)
 
 trainMesh = Mesh((), [0, 0, 0])
 
@@ -429,14 +460,19 @@ trainMesh = Mesh((), [0, 0, 0])
 #def Hitbox(type = 2, id = 0, radius = 1, height = 1):
     #return [type, id, radius, height, LoadMesh("z3dpy/mesh/cube.obj", [0, 0, 0], [radius, height, radius])]
 
+HITBOX_SPHERE = 0
+HITBOX_CYLINDER = 1
+HITBOX_BOX = 2
+
 class Hitbox():
     def __init__(self, tyype = 2, id = 0, radius = 1, height = 1):
         self.type = tyype
         self.id = id
         self.radius = radius
         self.height = height
-        self.mesh = LoadMesh("z3dpy/mesh/cube.obj", [0, 0, 0], [radius, height, radius])
+        self.mesh = None
         self.user = 0
+        self.UpdateVis()
     
     def UpdateVis(self):
         match self.type:
@@ -444,7 +480,7 @@ class Hitbox():
                 self.mesh = LoadMesh("z3dpy/mesh/cube.obj", [0, 0, 0], [self.radius, self.height, self.radius])
             case _:
                 self.mesh = LoadMesh("z3dpy/mesh/sphere.obj", [0, 0, 0], [self.radius, self.height, self.radius])
-        self.mesh.colour = (255, 0, 0)
+        self.mesh.SetColour([255, 0, 0])
         self.mesh.id = -1
     
     def __repr__(self):
@@ -509,15 +545,34 @@ class Thing():
         self.meshes = meshList
         self.position = vPos
         self.rotation = [0, 0, 0]
+        self.scale = [1.0, 1.0, 1.0]
         self.hitbox = None
         self.physics = None
         self.movable = True
         self.internalid = 0
+        self.visible = True
         self.user = 0
     
     def __repr__(self):
-        return "Z3dPy Thing:\n\tPosition: " + str(self.position) + "\n\tRotation: " + str(self.rotation) + "\n\tHitbox: " + str(bool(self.hitbox)) + "\n\tPhysicsBody: " + str(bool(self.physics)) + "\n\tMovable?: " + str(self.movable) + "\n\tUser Variable: " + str(self.user) + "\n\t"
+        return "Z3dPy Thing:\n\tPosition: " + str(self.position) + "\n\tRotation: " + str(self.rotation) + "\n\tScale: " + str(self.scale) + "\n\tHitbox: " + str(bool(self.hitbox)) + "\n\tPhysicsBody: " + str(bool(self.physics)) + "\n\tMovable?: " + str(self.movable) + "\n\tUser Variable: " + str(self.user) + "\n\t"
 
+    def AddPos(self, vector):
+        self.position[0] += vector[0]
+        self.position[1] += vector[1]
+        self.position[2] += vector[2]
+    
+    def AddRot(self, vector):
+        self.rotation[0] += vector[0]
+        self.rotation[1] += vector[1]
+        self.rotation[2] += vector[2]
+    
+    def SetShader(self, shader):
+        for mesh in self.meshes:
+            mesh.shader = shader
+    
+    def SetId(self, id):
+        for mesh in self.meshes:
+            mesh.id = id
     
     def IncrementFrames(self):
         for mesh in self.meshes:
@@ -585,11 +640,11 @@ class Cam():
         self.target = VectorAdd(self.position, dir)
     
     def GetRightVector(self):
-        return VectorCrP(self.GetTargetDir(), self.up)
+        return CrossProduct(self.GetTargetDir(), self.up)
     
     def ScreenXYToWorld(self, x, y):
         up = RotTo(self.rotation, [0, -1, 0])
-        right = VectorCrP(self.GetTargetDir(), up)
+        right = CrossProduct(self.GetTargetDir(), up)
         offset = VectorAdd(VectorMulF(right, x - (screenSize[0] * 0.5)), VectorMulF(up, y - (screenSize[1] * 0.5)))
         return VectorAdd(self.position, offset)
     
@@ -637,7 +692,7 @@ def SetInternalCam(camera):
 
 LIGHT_POINT = 0
 LIGHT_SUN = 1
-LIGHT_SPOT = 2
+#LIGHT_SPOT = 2
 
 class Light():
     def __init__(self, tyype, vPos, FStrength, fRadius, vColour=(255, 255, 255)):
@@ -665,8 +720,8 @@ class Light():
 # [1] is ray start location
 # [2] is ray end location
 
-def Ray(vRaySt, vRayNd, bIsArrow=False):
-    return [bIsArrow, vRaySt, vRayNd, 0]
+def Ray(vRaySt, vRayNd, isArrow=False):
+    return [isArrow, vRaySt, vRayNd, 0]
 
 # Usage:
 '''
@@ -683,8 +738,8 @@ if hit[0]:
     location = hit[1]
     distance = hit[2]
     normal = hit[3]
-    wPosOfTri = hit[4]
-    print(location, distance, normal, wPosOfTri)
+    triThatWasHit = hit[4]
+    print(location, distance, normal, zp.TriGetWPos(triThatWasHit))
 else:
     print("Nope")
 '''
@@ -918,7 +973,11 @@ class JSONScript:
         if itemName not in self.script:
             print(itemName, "was not found in the JSON Script")
             return ""
-        return JSONScript(self.script[SweepUntil(self.script, self.script.index(itemName), "{", -1):SweepUntil(self.script, self.script.index(itemName), "}")])
+        return JSONScript(self.script[SweepUntil(self.script, self.script.index(itemName), "{", -1):SweepUntil(self.script, self.script.index(itemName), "}") + 1])
+
+    def GetList(self, name):
+        fullName = "\"" + name + "\":"
+        return self.GetItem(name).script[len(fullName):].strip().replace("{", "")[1:-2].split("},")
 
     def GetValue(self, name):
         itemName = "\"" + name + "\"" + ":"
@@ -927,15 +986,18 @@ class JSONScript:
             if self.script[start] == "\"":
                 return self.script[start:self.script.index("\"", start + 1)]
             if self.script[start] == "{":
-                return self.script[start:SweepUntil(self.script, start, ",}]\"", 1)]
-        return self.script[start:SweepUntil(self.script, start, ",}]", 1)]
+                return self.script[start:SweepUntil(self.script, start, ",}]\"", 1) + 1]
+        return self.script[start:SweepUntil(self.script, start, ",}]", 1) + 1]
 
 
 def SweepUntil(string, start, symbols, step=1):
     dex = start
     length = len(string)
     while string[dex] not in symbols and (0 < dex < length): dex += step
-    return dex
+    print(length)
+    if not dex or dex == length:
+        return dex
+    return dex - Sign(step)
 
 # Textures:
 #
@@ -1115,9 +1177,7 @@ def TriSetId(tri, id):
 
 
 def AddThing(thing, iLayer=2):
-    # Setting the internal id to the length of the list, which
-    # corrosponds to it's new index
-    thing.internalId = len(layers[iLayer])
+    thing.internalid = len(layers[iLayer])
     layers[iLayer].append(thing)
 
 def AddThings(things, iLayer=2):
@@ -1125,7 +1185,7 @@ def AddThings(things, iLayer=2):
         AddThing(thing, iLayer)
 
 def AddDupe(thing, position, rotation, iLayer=2):
-    dupe = Dupe(thing.internalId, position, rotation)
+    dupe = Dupe(thing.internalid, position, rotation)
     layers[iLayer].append(dupe)
     return dupe
 
@@ -1363,16 +1423,16 @@ def RotTo(vRot, VTarget):
 
 def VectorIntersectPlane(pPos, pNrm, lSta, lEnd):
     pNrm = VectorNormalize(pNrm)
-    plane_d = -VectorDoP(pNrm, pPos)
-    ad = VectorDoP(lSta, pNrm)
-    bd = VectorDoP(lEnd, pNrm)
+    plane_d = -DotProduct(pNrm, pPos)
+    ad = DotProduct(lSta, pNrm)
+    bd = DotProduct(lEnd, pNrm)
     t = (-plane_d - ad) / (bd - ad)
     lineStartToEnd = VectorSub(lEnd, lSta)
     lineToIntersect = VectorMulF(lineStartToEnd, t)
     return VectorAdd(lSta, lineToIntersect)
 
 def ShortestPointToPlane(point, plNrm, plPos):
-    return VectorDoP(plNrm, point) - VectorDoP(plNrm, plPos)
+    return DotProduct(plNrm, point) - DotProduct(plNrm, plPos)
 
 
 
@@ -1406,9 +1466,9 @@ def VectorUVDivF(v1, f):
 
 def VectorUVIntersectPlane(pPos, pNrm, lSta, lEnd):
     pNrm = VectorNormalize(pNrm)
-    plane_d = -VectorDoP(pNrm, pPos)
-    ad = VectorDoP(lSta, pNrm)
-    bd = VectorDoP(lEnd, pNrm)
+    plane_d = -DotProduct(pNrm, pPos)
+    ad = DotProduct(lSta, pNrm)
+    bd = DotProduct(lEnd, pNrm)
     t = (-plane_d - ad) / (bd - ad)
     lineStartToEnd = VectorUVSub(lEnd, lSta)
     lineToIntersect = VectorUVMulF(lineStartToEnd, t)
@@ -1461,7 +1521,7 @@ def TriClipAgainstPlane(tri, pPos, pNrm):
             yield outT1
             yield outT2
 
-def GetNormal(tri): return VectorNormalize(VectorCrP(VectorSub(tri[1], tri[0]), VectorSub(tri[2], tri[0])))
+def GetNormal(tri): return VectorNormalize(CrossProduct(VectorSub(tri[1], tri[0]), VectorSub(tri[2], tri[0])))
 
 def TriAverage(tri):
     return [(tri[0][0] + tri[1][0] + tri[2][0]) * 0.333333, (tri[0][1] + tri[1][1] + tri[2][1]) * 0.333333, (tri[0][1] + tri[1][1] + tri[2][1]) * 0.33333]
@@ -1656,7 +1716,8 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
 
         case "dae":
             # Collada Format
-            xml = XMLScript(open(filename).read())
+            file = open(filename)
+            xml = XMLScript(file.read())
             daeVer = xml.GetAttr("COLLADA", "version")
 
             if daeVer != "1.4.1":
@@ -1675,40 +1736,59 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
             normals = [[normals[n], normals[n + 1], normals[n + 2]] for n in range(0, len(normals), 3)]
             verts = [[verts[v], verts[v + 1], verts[v + 2]] for v in range(0, len(verts), 3)]
 
-            trixml = geom.GetInnerXML("triangles")
-            faces = trixml.GetInnerXML("p").script.strip().split(" ")
-            triLength = trixml.CountTags("input")
-            tris = []
-            double = triLength * 2
-            indexes = [-1, -1, -1]
-            
-            for i in range(triLength):
-                match trixml.GetAttr('input', 'semantic'):
-                    case "VERTEX":
-                        indexes[0] = i
-                    case "NORMAL":
-                        indexes[1] = i
-                    case "TEXCOORD":
-                        indexes[2] = i
-                trixml.script = trixml.script[trixml.script.index("/>") + 2:]
-            
-            for f in range(0, len(faces), triLength * 3):
-                v1 = verts[int(faces[f + indexes[0]])]
-                n1 = normals[int(faces[f + indexes[1]])]
-                uv1 = uvs[int(faces[f + indexes[2]])]
-                v2 = verts[int(faces[f + triLength + indexes[0]])]
-                n2 = normals[int(faces[f + triLength + indexes[1]])]
-                uv2 = uvs[int(faces[f + triLength + indexes[2]])]
-                v3 = verts[int(faces[f + double + indexes[0]])]
-                n3 = normals[int(faces[f + double + indexes[1]])]
-                uv3 = uvs[int(faces[f + double + indexes[2]])]
-                tris.append(Tri(VectorUV(v1[0], v1[1], v1[2], n1, uv1), VectorUV(v2[0], v2[1], v2[2], n2, uv2), VectorUV(v3[0], v3[1], v3[2], n3, uv3)))
+            try:
+                # Triangle
+                trixml = geom.GetInnerXML("triangles")
+            except:
+                # Ngon
+                trixml = geom.GetInnerXML("polylist")
+                # to be completed later...
+            finally:
+                faces = trixml.GetInnerXML("p").script.strip().split(" ")
+                triLength = trixml.CountTags("input")
+                tris = []
+                double = triLength * 2
+                indexes = [-1, -1, -1]
+                
+                for i in range(triLength):
+                    match trixml.GetAttr('input', 'semantic'):
+                        case "VERTEX":
+                            indexes[0] = i
+                        case "NORMAL":
+                            indexes[1] = i
+                        case "TEXCOORD":
+                            indexes[2] = i
+                    trixml.script = trixml.script[trixml.script.index("/>") + 2:]
+                
+                for f in range(0, len(faces), triLength * 3):
+                    v1 = verts[int(faces[f + indexes[0]])]
+                    v2 = verts[int(faces[f + triLength + indexes[0]])]
+                    v3 = verts[int(faces[f + double + indexes[0]])]
+                    n1 = [0, 0, 0]
+                    n2 = [0, 0, 0]
+                    n3 = [0, 0, 0]
+                    uv1 = [0, 0]
+                    uv2 = [0, 0]
+                    uv3 = [0, 0]
+                    
+                    if indexes[1] != -1:
+                        n1 = normals[int(faces[f + indexes[1]])]
+                        n2 = normals[int(faces[f + triLength + indexes[1]])]
+                        n3 = normals[int(faces[f + double + indexes[1]])]
+                    if indexes[2] != -1:
+                        uv1 = uvs[int(faces[f + indexes[2]])]
+                        uv2 = uvs[int(faces[f + triLength + indexes[2]])]
+                        uv3 = uvs[int(faces[f + double + indexes[2]])]
 
+
+                    tris.append(Tri(VectorUV(v1[0], v1[1], v1[2], n1, uv1), VectorUV(v2[0], v2[1], v2[2], n2, uv2), VectorUV(v3[0], v3[1], v3[2], n3, uv3)))
+            file.close()
             return Mesh(tris, vPos)
         
         case "x3d":
             # Extensible 3D Format
-            xml = XMLScript(open(filename).read())
+            file = open(filename)
+            xml = XMLScript(file.read())
             scene = xml.GetInnerXML("Scene")
             #print(scene.GetAttr("Coordinate", "point").strip())
             verts = [float(v) for v in scene.GetAttr("Coordinate", "point").strip().split(" ")]
@@ -1727,6 +1807,7 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
                     tries[-1].append(int(f))
             tries.pop()
             tris += [Tri(verts[t[0]], verts[t[1]], verts[t[2]]) for t in tries]
+            file.close()
             return Mesh(tris, vPos)
         
         case "glb":
@@ -1739,13 +1820,15 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
             while ((bits := file.read1(4)) != b'BIN\x00'):
                 json += str(bits)[2:-1]
             
+            binaryOffset = file.tell()
+            
             json = JSONScript(json)
 
             triLength = int(json.GetItem("meshes").GetItem("indices"))
 
             triOrder = [-1, -1, -1]
 
-            for val in json.GetItem("attributes").script.strip().split(","):
+            for val in json.GetItem("attributes").script[14:].strip().split(","):
                 split = val.split(":")
                 match split[0][1:-1]:
                     case "POSITION":
@@ -1772,54 +1855,67 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
                             buffers[2] = [int(script.GetItem("count")), int(script.GetItem("bufferView"))]
                         case "SCALAR":
                             buffers[3] = [int(script.GetItem("count")), int(script.GetItem("bufferView"))]
-
-            bufferData = json.GetItem("bufferViews").script[14:].strip().replace("{", "").split("},")
             
-            if buffers[0] == -1:
-                print("Did not find a vertex buffer in the glTF file")
-                return None
-
-            verts = [unpack('f', file.read1(4))[0] for v in range(buffers[0][0])]
-
-            verts = [[verts[v], verts[v + 1], verts[v + 2]] for v in range(0, len(verts), 3)]
-
+            points = []
             uvs = []
             normals = []
-
-            if buffers[1] != -1:
-                normals = [unpack('f', file.read1(4))[0] for v in range(buffers[1][0])]
-
-                normals = [[normals[n], normals[n + 1], normals[n + 2]] for n in range(0, len(normals), 3)]
-
-            if buffers[2] != -1:
-                uvs = [unpack('f', file.read1(4))[0] for v in range(buffers[2][0])]
-
-                uvs = [(uvs[u], uvs[u + 1]) for u in range(0, len(uvs), 2)]
-
-            if buffers[3] == -1:
-                print("Did not find a triangle buffer in the glTF file")
-                return None
+            tries = []
             
-            tries = [unpack('H', file.read1(2))[0] for v in range(buffers[3][0])]
-
+            for index, bufferView in enumerate(json.GetList("bufferViews")):
+                view = JSONScript(bufferView)
+                file.seek(int(view.GetItem("byteOffset")) + binaryOffset)
+                if index == buffers[0][1]:
+                    points = [unpack('f', file.read1(4))[0] for i in range(buffers[0][0])]
+                    points = [(points[t], points[t + 1], points[t + 2]) for t in range(0, len(points), 3)]
+                
+                if index == buffers[1][1]:
+                    normals = [unpack('f', file.read1(4))[0] for i in range(buffers[1][0])]
+                    normals = [(normals[n], normals[n + 1], normals[n + 2]) for n in range(0, len(normals), 3)]
+                
+                if index == buffers[2][1]:
+                    uvs = [unpack('f', file.read1(4))[0] for i in range(buffers[2][0])]
+                    #uvs = [(uvs[u], uvs[u + 1]) for u in range(0, len(uvs), 2)]
+                
+                if index == buffers[3][1]:
+                    tries = [unpack('H', file.read1(2))[0] for i in range(buffers[3][0])]
+            
+            print(triOrder, [len(points), len(normals), len(uvs), len(tries)])
+            print(tries)
+            input(">")
             tris = []
 
+            double = triLength * 2
+    
+            # The numbers, what do they mean? Where are they broadcast from?
+            '''
             for t in range(0, len(tries), triLength * 3):
-                p1 = verts[tries[t + triOrder[0]]]
-                p2 = verts[tries[t + triLength + triOrder[0]]]
-                p3 = verts[tries[triLength * 2 + t + triOrder[0]]]
-                n1 = n2 = n3 = [0, 0, 0]
-                uv1 = uv2 = uv3 = [0, 0]
+                print(t, triOrder, [len(points), len(normals), len(uvs), len(tries)])
+                print(tries[t + triOrder[0]])
+                p1 = points[tries[t + triOrder[0]]]
+                p2 = points[tries[t + triLength + triOrder[0]]]
+                
+                p3 = points[tries[t + double + triOrder[0]]]
+                n1 = [0, 0, 0]
+                n2 = [0, 0, 0]
+                n3 = [0, 0, 0]
+                uv1 = [0, 0]
+                uv2 = [0, 0]
+                uv3 = [0, 0]
                 if normals:
-                    n1 = normals[tries[t + triOrder[1]]]
-                    n2 = normals[tries[t + triLength + triOrder[1]]]
-                    n3 = normals[tries[triLength * 2 + t + triOrder[1]]]
+                    print(tries[t + triLength + triOrder[1]] - 1)
+                    n1 = normals[tries[t + triOrder[1]] - 1]
+                    n2 = normals[tries[t + triLength + triOrder[1]] - 1]
+                    n3 = normals[tries[t + (triLength * 2) + triOrder[1]] - 1]
                 if uvs:
-                    uv1 = verts[tries[t + triOrder[2]]]
-                    uv2 = verts[tries[t + triLength + triOrder[2]]]
-                    uv3 = verts[tries[triLength * 2 + t + triOrder[2]]]
-                tris.append(Tri(VectorUV(p1[0], p1[1], p1[2], n1, uv1), VectorUV(p2[0], p2[1], p2[2], n2, uv2), VectorUV(p3[0], p3[1], p3[2], n3, uv3), ))
+                    uv1 = uvs[tries[t + triOrder[2]] - 1]
+                    uv2 = uvs[tries[t + triLength + triOrder[2]] - 1]
+                    uv3 = uvs[tries[t + (triLength * 2) + triOrder[2]] - 1]
+                
+                tris = Tri(VectorUV(p1[0], p1[1], p1[2], n1, uv1), VectorUV(p2[0], p2[1], p2[2], n2, uv2), VectorUV(p3[0], p3[1], p3[2], n3, uv3))
+            '''
+            file.close()
             return Mesh(tris, vPos)
+            
 
 def MeshSetColour(mesh, colour):
     mesh.SetColour(colour)
@@ -1913,15 +2009,15 @@ def LoadAniMesh(filename, vPos=[0.0, 0.0, 0.0], VScale=(1.0, 1.0, 1.0)):
 try:
     lightMesh = LoadMesh("z3dpy/mesh/light.obj")
     lightMesh.id = -1
-    lightMesh.SetColour(255, 0, 0)
+    lightMesh.SetColour([255, 0, 0])
 
     dotMesh = LoadMesh("z3dpy/mesh/dot.obj")
     dotMesh.id = -1
-    dotMesh.SetColour(255, 0, 0)
+    dotMesh.SetColour([255, 0, 0])
 
     arrowMesh = LoadMesh("z3dpy/mesh/axisZ.obj")
     arrowMesh.id = -1
-    arrowMesh.SetColour(255, 0, 0)
+    arrowMesh.SetColour([255, 0, 0])
 except:
     print("Failed to load built-in meshes. (is the z3dpy folder missing?)")
 
@@ -2038,11 +2134,11 @@ def MatrixStuff(pos, target, up):
     newForward = VectorSub(target, pos)
     newForward = VectorNormalize(newForward)
 
-    a = VectorMulF(newForward, VectorDoP(up, newForward))
+    a = VectorMulF(newForward, DotProduct(up, newForward))
     newUp = VectorSub(up, a)
     newUp = VectorNormalize(newUp)
 
-    newRight = VectorCrP(newUp, newForward)
+    newRight = CrossProduct(newUp, newForward)
 
     return (newForward, newUp, newRight)
 
@@ -2052,7 +2148,7 @@ def PointAtMatrix(pos, target, up):
 
 def LookAtMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
-    return ((temp[2][0], temp[1][0], temp[0][0], 0.0), (temp[2][1], temp[1][1], temp[0][1], 0.0), (temp[2][2], temp[1][2], temp[0][2], 0.0), (-VectorDoP(pos, temp[2]), -VectorDoP(pos, temp[1]), -VectorDoP(pos, temp[0]), 1.0))
+    return ((temp[2][0], temp[1][0], temp[0][0], 0.0), (temp[2][1], temp[1][1], temp[0][1], 0.0), (temp[2][2], temp[1][2], temp[0][2], 0.0), (-DotProduct(pos, temp[2]), -DotProduct(pos, temp[1]), -DotProduct(pos, temp[0]), 1.0))
 
 def MatrixMakeProjection(fov):
     a = screenSize[0] / screenSize[1]
@@ -2069,7 +2165,6 @@ def MatrixMakeProjection(fov):
 #
 #==========================================================================
 
-
 def RayIntersectTri(ray, tri):
     deadzone = 0.1
     rayDr = RayGetDirection(ray)
@@ -2077,21 +2172,21 @@ def RayIntersectTri(ray, tri):
 
     e1 = VectorSub(tri[1], tri[0])
     e2 = VectorSub(tri[2], tri[0])
-    h = VectorCrP(rayDr, e2)
-    a = VectorDoP(e1, h)
+    h = CrossProduct(rayDr, e2)
+    a = DotProduct(e1, h)
     if a < -deadzone or a > deadzone:
         f = 1 / a
         o = VectorSub(raySt, tri[0])
-        ds = VectorDoP(o, h) * f
+        ds = DotProduct(o, h) * f
         
         if 0.0 < ds < 1.0:
         
-            q = VectorCrP(o, e1)
-            v = VectorDoP(rayDr, q) * f
+            q = CrossProduct(o, e1)
+            v = DotProduct(rayDr, q) * f
 
             if v > 0.0 and ds + v < 1.0:
 
-                l = VectorDoP(e2, q) * f
+                l = DotProduct(e2, q) * f
                 if 0.0 < l < RayGetLength(ray):
                     # Hit
                     #
@@ -2123,13 +2218,13 @@ def RayIntersectThingSimple(ray, thing):
 # Does a ray intersection test with each triangle
 def RayIntersectThingComplex(ray, thing):
     for m in thing.meshes:
-        if thing.internalId == -2:
+        if thing.internalid == -2:
             trg = thing.rotation
         else:
             fullRot = VectorAdd(m.rotation, thing.rotation)
             trg = RotTo(fullRot, (0.0, 0.0, 1.0))
             up = RotTo(fullRot, (0.0, 1.0, 0.0))
-        for t in TransformTris(m.tris, VectorAdd(m.position, thing.position), trg, up):
+        for t in TransformTris(m.tris, VectorAdd(m.position, thing.position), trg, up, m.scale, m.cull, m.material):
             inrts = RayIntersectTri(ray, t)
             if inrts[0]:
                 return inrts
@@ -2298,9 +2393,8 @@ def BasicHandleCollisions(other, pivot):
 
             if other.position[1] > pivot.position[1]:
                 # Ceiling Collision
-                other.position[1] = pivot.position[1] - pivot.hitbox.height - other.hitbox.height
+                other.position[1] = pivot.position[1] + pivot.hitbox.height + other.hitbox.height
                 if other.physics:
-                    # Set vertical velocity to 0
                     other.physics.velocity[1] = 0
                 return
 
@@ -2318,6 +2412,8 @@ def BasicHandleCollisions(other, pivot):
 #   myCharacter.physics = z3dpy.PhysicsBody()
 #
 #   while True:
+#       z3dpy.GetDelta()
+#
 #       HandlePhysics([myCharacter])
 #
 
@@ -2384,7 +2480,9 @@ def GroundBounce(thing):
 #   thatTree.hitbox = z3dpy.Hitbox()
 #   thatOtherTree.hitbox = z3dpy.Hitbox()
 #
-#   while True:
+#   Then during the draw loop
+#       z3dpy.GetDelta()
+#
 #       HandlePhysics([myCharacter, joe])
 #
 #       PhysicsCollisions([myCharacter, thatTree, thatOtherTree, joe])
@@ -2484,41 +2582,46 @@ def RenderThings(things, emitters=[], sortKey=TriSortAverage, bReverse=True):
         for t in things:
             if type(t) is list:
                 # Dupe
-                for m in things[t[0]].meshes:
-                    if m.cull:
-                        viewed += RasterPt1(m.tris, VectorAdd(m.position, t[1]), VectorAdd(m.rotation, t[2]), m.shader)
-                    else:
-                        viewed += RasterPt1NoCull(m.tris, VectorAdd(m.position, t[1]), VectorAdd(m.rotation, t[2]), m.shader)
+                if things[t[0]].visible:
+                    for m in things[t[0]].meshes:
+                        if m.visible:
+                            if m.cull:
+                                viewed += RasterPt1(m.tris, VectorAdd(m.position, t[1]), VectorAdd(m.rotation, t[2]), m.material, VectorMul(m.scale, things[t[0]].scale))
+                            else:
+                                viewed += RasterPt1NoCull(m.tris, VectorAdd(m.position, t[1]), VectorAdd(m.rotation, t[2]), m.material, VectorMul(m.scale, things[t[0]].scale))
             else:
+                if t.visible:
                     if t.movable:
                         # bMovable
                         for m in t.meshes:
-                            if m.frame == -1:
-                                # Standard Mesh
-                                if m.cull:
-                                    viewed += RasterPt1(m.tris, VectorAdd(m.position, t.position), VectorAdd(m.rotation, t.rotation), m.shader)
+                            if m.visible:
+                                if m.frame == -1:
+                                    # Standard Mesh
+                                    if m.cull:
+                                        viewed += RasterPt1(m.tris, VectorAdd(m.position, t.position), VectorAdd(m.rotation, t.rotation), m.material, VectorMul(m.scale, t.scale))
+                                    else:
+                                        viewed += RasterPt1NoCull(m.tris, VectorAdd(m.position, t.position), VectorAdd(m.rotation, t.rotation), m.material, VectorMul(m.scale, t.scale))
                                 else:
-                                    viewed += RasterPt1NoCull(m.tris, VectorAdd(m.position, t.position), VectorAdd(m.rotation, t.rotation), m.shader)
-                            else:
-                                # AniMesh
-                                length = len(m.tris)
-                                if m.frame >= length:
-                                    m.frame -= length
-                                if m.cull:
-                                    viewed += RasterPt1(m.tris[m.frame], VectorAdd(m.position, t.position), VectorAdd(m.rotation, t.rotation), m.shader)
-                                else:
-                                    viewed += RasterPt1NoCull(m.tris[m.frame], VectorAdd(m.position, t.position), VectorAdd(m.rotation, t.rotation), m.shader)
+                                    # AniMesh
+                                    length = len(m.tris)
+                                    if m.frame >= length:
+                                        m.frame -= length
+                                    if m.cull:
+                                        viewed += RasterPt1(m.tris[m.frame], VectorAdd(m.position, t.position), VectorAdd(m.rotation, t.rotation), m.material, VectorMul(m.scale, t.scale))
+                                    else:
+                                        viewed += RasterPt1NoCull(m.tris[m.frame], VectorAdd(m.position, t.position), VectorAdd(m.rotation, t.rotation), m.material, VectorMul(m.scale, t.scale))
                     else:
                         # not bMovable
                         for m in t.meshes:
-                            if m.cull:
-                                viewed += RasterPt1Static(m.tris, VectorAdd(m.position, t.position))
-                            else:
-                                viewed += RasterPt1StaticNoCull(m.tris, VectorAdd(m.position, t.position))
+                            if m.visible:
+                                if m.cull:
+                                    viewed += RasterPt1Static(m.tris, VectorAdd(m.position, t.position), m.material)
+                                else:
+                                    viewed += RasterPt1StaticNoCull(m.tris, VectorAdd(m.position, t.position), m.material)
 
         for em in emitters:
             for p in em.particles:
-                viewed += RasterPt1(em.template.tris, p[1], p[2], em.template.shader)
+                viewed += RasterPt1(em.template.tris, p[1], p[2], em.template.material, em.template.scale)
 
         viewed.sort(key=sortKey, reverse=bReverse)
         return RasterPt3(viewed)
@@ -2541,7 +2644,7 @@ def RenderMeshList(meshList, sortKey=TriSortAverage, bReverse=True):
     else:
         viewed = []
         for mesh in meshList:
-            viewed += RasterPt1(mesh.tris, mesh.position, mesh.rotation, mesh.shader)
+            viewed += RasterPt1(mesh.tris, mesh.position, mesh.rotation, mesh.material, mesh.scale)
         viewed.sort(key=sortKey, reverse=bReverse)
         return RasterPt3(viewed)
 
@@ -2556,70 +2659,77 @@ def DebugRender(train=[], sortKey=TriSortAverage, bReverse=True, clearRays=False
     else:
         global rays
         viewed = []
-        for t in GatherThings():
-            if t.hitbox:
-                viewed += RasterPt1Static(t.hitbox.mesh.tris, t.position)
+        things = GatherThings()
+        for t in things:
+            if type(t) is list:
+                if things[t[0]].hitbox:
+                    viewed += RasterPt1Static(things[t[0]].hitbox.mesh.tris, things[t[0]].position, things[t[0]].hitbox.mesh.material)
+            else:
+                if t.hitbox:
+                    viewed += RasterPt1Static(t.hitbox.mesh.tris, t.position, t.hitbox.mesh.material)
 
         viewed.sort(key = sortKey, reverse=bReverse)
         
         for l in lights:
             match l.type:
                 case 0:
-                    viewed += RasterPt1Static(lightMesh.tris, l.position)
+                    viewed += RasterPt1Static(lightMesh.tris, l.position, lightMesh.material)
                 case 1:
-                    viewed += RasterPt1PointAt(arrowMesh.tris, (0, 0, 0), l.position, (0, 1, 0), SHADER_UNLIT)
+                    viewed += RasterPt1PointAt(arrowMesh.tris, (0, 0, 0), l.position, (0, 1, 0), MATERIAL_UNLIT, arrowMesh.scale)
 
         for d in dots:
-            viewed += RasterPt1Static(dotMesh.tris, d)
+            viewed += RasterPt1Static(dotMesh.tris, d, dotMesh.material)
 
         for r in rays:
             if r[0]:
-                viewed += RasterPt1PointAt(arrowMesh.tris, r[1], r[2], iC[7], SHADER_UNLIT)
+                viewed += RasterPt1PointAt(arrowMesh.tris, r[1], r[2], iC[7], MATERIAL_UNLIT, arrowMesh.scale)
             else:
-                viewed += RasterPt2NoPos([[r[1] + [[0, 0, 0], [0, 0]], VectorAdd(r[1], [0, 0.01, 0]) + [[0, 0, 0], [0, 0]], r[2] + [[0, 0, 0], [0, 0]], (0, 0, 0), (0, 0, 0), (0, 0, 0), (255, 0, 0), -1]])
+                viewed += RasterPt2NoPos([[r[1] + [[0, 0, 0], [0, 0]], VectorAdd(r[1], [0, 0.01, 0]) + [[0, 0, 0], [0, 0]], r[2] + [[0, 0, 0], [0, 0]], (0, 0, 0), (0, 0, 0), (0, 0, 0), (255, 0, 0), -1]], MATERIAL_UNLIT)
 
         if train:
             for x in range(len(train)):
                 for y in range(len(train[0])):
-                    viewed += RasterPt1Static(dotMesh.tris, [x, train[x][y], y])
+                    viewed += RasterPt1Static(dotMesh.tris, [x, train[x][y], y], dotMesh.shader)
 
         for e in emitters:
-            viewed += RasterPt1Static(dotMesh.tris, e.position)
+            viewed += RasterPt1Static(dotMesh.tris, e.position, dotMesh.shader)
 
         if clearRays:
             rays = []
         
         return RasterPt3(viewed)
 
-def RasterPt1(tris, pos, rot, shader):
+def RasterPt1(tris, pos, rot, material, scale=(1.0, 1.0, 1.0)):
     trg = VectorAdd(pos, RotTo(rot, (0.0, 0.0, 1.0)))
     up = RotTo(rot, (0.0, 1.0, 0.0))
-    return RasterPt2NoPos(TransformTris(tris, pos, trg, up, False, shader))
+    return RasterPt2NoPos(TransformTris(tris, pos, trg, up, scale, False, material), material)
 
-def RasterPt1PointAt(tris, pos, target, up, shader):
-    return RasterPt2NoPos(TransformTris(tris, pos, target, up, False, shader))
+def RasterPt1PointAt(tris, pos, target, up, material, scale=(1.0, 1.0, 1.0)):
+    return RasterPt2NoPos(TransformTris(tris, pos, target, up, scale, False, material), material)
 
-def RasterPt1NoCull(tris, pos, rot, shader):
+def RasterPt1NoCull(tris, pos, rot, material, scale=(1.0, 1.0, 1.0)):
     trg = VectorAdd(pos, RotTo(rot, (0.0, 0.0, 1.0)))
     up = RotTo(rot, (0.0, 1.0, 0.0))
-    return RasterPt2NoPos(TransformTris(tris, pos, trg, up, True, shader))
+    return RasterPt2NoPos(TransformTris(tris, pos, trg, up, scale, True, material), material)
 
-def RasterPt1StaticNoCull(tris, pos):
-    return RasterPt2(tris, pos)
+def RasterPt1StaticNoCull(tris, pos, material):
+    return RasterPt2(tris, pos, material)
 
 
-def RasterPt1Static(tris, pos):
-    return RasterPt2([tri for tri in tris if VectorDoP(VectorMul(tri[3], (-1, 1, 1)), iC[6]) > -0.4], pos)
+def RasterPt1Static(tris, pos, material):
+    return RasterPt2([tri[:6] + [material.Local(tri)] + tri[7:] for tri in tris if DotProduct(VectorMul(tri[3], (-1, 1, 1)), iC[6]) > -0.4], pos, material)
 
-def RasterPt2(tris, pos):
+def RasterPt2(tris, pos, material):
     output = []
     for tri in ViewTris(TranslateTris(tris, pos)):
+        tri[6] = material.View(tri)
         output += TriClipAgainstPlane(tri, (0.0, 0.0, 0.1), (0.0, 0.0, 1.0))
     return output
 
-def RasterPt2NoPos(tris):
+def RasterPt2NoPos(tris, material):
     output = []
     for t in ViewTris(tris):
+        t[6] = material.View(t)
         output += TriClipAgainstPlane(t, (0.0, 0.0, 0.1), (0.0, 0.0, 1.0))
     return output
 
@@ -2643,17 +2753,18 @@ def RasterPt3(tris):
 # The stages should be done in that order.
 #
 
-def TransformTris(tris, pos, trg, up=(0.0, 1.0, 0.0), noCull=False, shader=SHADER_UNLIT):
+def TransformTris(tris, pos, trg, up=(0.0, 1.0, 0.0), scale=(1, 1, 1), noCull=False, material=MATERIAL_UNLIT):
     mW = PointAtMatrix(pos, trg, up)
     for t in tris:
-        nt = TriMatrixMul(t, mW)
+        t[6] = material.Local(t)
+        nt = TriMatrixMul(TriMul(t, scale), mW)
         nt[3] = GetNormal(nt)
-        if VectorDoP(nt[3], iC[6]) < 0.4 or noCull:
+        if DotProduct(nt[3], iC[6]) < 0.4 or noCull:
             nt[4] = TriAverage(nt)
             nt[4][0] += pos[0]
             nt[4][2] += pos[2]
             nt[4][1] += pos[1]
-            nt[6] = shader(nt)
+            nt[6] = material.World(nt)
             yield nt
 
 def ViewTris(tris):
@@ -2664,12 +2775,13 @@ def ProjectTris(tris):
 
 
 # The World Matrix method of Transforming, requires TranslateTris() afterwards
-def WTransformTris(tris, rot, shader):
+def WTransformTris(tris, rot, material=MATERIAL_UNLIT):
     mW = MatrixMatrixMul(MatrixMakeRotX(rot[0]), MatrixMakeRotZ(rot[2]))
     mW = MatrixMatrixMul(mW, MatrixMakeRotY(rot[1]))
     for t in tris:
+        t[6] = material.Local(nt)
         nt = TriMatrixMul(t, mW)
-        nt[6] = shader(nt)
+        nt[6] = material.World(nt)
         nt[3] = GetNormal(nt)
         nt[4] = TriAverage(nt)
         yield nt
@@ -2729,14 +2841,14 @@ def CheapLighting(tri, lights=lights):
                 dist = DistanceBetweenVectors(tri[4], l.position)
                 if dist <= l.radius:
                     lightDir = DirectionBetweenVectors(l.position, tri[4])
-                    if (dot := VectorDoP(lightDir, tri[3])) < 0:
+                    if (dot := DotProduct(lightDir, tri[3])) < 0:
                         d = dist/l.radius
                         intensity = (1 - (d * d)) * l.strength
                         colour = VectorAdd(colour, VectorMulF(l.colour, intensity * -dot))
                         num += 1
             case 1:
                 # LIGHT_SUN
-                if (dot := VectorDoP(l.position, tri[3])) < 0:
+                if (dot := DotProduct(l.position, tri[3])) < 0:
                     intensity = -dot * l.strength
                     colour = VectorAdd(colour, VectorMulF(l.colour, intensity))
                     num += 1
@@ -2760,7 +2872,7 @@ def ExpensiveLighting(tri, shadowcasters=GatherThings(), lights=lights):
                     dist = DistanceBetweenVectors(pos, l.position)
                     if dist <= l.radius:
                         lightDir = DirectionBetweenVectors(l.position, pos)
-                        shade = VectorDoP(lightDir, tri[3])
+                        shade = DotProduct(lightDir, tri[3])
                         if shade < 0:
                             testRay = Ray(pos, l.position)
 
@@ -2778,7 +2890,7 @@ def ExpensiveLighting(tri, shadowcasters=GatherThings(), lights=lights):
                                 colour = VectorAdd(colour, VectorMulF(l.colour, intensity))
                 # LIGHT_SUN
                 case 1:
-                    if (shade := VectorDoP(l.rotation, tri[3])) > 0:
+                    if (shade := DotProduct(l.rotation, tri[3])) > 0:
                         testRay = Ray(tri[4], VectorAdd(tri[4], VectorMulF(VectorNegate(l.rotation), 25)))
                         rays.append(testRay)
                         for th in shadowcasters:
@@ -2804,22 +2916,22 @@ def ExpensiveLighting(tri, shadowcasters=GatherThings(), lights=lights):
 # Usage:
 '''
 # At the start of the script, call BakeLighting() after defining the lights
-BakeLighting()
+
+myLight = z3dpy.Light(z3dpy.LIGHT_POINT, [0.0, 0.0, 0.0], 0.8, 50, [255, 0, 0])
+
+z3dpy.lights.append(myLight)
+
+BakeLighting([myThing, myOtherThing])
 
 # Then, during the draw loop...
 
-for tri in RasterThings(things):
-
-    PgDrawTriFLB(tri, screen, pygame)
-
-    # or
-
-    TkDrawTriFLB(tri, canvas)
+for tri in RenderThings([myThing, myOtherThing]):
+    # Draw Code
 
 '''
 
 # Baked Lighting:
-# Do the FlatLighting(), and bake it to the triangle's shader variable
+# Do the FlatLighting(), and bake it to the triangle's shade variable
 def BakeLighting(things, expensive=False, lights=lights, shadowcasters=-1):
     print("Baking Lighting...")
     if shadowcasters == -1:
@@ -2871,7 +2983,7 @@ def TriToLines(tri, draw=TemplateLineDraw):
             diff3 = (list[1][1] - list[0][1]) / diff
             for x in range(0, diff + 1, Sign(diff)):
                 rX = x + list[0][0]
-                draw(rX, (diff3 * x) + list[0][1], rX, (slope * x) + list[0][1])
+                draw(rX, diff3 * x + list[0][1], rX, slope * x + list[0][1])
 
         FillTriangleLinePt2(list, slope, draw)
 
@@ -2929,9 +3041,9 @@ def TriToPixels(tri, draw=TemplatePixelDraw):
                 for y in range(ranges[0], ranges[1] + 1):
                     draw(fX, y)
 
-        FillTrianglePixelPt2(list, slope, diff, draw)
+        TriToPixelsPt2(list, slope, diff, draw)
 
-def FillTrianglePixelPt2(list, fSlope, diff, draw):
+def TriToPixelsPt2(list, fSlope, diff, draw):
     if list[2][0] != list[1][0]:
         diff2 = list[2][0] - list[1][0]
         slope2 = (list[2][1] - list[1][1]) / diff2
@@ -2947,31 +3059,22 @@ def FillTrianglePixelPt2(list, fSlope, diff, draw):
             for y in range(ranges[0], ranges[1] + 1):
                 draw(fX, y)
 
-# UVCalcPt1()
-# Fx is normalized X from either P1 - P2 or P2 - P3 depending on stage
-# Fx2 is normalized X from P1 to P3
-# stage is a bool, determines which side of the triangle is
-# being drawn.
+# TriToTexels()
+# Converts a triangle into pixels with UV coordinates, and sends them to a given function.
 
-def UVCalcPt1(uv1, uv2, uv3, Fx, Fx2, bStage1):
-    if bStage1:
-        # From P1 to P2
-        UVstX = Fx * (uv2[0] - uv1[0]) + uv1[0]
-        UVstY = Fx * (uv2[1] - uv1[1]) + uv1[1]
-    else:
-        # From P2 to P3
-        UVstX = Fx * (uv3[0] - uv2[0]) + uv2[0]
-        UVstY = Fx * (uv3[1] - uv2[1]) + uv2[1]
-    
-    # From P1 to P3
-
-    UVndX = Fx2 * (uv3[0] - uv1[0]) + uv1[0]
-    UVndY = Fx2 * (uv3[1] - uv1[1]) + uv1[1]
-
-    return (UVndX - UVstX, UVndY - UVstY, UVstX, UVstY)
-
-def UVCalcPt2(Fy, uvDx, uvDy, UVstX, UVstY):
-    return (Fy * uvDy + UVstY, Fy * uvDx + UVstX)
+# Usage:
+#
+# def MyTexelDraw(x, y, u, v):
+#   # UVs are normalized so they will need to be multiplied and modulo'd by the size of the applied texture.
+#   scaleX = len(myTexture[0])
+#   scaleY = len(myTexture)
+#   # Using abs() to mirror in the negatives
+#   actualU = abs(u * scaleX) % scaleX
+#   actualV = abs(v * scaleY) % scaleY
+#
+# for tri in Render():
+#   TriToTexels(tri, myTexelDraw)
+#
 
 def TemplateTexelDraw(x, y, u, v):
     return
@@ -3009,16 +3112,15 @@ def TriToTexels(tri, draw=TemplateTexelDraw):
 
                         UVs = UVCalcPt1(list[0][4], list[1][4], list[2][4], x / diffF, x / diffX, True)
 
-                        for y in range(ranges[0], ranges[1] + sgn, sgn):
-                            if 0 < y < screenSize[1]:
-                                # "Texel":
-                                # [0] is the screen x, [1] is the screen y, [2] is u, and [3] is v
+                        for y in range(max(ranges[0], 0), ranges[1] + sgn, sgn):
+                            if y < screenSize[1]:
                                 fUVs = UVCalcPt2((y - ranges[0]) / rangD, UVs[0], UVs[1], UVs[2], UVs[3])
                                 draw(fX, y, fUVs[0], fUVs[1])
                             
         TriToTexelsPt2(list, slope, diff, diffX, draw)
 
 def TriToTexelsPt2(list, fSlope, diff, diffX, draw):
+    # Repeat the same steps except for this side now.
     if list[2][0] != list[1][0]:
         diff2 = list[2][0] - list[1][0]
         if diff2:
@@ -3031,7 +3133,7 @@ def TriToTexelsPt2(list, fSlope, diff, diffX, draw):
                 fX = x + floor(list[1][0])
 
                 if fX < screenSize[0]:
-                    # Repeat the same steps except for this side now.
+                    
                     ranges = [floor(slope2 * x + list[1][1]), floor(fSlope * (x + diff) + list[0][1])]
 
                     rangd = ranges[1] - ranges[0]
@@ -3042,11 +3144,35 @@ def TriToTexelsPt2(list, fSlope, diff, diffX, draw):
                         UVs = UVCalcPt1(list[0][4], list[1][4], list[2][4], x / diffF, (x + diff) / diffX, False)
 
                         for y in range(max(ranges[0], 0), min(ranges[1] + sgn, screenSize[1]), sgn):
-                            if 0 < y < screenSize[1]:
+                            if y < screenSize[1]:
                                 fUVs = UVCalcPt2((y - ranges[0]) / rangd, UVs[0], UVs[1], UVs[2], UVs[3])  
                                 draw(fX, y, fUVs[0], fUVs[1])
 
+# UVCalcPt1()
+# Fx is normalized X from either P1 - P2 or P2 - P3 depending on stage
+# Fx2 is normalized X from P1 to P3
+# stage is a bool, determines which side of the triangle is
+# being drawn.
 
+def UVCalcPt1(uv1, uv2, uv3, Fx, Fx2, bStage1):
+    if bStage1:
+        # From P1 to P2
+        UVstX = Fx * (uv2[0] - uv1[0]) + uv1[0]
+        UVstY = Fx * (uv2[1] - uv1[1]) + uv1[1]
+    else:
+        # From P2 to P3
+        UVstX = Fx * (uv3[0] - uv2[0]) + uv2[0]
+        UVstY = Fx * (uv3[1] - uv2[1]) + uv2[1]
+    
+    # From P1 to P3
+
+    UVndX = Fx2 * (uv3[0] - uv1[0]) + uv1[0]
+    UVndY = Fx2 * (uv3[1] - uv1[1]) + uv1[1]
+
+    return (UVndX - UVstX, UVndY - UVstY, UVstX, UVstY)
+
+def UVCalcPt2(Fy, uvDx, uvDy, UVstX, UVstY):
+    return (Fy * uvDx + UVstX, Fy * uvDy + UVstY)
 
 
 #==========================================================================
@@ -3075,8 +3201,9 @@ def ProjectTri(t):
 # Wrote code to brute-force finding a single multiplier that could do most of
 # the projection.
 # I call it: How-Does-That-Even-Work Projection
+# I realize now that it's basically just pre-multiplying the matrix, but let me have this.
 
-# Instead of a matrix, it's now [(X * howX) / Z, (Y * howY) / Z, 1]
+# Instead of a matrix, it's now [ (x * howX) / Z, (y * howY) / Z, 1 ]
 
 # It's still gotta divide by Z to get perspective, without is orthographic.
 
@@ -3214,8 +3341,8 @@ while True:
 
     z3dpy.HandleEmitters()
 
-    # Emitters in the global list will be drawn with Raster()
-    for tri in zp.Raster():
+    # Emitters in the global list will be drawn with Render()
+    for tri in zp.Render():
 
 
 # Your own list
@@ -3226,7 +3353,7 @@ while True:
     z3dpy.HandleEmitters([myEmitter])
 
     # Emitters is an argument in RasterThings()
-    for tri in z3dpy.RasterThings([myThing, thatTree], [myEmitter])
+    for tri in z3dpy.RenderThings([myThing, thatTree], [myEmitter])
 
 '''
 
@@ -3264,26 +3391,23 @@ def WhatIs(list_object):
 
     match len(list_object):
         case 2:
+            return "Vector2"
+        case 3:
+            if type(list_object[0]) is list:
+                return "Particle"
+            return "Vector"
+        case 4:
             if type(list_object[0]) is list:
                 return "Ray"
-            else:
-                return "Vector2"
-        case 3:
-            if type(list_object[0]) is int:
-                return "Vector"
-            else:
-                return "Particle"
-        case 4:
             return "Vector4"
         case 5:
             return "VectorUV"
-        case 6:
-            return "Triangle"
         case 8:
             if type(any[4]) is int:
                 return "Emitter"
-            else:
-                return "Triangle"
+            return "Triangle"
+        case 9:
+            return "Triangle"
                     
 def RGBToHex(vColour):
     def intToHex(int):
@@ -3291,16 +3415,25 @@ def RGBToHex(vColour):
         return hex(max(int, 0))[2:].rjust(2, "0")
     return "#" + intToHex(floor(vColour[0])) + intToHex(floor(vColour[1])) + intToHex(floor(vColour[2]))
 
-# My own list utilities
+# Triple Equals, because I think Python should have that feature. Compares the locations of their pointers instead of value.
+# I guess it's good for knowing wether you've got a reference or copy.
+# I've heard that this might not work depending on the interpreter.
+def TripleEquals(a, b):
+    return id(a) == id(b)
+
+# List Utilities
 
 def ListInterpolate(lst, fIndex):
     flr = floor(fIndex)
-    if fIndex < 0:
-        first = lst[flr]
-        difference = lst[ceil(fIndex)] - first
-        return difference * (fIndex - flr) + first
+    if fIndex > 0:
+        if fIndex < len(lst):
+            first = lst[flr]
+            difference = lst[ceil(fIndex)] - first
+            return difference * (fIndex - flr) + first
+        return lst[-1]
     return lst[flr]
 
+# My solution to the built-in remove()
 def ListExclude(lst, index): return lst[:index] + lst[index+1:]
 
 # My own list flattener, as it seems NumPy is the only other option.
@@ -3308,6 +3441,13 @@ def ListNDFlatten(list_of_lists):
     test = list_of_lists
     while type((test := [item for sublist in test for item in sublist])[0]) is list: pass
     return test
+
+
+#==========================================================================
+#  
+# Z3dPyFast
+#
+#==========================================================================
 
 try:
     import z3dpyfast
@@ -3323,7 +3463,7 @@ else:
         global GetNormal
         global MatrixStuff
         global PointAtMatrix
-        #global TriToLines
+        global TriToLines
         DistanceBetweenVectors = z3dpyfast.DistanceBetweenVectors
         DirectionBetweenVectors = z3dpyfast.DirectionBetweenVectors
         ShortestPointToPlane = z3dpyfast.ShortestPointToPlane
@@ -3332,7 +3472,7 @@ else:
         GetNormal = z3dpyfast.GetNormal
         MatrixStuff = z3dpyfast.MatrixStuff
         PointAtMatrix = z3dpyfast.MatrixMakePointAt
-        #TriToLines = z3dpyfast.TriToLines
+        TriToLines = z3dpyfast.TriToLines
         print("z3dpyfast loaded.")
 
 def fast():
