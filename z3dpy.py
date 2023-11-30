@@ -256,11 +256,9 @@ from struct import unpack
 # Math for, well...
 from math import sqrt, floor, ceil, sin, cos, tan
 
-from utils import ListInterpolate, ListNDFlatten, ListExclude
-
 # z3dpyfast is imported at the bottom of the script to replace functions.
 
-print("Z3dPy v0.3.9_P3_1")
+print("Z3dPy v0.4.0")
 
 #==========================================================================
 #  
@@ -993,10 +991,10 @@ class JSONScript:
 def SweepUntil(string, start, symbols, step=1):
     dex = start
     length = len(string)
-    while string[dex] not in symbols and (0 < dex < length): dex += step
-    print(length)
-    if not dex or dex == length:
-        return dex
+    while string[dex] not in symbols:
+        if dex <= 0 or dex >= length:
+            return dex
+        dex += step
     return dex - Sign(step)
 
 # Textures:
@@ -3463,7 +3461,7 @@ else:
         global GetNormal
         global MatrixStuff
         global PointAtMatrix
-        global TriToLines
+        #global TriToLines
         DistanceBetweenVectors = z3dpyfast.DistanceBetweenVectors
         DirectionBetweenVectors = z3dpyfast.DirectionBetweenVectors
         ShortestPointToPlane = z3dpyfast.ShortestPointToPlane
@@ -3472,7 +3470,7 @@ else:
         GetNormal = z3dpyfast.GetNormal
         MatrixStuff = z3dpyfast.MatrixStuff
         PointAtMatrix = z3dpyfast.MatrixMakePointAt
-        TriToLines = z3dpyfast.TriToLines
+        #TriToLines = z3dpyfast.TriToLines
         print("z3dpyfast loaded.")
 
 def fast():
