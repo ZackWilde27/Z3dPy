@@ -116,23 +116,26 @@ for tri in zp.RasterMeshList([myMesh]):
 
 <br>
 
-Right now, the mesh is using the default shader, SHADER_UNLIT, which will just pass the colour of the triangle through.
+Right now, the mesh is using the default material, MATERIAL_UNLIT, which will just pass the colour of the triangle through.
 
 ![image](https://github.com/ZackWilde27/Z3dPy/assets/115175938/f19598ed-ab67-4ace-af56-57a1dbca62ca)
 
-To get something shaded, go back to where the mesh was defined and change it's shader to either a built-in option or your own shader function.
+To get something shaded, go back to where the mesh was defined and change it's material to either a built-in option or your own.
 ```python
 myMesh = zp.LoadMesh("z3dpy/mesh/suzanne.obj", [0, 0, 2])
 # Z is forward in this case, so it's placed in front of the camera
 
-myMesh.shader = zp.SHADER_SIMPLE
+myMesh.material = zp.MATERIAL_SIMPLE
 
-# Shaders are just functions that take a tri and returns a colour for it
+# Materials are a group of shaders that are run on different stages of rendering
+# Shaders are functions that take a tri and return a colour for it
 def MyShader(tri):
     return (255, 0, 0)
+
+myMaterial = zp.Material(world = MyShader)
 ```
 
-With SHADER_SIMPLE it should look like this
+With MATERIAL_SIMPLE it should look like this
 
 ![image](https://github.com/ZackWilde27/Z3dPy/assets/115175938/6d4a4a74-45cd-49d8-ac40-b8f5206e99ee)
 
@@ -179,6 +182,8 @@ myCamera = zp.Cam([0, 0, 0], 1280, 720)
 
 # Use the LoadMesh function to load an OBJ, DAE, or X3D file (filename, *vPos, *VScale)
 myMesh = zp.LoadMesh("z3dpy/mesh/suzanne.obj", [0, 0, 2])
+
+myMesh.material = zp.MATERIAL_SIMPLE
 
 zp.SetInternalCam(myCamera)
 
