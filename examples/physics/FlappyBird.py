@@ -48,7 +48,7 @@ bird = zp.Thing([birdBody, birdBeak], [0, 0, 5])
 
 bird.physics = zp.PhysicsBody()
 # Hitbox(type, id, radius, height)
-bird.hitbox = zp.Hitbox(2, 0, 1, 1)
+bird.hitbox = zp.Hitbox(zp.HITBOX_BOX, 0, 1, 1)
 
 
 # The Ground
@@ -77,8 +77,8 @@ pipe2 = zp.Thing([pipeMesh], [10, -9, 5])
 
 pipe2.rotation = [0, 0, 180]
 
-pipe.hitbox = zp.Hitbox(2, 0, 1, 2)
-pipe2.hitbox = zp.Hitbox(2, 0, 1, 2)
+pipe.hitbox = zp.Hitbox(zp.HITBOX_BOX, 0, 1, 2)
+pipe2.hitbox = zp.Hitbox(zp.HITBOX_BOX, 0, 1, 2)
 
 # Pipe Pair Functions
 def SpawnPipePair(h):
