@@ -10,7 +10,7 @@ zp.FindHowVars(90, 360/1280)
 # Create a camera to render from
 # Cam(position, *screenWidth, *screenHeight)
 firstCamera = zp.Cam([0, 0, 0], 1280, 360)
-secondCamera = zp.Cam([0, -3, 2], 1280, 360)
+secondCamera = zp.Cam([0, -3, 2])
 
 # Vectors are a list or tuple [x, y, z]
 
@@ -36,14 +36,8 @@ secondCamera.target = myMesh.position
 # Baked Lighting, requires a zp.BakeLighting() call.
 myMesh.shader = zp.SHADER_SIMPLE
 
-# Multiple meshes can be grouped into a thing
-# Thing(meshes, vPos)
-#myThing = zp.Thing([myMesh], [0, 0, 3])
 
-# Since the camera isn't going to move, It doesn't have to be set during the loop
-
-
-# Raster Loop
+# Draw Loop
 while True:
     
     # More PyGame stuff to prevent freezing
