@@ -21,7 +21,8 @@ cube = zp.Thing([zp.LoadMesh("z3dpy/mesh/cube.obj")], [0, 0, 3])
 cube.meshes[0].material = zp.MATERIAL_DYNAMIC
 
 cube.physics = zp.PhysicsBody()
-cube.hitbox = zp.Hitbox(2, 0, 1, 1)
+# Hitbox(type, id, radius, height)
+cube.hitbox = zp.Hitbox(zp.HITBOX_BOX, 0, 1, 1)
 
 zp.AddThing(cube)
 
@@ -37,12 +38,12 @@ myTrain[3][10] = 15
 # BakeTrain(train, *passes, *strength, *amplitude)
 zp.BakeTrain(myTrain, 5, 1.7, 1.0)
 
+# BakeTrain() will update trainMesh. It's automatically drawn under everything in Render()
 zp.trainMesh.SetColour((50, 255, 50))
+zp.trainMesh.material = zp.MATERIAL_DYNAMIC
 
 myLight = zp.Light(zp.LIGHT_SUN, [-45, 0, 0], 1.0, 5.0, (255, 255, 255))
-
 zp.lights.append(myLight)
-zp.trainMesh.material = zp.MATERIAL_DYNAMIC
 
 print("")
 print("Controls:")
@@ -81,8 +82,5 @@ while True:
 
     for tri in zp.Render():
         pygame.draw.polygon(screen, zp.TriGetColour(tri), zp.FormatTri(tri, False))
-
-    #for tri in zp.DebugRender(myTrain):
-        #zp.PgDrawTriOutl(tri, [255, 0, 0], screen, pygame)
 
     pygame.display.flip()

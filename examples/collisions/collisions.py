@@ -43,14 +43,14 @@ char = zp.Thing([cubeMesh], [0, 1, 3])
 
 # Giving the character a hitbox and physics body
 # Hitbox(type, id, radius, height)
-char.hitbox = zp.Hitbox(2, 0, 0.5, 0.5)
+char.hitbox = zp.Hitbox(zp.HITBOX_BOX, 0, 0.5, 0.5)
 # Type determines the shape of the hitbox: 0 is sphere, 2 is cube
 # Only things with the same id will collide
 # Radius and height determine the size of hitbox
 char.physics = zp.PhysicsBody()
 
 bar = zp.Thing([smallCube], [0.5, 0, 3])
-bar.hitbox = zp.Hitbox(2, 0, 2, 0.5)
+bar.hitbox = zp.Hitbox(zp.HITBOX_BOX, 0, 2, 0.5)
 bar.visible = False
 
 
