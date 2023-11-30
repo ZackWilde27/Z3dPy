@@ -141,7 +141,7 @@ With MATERIAL_SIMPLE it should look like this
 
 ![image](https://github.com/ZackWilde27/Z3dPy/assets/115175938/6d4a4a74-45cd-49d8-ac40-b8f5206e99ee)
 
-More on shaders can be found on the <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Meshes-0.4">Meshes</a> page
+More on materials can be found on the <a href="https://github.com/ZackWilde27/Z3dPy/wiki/Meshes-0.4">Meshes</a> page
 
 <br>
 
