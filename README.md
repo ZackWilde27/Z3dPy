@@ -108,7 +108,7 @@ def MyLineDraw(sx, sy, ex, ey):
    # Draw code here
    pygame.draw.line(screen, zp.TriGetColour(tri), (sx, sy), (ex, ey))
 
-for tri in zp.RasterMeshList([myMesh]):
+for tri in zp.RenderMeshList([myMesh]):
     # Draw the triangles
     zp.TriToLines(tri, MyLineDraw)
         
