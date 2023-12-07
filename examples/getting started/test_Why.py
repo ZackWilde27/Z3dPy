@@ -5,7 +5,7 @@
 import z3dpy as zp
 
 buffer = ""
-buffer = [["0" for u in range(64)] for b in range(32)]
+buffer = [[" " for u in range(64)] for b in range(32)]
 
 # Set the render size to match the output screen
 zp.screenSize = (64, 24)
@@ -28,13 +28,18 @@ myThing = zp.Thing([myMesh], [0, 0, 3])
 # Since the camera isn't going to move, we only need to set it once.
 zp.SetInternalCam(myCamera)
 
+values = " -#@"
+
 def myDraw(x, y):
     # The current triangle in the for loop below can be accessed from here
-    if (val := str(int(max(-zp.TriGetNormal(tri)[2], 0) * 9))):
+    if (val := values[int((zp.TriGetColour(tri)[2] / 255) * 3)]):
         buffer[y][x] = val
 
 # Raster Loop
 while True:
+
+    # Clear Screen
+    buffer = [[" " for u in range(64)] for b in range(24)]
 
     # Render 3D
     for tri in zp.RasterThings([myThing]):
