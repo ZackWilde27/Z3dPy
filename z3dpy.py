@@ -1,6 +1,7 @@
 # -zw
 '''
 Z3dPy v0.4.1
+*Nightly build, wiki/examples are based on the release build
 
 LEGEND:
 - Parameters marked with * are optional
@@ -13,16 +14,31 @@ Capitals mean normalized.
 
 Change Notes:
 
-- LoadMesh() now supports Stanford PLY (.ply) files, both ASCII and binary, with optional UVs and Normals.
 
-- RotTo() has been renamed to VectorRotate(), and it's parameters have been flipped to match the new name. VectorRotate( vector, rotation )
+MESHES
+
+- LoadMesh() now supports STL files, and PLY files, both ASCII and binary.
+
+- Local shaders no longer overwrite the original triangle's colour.
+
+
+TRIS
 
 - Tris have been simplified, as they don't need to carry as much information all the way to the draw stage anymore.
 They no longer store normals, or world position. TriGetWPos(), TriSetWPos(), and TriSetNormal() has been removed, TriGetNormal() now calculates the normal.
 
+Use TriAverage() to get the center point, instead of TriGetWPos()
+
+Use TriGetNormal() to get the normal, instead of GetNormal()
+
+
+MISC
+
+- RotTo() has been renamed to VectorRotate(), and it's parameters have been flipped to match the new name. VectorRotate( vector, rotation )
+
 - RemoveThing() no longer needs a layer argument, it's also stored.
 
-- Local shaders no longer overwrite the original triangle's colour.
+- Fast()'s error message is less vague now.
 
 '''
 
@@ -214,7 +230,11 @@ class Mesh():
         self.rotation[2] += vector[2]
     
     def __repr__(self):
-        return "Z3dPy Mesh:\n\tPos: " + str(self.position) + "\n\tRot: " + str(self.rotation) + "\n\tScale: " + str(self.scale) + "\n\tColour: " + str(self.colour) + "\n\tId: " + str(self.id) + "\n\tFrame: " + str(self.frame)
+        if self.frame == -1:
+            return "Z3dPy Mesh:\n\tTris: " + str(len(self.tris)) + "\n\tPosition: " + str(self.position) + "\n\tRotation: " + str(self.rotation) + "\n\tScale: " + str(self.scale) + "\n\tColour: " + str(self.colour) + "\n\tMaterial: " + str(self.material) + "\n\tId: " + str(self.id)
+
+        else:
+            return "Z3dPy AniMesh:\n\tTris: " + str(len(self.tris)) + "\n\tPosition: " + str(self.position) + "\n\tRotation: " + str(self.rotation) + "\n\tScale: " + str(self.scale) + "\n\tColour: " + str(self.colour) + "\n\tMaterial: " + str(self.material) + "\n\tId: " + str(self.id) + "\n\tFrame: " + str(self.frame)
 
 trainMesh = Mesh((), [0, 0, 0])
 
@@ -240,6 +260,8 @@ HITBOX_SPHERE = 0
 HITBOX_CYLINDER = 1
 HITBOX_BOX = 2
 
+hitboxTypes = ["Sphere", "Cylinder", "Box"]
+
 class Hitbox():
     def __init__(self, tyype = 2, id = 0, radius = 1, height = 1):
         self.type = tyype
@@ -260,7 +282,7 @@ class Hitbox():
         self.mesh.id = -1
     
     def __repr__(self):
-        return "Z3dPy Hitbox:\n\tType: " + str(self.type) + "\n\tId: " + str(self.id) + "\n\tRadius: " + str(self.radius) + "\n\tHeight: " + str(self.height) + "\n\t"
+        return "Z3dPy Hitbox:\n\tType: " + hitboxTypes[self.type] + "\n\tId: " + str(self.id) + "\n\tRadius: " + str(self.radius) + "\n\tHeight: " + str(self.height) + "\n\t"
 
 
 # OldPhysics Body:
@@ -691,19 +713,21 @@ class JSONScript:
 
     def GetItem(self, name):
         itemName = "\"" + name + "\"" + ":"
-        start = self.script.index(itemName)
-        dex = start + 1
+        start = self.script.index(itemName) + len(itemName)
+        dex = start
         level = -1
 
-        match self.script[start + len(itemName)]:
+        match self.script[start]:
             case "{":
                 startTag = "{"
                 endTag = "}"
             case "[":
                 startTag = "["
                 endTag = "]"
+            case "\"":
+                return self.script[start + 1:StringSweepUntil(self.script, start + 1, "\"")]
             case _:
-                return self.GetValue(name)
+                return self.script[start:StringSweepUntil(self.script, start, "]},")]
 
         while True:
             char = self.script[dex]
@@ -729,7 +753,7 @@ class JSONScript:
         if itemName not in self.script:
             print(itemName, "was not found in the JSON Script")
             return ""
-        return JSONScript(self.script[SweepUntil(self.script, self.script.index(itemName), "{", -1):SweepUntil(self.script, self.script.index(itemName), "}") + 1])
+        return JSONScript(self.script[StringSweepUntil(self.script, self.script.index(itemName), "{", -1):StringSweepUntil(self.script, self.script.index(itemName), "}") + 1])
 
     def GetList(self, name):
         fullName = "\"" + name + "\":"
@@ -742,16 +766,16 @@ class JSONScript:
             if self.script[start] == "\"":
                 return self.script[start:self.script.index("\"", start + 1)]
             if self.script[start] == "{":
-                return self.script[start:SweepUntil(self.script, start, ",}]\"", 1) + 1]
-        return self.script[start:SweepUntil(self.script, start, ",}]", 1) + 1]
+                return self.script[start:StringSweepUntil(self.script, start, ",}]", 1) + 1]
+        return self.script[start:StringSweepUntil(self.script, start, ",}]", 1) + 1]
 
 
-# SweepUntil is like index, with multiple options, it'll return the first occurence of any of the characters in the symbols string
+# StringSweepUntil is like index, with multiple options. It'll return the first occurence of any of the characters in the symbols string
 # If the symbols are not found it'll return either 0 or the length of the string, depending on which way the step goes.
 '''
-    myString[:z3dpy.SweepUntil(myString, 0, "}])")]
+    myString[:z3dpy.StringSweepUntil(myString, 0, ",.!;?")]
 '''
-def SweepUntil(string, start, symbols, step=1):
+def StringSweepUntil(string, start, symbols, step=1):
     dex = start
     length = len(string)
     while -1 < dex < length:
@@ -1544,6 +1568,54 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
             file.close()
             return Mesh(tris, vPos)
         
+        case "stl":
+            # STL
+            file = open(filename)
+
+            points = []
+            tris = []
+
+            if file.read(5) == "solid":
+                
+                # ASCII
+                file.readline()
+                while (line := file.readline()):
+                    line = line[:-1]
+
+                    while line[0] == '\t' or line[0] == ' ':
+                        line = line[1:]
+
+                    if line[:5] == "facet":
+                        normal = [float(l) for l in line.split(" ")[2:]]
+                    
+                    if line[:6] == "vertex":
+                        points.append([float(l) for l in line.split(" ")[1:]])
+                    
+                    if line == "endfacet":
+                        if len(points) > 3:
+                            ngon = [VectorUV(p[0], p[1], p[2], normal) for p in points]
+                            tris += Triangulate(ngon)
+                        else:
+                            tris.append(Tri(VectorUV(points[0][0], points[0][1], points[0][2], normal), VectorUV(points[1][0], points[1][1], points[1][2], normal), VectorUV(points[2][0], points[2][1], points[2][2], normal)))
+                        points = []
+
+            else:
+                # Binary
+                file.close()
+                file = open(filename, 'rb')
+                header = file.read1(80)
+                numTris = unpack("L", file.read1(4))[0]
+                print(numTris)
+                for t in range(numTris):
+                    normal = [unpack('f', file.read1(4))[0] for i in range(3)]
+                    p1 = [unpack('f', file.read1(4))[0] for i in range(3)]
+                    p2 = [unpack('f', file.read1(4))[0] for i in range(3)]
+                    p3 = [unpack('f', file.read1(4))[0] for i in range(3)]
+                    file.read1(2)
+                    tris.append(Tri(VectorUV(p1[0], p1[1], p1[2], normal), VectorUV(p2[0], p2[1], p2[2], normal), VectorUV(p3[0], p3[1], p3[2], normal)))
+
+            return Mesh(tris, vPos)
+        
         case "ply":
             # Stanford PLY
             file = open(filename)
@@ -1679,7 +1751,7 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
 
             triOrder = [-1, -1, -1]
 
-            for val in json.GetItem("attributes").script[14:].strip().split(","):
+            for val in json.GetItem("attributes").script[1:-1].strip().split(","):
                 split = val.split(":")
                 match split[0][1:-1]:
                     case "POSITION":
@@ -1689,81 +1761,68 @@ def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
                     case "TEXCOORD_0":
                         triOrder[2] = int(split[1].replace("}", ""))
 
-            #print(json.GetItem("accessors").script)
-
             flip = True
             buffers = [-1, -1, -1, -1]
 
-            for buffer in json.GetItem("accessors").script[13:].strip().replace("{", "").split("},"):
-
+            for buffer in json.GetItem("accessors").script[1:-2].strip().replace("{", "").split("},"):
                     script = JSONScript(buffer)
-                    print(script.GetItem("type")[1:])
-                    match script.GetItem("type")[1:]:
+                    match script.GetItem("type"):
                         case "VEC3":
-                            buffers[0 if flip else 1] = [int(script.GetItem("count")), int(script.GetItem("bufferView"))]
+                            buffers[0 if flip else 1] = [int(script.GetItem("count")), int(script.GetItem("bufferView")), int(script.GetItem("componentType"))]
                             flip = False
                         case "VEC2":
-                            buffers[2] = [int(script.GetItem("count")), int(script.GetItem("bufferView"))]
+                            buffers[2] = [int(script.GetItem("count")), int(script.GetItem("bufferView")), int(script.GetItem("componentType"))]
                         case "SCALAR":
-                            buffers[3] = [int(script.GetItem("count")), int(script.GetItem("bufferView"))]
+                            buffers[3] = [int(script.GetItem("count")), int(script.GetItem("bufferView")), int(script.GetItem("componentType"))]
             
-            points = []
-            uvs = []
-            normals = []
-            tries = []
+            data = [[], [], [], []]
             
             for index, bufferView in enumerate(json.GetList("bufferViews")):
                 view = JSONScript(bufferView)
                 file.seek(int(view.GetItem("byteOffset")) + binaryOffset)
-                if index == buffers[0][1]:
-                    points = [unpack('f', file.read1(4))[0] for i in range(buffers[0][0])]
-                    points = [(points[t], points[t + 1], points[t + 2]) for t in range(0, len(points), 3)]
-                
-                if index == buffers[1][1]:
-                    normals = [unpack('f', file.read1(4))[0] for i in range(buffers[1][0])]
-                    normals = [(normals[n], normals[n + 1], normals[n + 2]) for n in range(0, len(normals), 3)]
-                
-                if index == buffers[2][1]:
-                    uvs = [unpack('f', file.read1(4))[0] for i in range(buffers[2][0])]
-                    #uvs = [(uvs[u], uvs[u + 1]) for u in range(0, len(uvs), 2)]
-                
-                if index == buffers[3][1]:
-                    tries = [unpack('H', file.read1(2))[0] for i in range(buffers[3][0])]
+                for i in range(4):
+                    if buffers[i] != -1:
+                        if index == buffers[i][1]:
+                            byteType = GlTFComponentTypeToUnpackParameters(buffers[i][2])
+                            data[index] += [unpack(byteType[0], file.read1(byteType[1]))[0] for i in range(buffers[i][0])]
             
-            print(triOrder, [len(points), len(normals), len(uvs), len(tries)])
-            print(tries)
+            data[0] = [(data[0][v], data[0][v + 1], data[0][v + 2]) for v in range(0, len(data[0]), 3)]
+
+            data[1] = [(data[1][v], data[1][v + 1], data[1][v + 2]) for v in range(0, len(data[1]), 3)]
+
+            data[2] = [(data[2][v], data[2][v + 1]) for v in range(0, len(data[2]), 2)]
+
+            print(triOrder, len(data[0]), len(data[1]), len(data[2]), len(data[3]))
+            print(data[3])
             input(">")
+            tries = data[3]
             tris = []
 
             double = triLength * 2
     
             # The numbers, what do they mean? Where are they broadcast from?
-            '''
             for t in range(0, len(tries), triLength * 3):
-                print(t, triOrder, [len(points), len(normals), len(uvs), len(tries)])
-                print(tries[t + triOrder[0]])
-                p1 = points[tries[t + triOrder[0]]]
-                p2 = points[tries[t + triLength + triOrder[0]]]
+                p1 = data[0][tries[t + triOrder[0]]]
+                p2 = data[0][tries[t + triLength + triOrder[0]]]
                 
-                p3 = points[tries[t + double + triOrder[0]]]
+                p3 = data[0][tries[t + double + triOrder[0]]]
                 n1 = [0, 0, 0]
                 n2 = [0, 0, 0]
                 n3 = [0, 0, 0]
                 uv1 = [0, 0]
                 uv2 = [0, 0]
                 uv3 = [0, 0]
-                if normals:
+                if data[1]:
                     print(tries[t + triLength + triOrder[1]] - 1)
-                    n1 = normals[tries[t + triOrder[1]] - 1]
-                    n2 = normals[tries[t + triLength + triOrder[1]] - 1]
-                    n3 = normals[tries[t + (triLength * 2) + triOrder[1]] - 1]
-                if uvs:
-                    uv1 = uvs[tries[t + triOrder[2]] - 1]
-                    uv2 = uvs[tries[t + triLength + triOrder[2]] - 1]
-                    uv3 = uvs[tries[t + (triLength * 2) + triOrder[2]] - 1]
+                    n1 = data[1][tries[t + triOrder[1]] - 1]
+                    n2 = data[1][tries[t + triLength + triOrder[1]] - 1]
+                    n3 = data[1][tries[t + double + triOrder[1]] - 1]
+                if data[2]:
+                    uv1 = data[2][tries[t + triOrder[2]] - 1]
+                    uv2 = data[2][tries[t + triLength + triOrder[2]] - 1]
+                    uv3 = data[2][tries[t + double + triOrder[2]] - 1]
                 
                 tris = Tri(VectorUV(p1[0], p1[1], p1[2], n1, uv1), VectorUV(p2[0], p2[1], p2[2], n2, uv2), VectorUV(p3[0], p3[1], p3[2], n3, uv3))
-            '''
             file.close()
             return Mesh(tris, vPos)
             
@@ -1856,6 +1915,27 @@ def LoadAniMesh(filename, vPos=[0.0, 0.0, 0.0], VScale=(1.0, 1.0, 1.0)):
             newMsh.tris.append(LoadMesh(filename[:-4] + str(f) + ".obj", [0, 0, 0], VScale).tris)
 
         return newMsh
+
+def GlTFComponentTypeToUnpackParameters(value):
+    match value:
+        case 5120:
+            # Signed Byte
+            return ('b', 1)
+        case 5121:
+            # Unsigned Byte
+            return ('B', 1)
+        case 5122:
+            # Signed Short
+            return ('h', 2)
+        case 5123:
+            # Unsigned Short
+            return ('H', 2)
+        case 5125:
+            # Unsigned Int
+            return ('I', 4)
+        case 5126:
+            # Float
+            return ('f', 4)
 
 try:
     lightMesh = LoadMesh("z3dpy/mesh/light.obj")
@@ -3294,7 +3374,7 @@ def ListNDFlatten(list_of_lists):
 try:
     import z3dpyfast
 except:
-    def Fast(): print("z3dpyfast could not be found.")
+    def Fast(): print("z3dpyfast was not found, defaulting to pure Python.")
 else:
     def Fast():
         global DistanceBetweenVectors
@@ -3320,17 +3400,26 @@ else:
         
         
         print("z3dpyfast loaded.")
+    # Shh
+    '''
+    class Z3dPyScreen():
+        def __init__(self):
+            return
 
-    class Screen():
-        def __init__(self, width, height): z3dpyfast.InitScreen(width, height)
-                
+        def Init(self, width, height): z3dpyfast.InitScreen(width, height)
+                    
         def SetBackgroundColour(self, vColour): z3dpyfast.SetBackgroundColour(vColour)
-                
-        def Draw(self, tri): z3dpyfast.DrawTri(tri)
-                
-        def Update(self): z3dpyfast.UpdateScreen()
-                
-        def Release(self): z3dpyfast.Quit()
+
+        def Clear(): z3dpyfast.ClearScreen()
+                    
+        def Draw(tri): z3dpyfast.DrawTri(tri)
+                    
+        def Update(): z3dpyfast.UpdateScreen()
+                    
+        def Release(): z3dpyfast.Quit()
+    
+    screen = Z3dPyScreen()
+    '''
 
 def fast():
     Fast()
@@ -3357,55 +3446,4 @@ def RasterMeshList(meshList, sortKey=TriSortAverage, bReverse=True):
 
 def DebugRaster(train=[], sortKey=TriSortAverage, bReverse=True, clearRays=False):
     return DebugRender(train, sortKey, bReverse, clearRays)
-
-def PgDrawTriRGB(tri, colour, surface, pygame):
-    pygame.draw.polygon(surface, colour, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
-
-def PgDrawTriRGBF(tri, colour, surface, pygame):
-    ncolour = VectorMaxF(colour, 0)
-    ncolour = VectorMinF(ncolour, 1)
-    pygame.draw.polygon(surface, VectorMulF(ncolour, 255), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
-
-def PgDrawTriF(tri, f, surface, pygame):
-    f = max(f, 0)
-    f = min(f, 1) * 255
-    pygame.draw.polygon(surface, (f, f, f), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
-
-def PgDrawTriOutl(tri, colour, surface, pygame):
-    ncolour = VectorMaxF(colour, 0)
-    ncolour = VectorMinF(ncolour, 255)
-    pygame.draw.lines(surface, colour, True, [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
-
-def PgDrawTriS(tri, f, surface, pygame):
-    f = max(f, 0)
-    f = min(f, 1)
-    pygame.draw.polygon(surface, VectorMulF(tri[6], f), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
-
-def PgDrawTriFL(tri, surface, pygame, lights=lights):
-    pygame.draw.polygon(surface, VectorMul(tri[6], CheapLighting(tri, lights)), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
-
-def PgDrawTriFLB(tri, surface, pygame):
-    pygame.draw.polygon(surface, VectorMul(tri[6], tri[5]), [(tri[0][0], tri[0][1]), (tri[1][0], tri[1][1]), (tri[2][0], tri[2][1])])
-
-def TkDrawTriRGB(tri, colour, canvas):
-    canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], fill=RGBToHex(colour))
-
-def TkDrawTriRGBF(tri, colour, canvas):
-    canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], fill=RGBToHex(VectorMulF(colour, 255)))
-
-def TkDrawTriF(tri, f, canvas):
-    f = str(floor(max(f, 0) * 100))
-    canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], fill="gray" + f)
-
-def TkDrawTriOutl(tri, colour, canvas):
-    canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], outline=RGBToHex(colour))
-
-def TkDrawTriS(tri, f, canvas):
-    canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], fill=RGBToHex(VectorMulF(tri[6], f)))
-
-def TkDrawTriFL(tri, canvas, lights=lights):
-    canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], fill=RGBToHex(VectorFloor(VectorMul(tri[6], CheapLighting(tri, lights)))))
-
-def TkDrawTriFLB(tri, canvas):
-    canvas.create_polygon([tri[0][0], tri[0][1], tri[1][0], tri[1][1], tri[2][0], tri[2][1]], fill=RGBToHex(VectorMul(tri[6], tri[5])))
 ##
