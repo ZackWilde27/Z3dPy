@@ -17,6 +17,7 @@ Window.size=(1280, 720)
 class MyWidget(kivy.uix.widget.Widget):
     loop_thread = None
 
+    # Is this the best way to do it? I'm relatively new to Kivy
     def callback_to_loop(self, dt):
         delta = zp.GetDelta()
         self.canvas.clear()
@@ -39,22 +40,18 @@ class MainApp(App):
     def build(self):
         return MyWidget()
 
-# Set the render size to match the output screen
-zp.screenSize = (1280, 720)
-
+# Just like Pyglet, the screen needs to be flipped for Kivy
 zp.FindHowVars(-90, -(9/16))
 
-# Create a camera to render from
-# Cam(vPos)
-myCamera = zp.Cam([0, 0, 0])
+# Create a camera to render from, and give it the dimensions of the previously set up screen
+# Cam(vPos, screenWidth, screenHeight)
+myCamera = zp.Cam([0, 0, 0], 1280, 720)
 
 # Load a mesh to draw
 # LoadMesh(filename, *vPos, *VScale)
 myMesh = zp.LoadMesh("z3dpy/mesh/z3dpy.obj")
 
 myMesh.material = zp.MATERIAL_SIMPLE
-
-#zp.MeshSetCull(myMesh, False)
 
 # Multiple meshes can be grouped into a thing
 # Thing(meshes, vPos)
