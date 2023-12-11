@@ -15,9 +15,54 @@ Capitals mean normalized.
 Change Notes:
 
 
+DEFINING OBJECTS
+
+- The parameters when defining objects now have the same name as the associated property, and there's a lot more of them.
+
+Instead of putting in parameters in-line, you can now select which properties you want to be adjusted, in whatever order.
+
+For example:
+    myThing = z3dpy.Thing([myMesh], position=[1.0, 2.0, 3.0], rotation=[0.0, 90.0, 0.0], scale=[0.5, 0.5, 0.5])
+
+    myMesh = z3dpy.Mesh([thatTri], frame=0, colour=(255, 0, 255), position=[4.0, 5.0, 6.0])
+
+    This also extends to hitboxes and physics for things, so they can be given one when creating.
+    myThing = z3dpy.Thing([myMesh], hitbox=z3dpy.Hitbox(z3dpy.HITBOX_BOX, 0, 1.0, 1.0), physics=z3dpy.PhysicsBody(mass=5.0, friction=0.5))
+
+LoadMesh() now has the same parameters as defining a mesh, so properties can be set on creation.
+
+    z3dpy.LoadMesh("filename.dae", rotation=[90.0, 10.0, 0.0], colour=(255, 0, 0), material=z3dpy.MATERIAL_UNLIT)
+
+    z3dpy.LoadAniMesh("filename.aobj", scale=[0.5, 0.5, 0.5], visible=False)
+
+
+FOV & ASPECT RATIO
+
+- Split FindHowVars() into SetFOV() and SetAspectRatio(). SetHowVars() is now SetCameraConstants()
+The old functions are still there for backwards compatibility
+
+
+MATRIXES
+
+- MatrixMakeProjection() has been renamed to ProjectionMatrix()
+
+- LookAtMatrix() has been renamed to ViewMatrix()
+
+- Combined MatrixMakeRot_() into RotationMatrix( axis, degrees )
+    Select an axis with a vector ([0, 1, 0] to select y for instance)
+
+    myMatrix = z3dpy.RotationMatrix([0, 0, 1], 90)
+
+    for tri in z3dpy.Render():
+        z3dpy.TriMatrixMul(tri, myMatrix)
+
 MESHES
 
 - LoadMesh() now supports STL files, and PLY files, both ASCII and binary.
+
+- LoadMesh()'s fail-safe only applied to OBJ files, that has been fixed.
+
+- Mesh() will now automatically SetColour() on creation if given one.
 
 - Local shaders no longer overwrite the original triangle's colour.
 
@@ -34,6 +79,10 @@ Use TriGetNormal() to get the normal, instead of GetNormal()
 
 MISC
 
+- WhatIs() will now print the class name of an object if it's not a list.
+
+- PgDrawTri__ and TkDrawTri__ have been removed, use the material system to draw certain meshes differently.
+
 - RotTo() has been renamed to VectorRotate(), and it's parameters have been flipped to match the new name. VectorRotate( vector, rotation )
 
 - RemoveThing() no longer needs a layer argument, it's also stored.
@@ -43,7 +92,7 @@ MISC
 '''
 
 # Time for delta-time calculations
-from time import time
+from time import perf_counter as time
 
 # Rand for finding projection constants
 from random import random as rand
@@ -196,18 +245,20 @@ MATERIAL_DYNAMIC = Material(world = SHADER_DYNAMIC)
 MATERIAL_STATIC = Material(view = SHADER_STATIC)
 
 class Mesh():
-    def __init__(self, tris, vPos=[0.0, 0.0, 0.0], vRot=[0.0, 0.0, 0.0], vColour=(255, 255, 255), iId=0, bCull=True, material=MATERIAL_UNLIT):
+    def __init__(self, tris, position=[0.0, 0.0, 0.0], rotation=[0.0, 0.0, 0.0], scale=[1.0, 1.0, 1.0], colour=(255, 255, 255), id=0, cull=True, material=MATERIAL_UNLIT, visible=True, frame=-1):
         self.tris = tris
-        self.position = vPos
-        self.rotation = vRot
-        self.colour = (255, 255, 255)
-        self.scale = [1.0, 1.0, 1.0]
-        self.id = iId
-        self.cull = bCull
+        self.position = position
+        self.rotation = rotation
+        self.colour = colour
+        self.scale = scale
+        self.id = id
+        self.cull = cull
         self.material = material
-        self.frame = -1
-        self.visible = True
+        self.frame = frame
+        self.visible = visible
         self.user = 0
+        if colour[0] == colour[1] == colour[2] == 255:
+            self.SetColour(colour)
 
     def SetColour(self, vColour):
         self.colour = vColour
@@ -228,6 +279,9 @@ class Mesh():
         self.rotation[0] += vector[0]
         self.rotation[1] += vector[1]
         self.rotation[2] += vector[2]
+    
+    def GetClass(self):
+        return "Mesh"
     
     def __repr__(self):
         if self.frame == -1:
@@ -257,14 +311,14 @@ trainMesh = Mesh((), [0, 0, 0])
 
 
 HITBOX_SPHERE = 0
-HITBOX_CYLINDER = 1
+#HITBOX_CYLINDER = 1
 HITBOX_BOX = 2
 
 hitboxTypes = ["Sphere", "Cylinder", "Box"]
 
 class Hitbox():
-    def __init__(self, tyype = 2, id = 0, radius = 1, height = 1):
-        self.type = tyype
+    def __init__(self, type=2, id=0, radius=1, height=1):
+        self.type = type
         self.id = id
         self.radius = radius
         self.height = height
@@ -280,6 +334,9 @@ class Hitbox():
                 self.mesh = LoadMesh("z3dpy/mesh/sphere.obj", [0, 0, 0], [self.radius, self.height, self.radius])
         self.mesh.SetColour([255, 0, 0])
         self.mesh.id = -1
+    
+    def GetClass(self):
+        return "Hitbox"
     
     def __repr__(self):
         return "Z3dPy Hitbox:\n\tType: " + hitboxTypes[self.type] + "\n\tId: " + str(self.id) + "\n\tRadius: " + str(self.radius) + "\n\tHeight: " + str(self.height) + "\n\t"
@@ -300,12 +357,12 @@ class Hitbox():
 # Drag is now a global variable, representing air resistance.
 
 class PhysicsBody():
-    def __init__(self):
+    def __init__(self, mass=0.5, friction=15, bounciness=0.5):
         self.velocity = [0, 0, 0]
         self.acceleration = [0, 0, 0]
-        self.mass = 0.5
-        self.friction = 15
-        self.bounciness = 0.5
+        self.mass = mass
+        self.friction = friction
+        self.bounciness = bounciness
         self.rotVelocity = [0, 0, 0]
         self.rotAcceleration = [0, 0, 0]
         self.user = 0
@@ -326,16 +383,16 @@ class PhysicsBody():
 # -2 means the rotation value is the PointAt target
 
 class Thing():
-    def __init__(self, meshList, vPos):
+    def __init__(self, meshList, position=[0, 0, 0], rotation=[0, 0, 0], scale=[1.0, 1.0, 1.0], hitbox=None, physics=None, movable=True, visible=True):
         self.meshes = meshList
-        self.position = vPos
-        self.rotation = [0, 0, 0]
-        self.scale = [1.0, 1.0, 1.0]
-        self.hitbox = None
-        self.physics = None
-        self.movable = True
+        self.position = position
+        self.rotation = rotation
+        self.scale = scale
+        self.hitbox = hitbox
+        self.physics = physics
+        self.movable = movable
         self.internalid = 0
-        self.visible = True
+        self.visible = visible
         self.user = 0
     
     def __repr__(self):
@@ -398,11 +455,11 @@ def Dupe(iIndex, vPos, vRot):
 #
     
 class Cam():
-    def __init__(self, vPosition, screenWidth=0, screenHeight=0):
+    def __init__(self, position=[0, 0, 0], screenWidth=0, screenHeight=0):
         if screenWidth and screenHeight:
             global screenSize
             screenSize = (screenWidth, screenHeight)
-        self.position = vPosition
+        self.position = position
         self.rotation = [0, 0, 0]
         self.nearClip = 0.1
         self.farClip = 1500
@@ -428,7 +485,7 @@ class Cam():
         return CrossProduct(self.GetTargetDir(), self.up)
     
     def ScreenXYToWorld(self, x, y):
-        up = RotTo(self.rotation, [0, -1, 0])
+        up = VectorRotate([0, -1, 0], self.rotation)
         right = CrossProduct(self.GetTargetDir(), up)
         offset = VectorAdd(VectorMulF(right, x - (screenSize[0] * 0.5)), VectorMulF(up, y - (screenSize[1] * 0.5)))
         return VectorAdd(self.position, offset)
@@ -466,7 +523,7 @@ def SetInternalCam(camera):
     global intMatV
     global iC
     iC = [camera.position, camera.rotation, screenSize[1] * 0.5, screenSize[0] * 0.5, camera.nearClip, camera.farClip, camera.GetTargetDir(), camera.up]
-    intMatV = LookAtMatrix(camera.position, camera.target, camera.up)
+    intMatV = ViewMatrix(camera.position, camera.target, camera.up)
 
 # Lights:
 #
@@ -477,19 +534,23 @@ def SetInternalCam(camera):
 
 LIGHT_POINT = 0
 LIGHT_SUN = 1
-#LIGHT_SPOT = 2
+LIGHT_SPOT = 2
 
 class Light():
-    def __init__(self, tyype, vPos, FStrength, fRadius, vColour=(255, 255, 255)):
-        self.type = tyype
-        if tyype:
-            self.position = RotTo(vPos, [0, 0, 1])
-        else:
-            self.position = vPos
-        self.rotation = [0, 0, 0]
-        self.strength = FStrength
-        self.radius = fRadius
-        self.colour = VectorDivF(vColour, 255)
+    def __init__(self, type=0, position=[0, 0, 0], direction=[0, 0, 1], strength=1.0, radius=5.0, colour=(255, 255, 255)):
+        self.type = type
+        match type:
+            case 0:
+                self.position = position
+            case 1:
+                self.direction = RotTo(direction, [0, 0, 1])
+            case 2:
+                self.position = position
+                self.direction = RotTo(direction)
+
+        self.strength = strength
+        self.radius = radius
+        self.colour = VectorDivF(colour, 255)
         self.user = 0
     
     def __repr__(self):
@@ -613,16 +674,16 @@ Normally 1.0 / no change.
 #
 
 class Emitter():
-    def __init__(self, vPos, templateMesh, iMax, vVelocity, fLifetime, vGravity, fRandomness=0.0):
+    def __init__(self, position=[0, 0, 0], template=None, max=0, velocity=[0, -1, 0], lifetime=2.0, gravity=[0, 9.8, 0], randomness=0.0):
         self.particles = ()
-        self.position = vPos
-        self.template = templateMesh
-        self.max = iMax
-        self.velocity = vVelocity
-        self.lifetime = fLifetime
-        self.gravity = vGravity
+        self.position = position
+        self.template = template
+        self.max = max
+        self.velocity = velocity
+        self.lifetime = lifetime
+        self.gravity = gravity
         self.active = True
-        self.randomness = fRandomness
+        self.randomness = randomness
         self.user = 0
 
 # Usage:
@@ -1071,8 +1132,8 @@ def VectorDivF(v, f):
 def VectorMod(v1, v2):
     return [v1[0] % v2[0], v1[1] % v2[1], v1[2] % v2[2]]
 
-def VectorModF(v, f):
-    return [v[0] % f, v[1] % f, v[2] % f]
+def VectorModI(v, i):
+    return [v[0] % i, v[1] % i, v[2] % i]
 
 def VectorComb(v):
     return v[0] + v[1] + v[2]
@@ -1173,7 +1234,7 @@ def WrapRot(vRot):
     if newRot[2] < 0:
         newRot[2] = newRot[2] % -360 + 360
 
-    return VectorModF(newRot, 360)
+    return VectorModI(newRot, 360)
 
 def VectorAverage(list_of_vectors):
     out = [0, 0, 0]
@@ -1255,6 +1316,8 @@ def TriMul(t, v): return [VectorUVMul(t[0], v), VectorUVMul(t[1], v), VectorUVMu
 
 def TriMulF(t, f): return [VectorUVMulF(t[0], f), VectorUVMulF(t[1], f), VectorUVMulF(t[2], f), t[3], t[4], t[5], t[6]]
 
+def TriDiv(t, v): return [VectorUVDiv(t[0], v), VectorUVDiv(t[1], v), VectorUVDiv(t[2], v), t[3], t[4], t[5], t[6]]
+
 def TriDivF(t, f): return [VectorUVDivF(t[0], f), VectorUVDivF(t[1], f), VectorUVDivF(t[2], f), t[3], t[4], t[5], t[6]]
 
 def TriClipAgainstPlane(tri, pPos, pNrm):
@@ -1330,512 +1393,546 @@ def Triangulate(list_of_vectors):
 #
 #==========================================================================
 
-def LoadMesh(filename, vPos=(0.0, 0.0, 0.0), VScale=(1.0, 1.0, 1.0)):
+def LoadMesh(filename, position=(0.0, 0.0, 0.0), rotation=[0.0, 0.0, 0.0], scale=(1.0, 1.0, 1.0), colour=(255, 255, 255), id=0, material=MATERIAL_UNLIT, cull=True, visible=True):
+    try:
+        file = open(filename)
+    except FileNotFoundError:
+        if filename.count("/"):
+            while filename.count("/") > 0:
+                filename = filename[filename.index("/") + 1:]
+            if filename == "error.obj":
+                raise FileNotFoundError("Can't load placeholder mesh. (Is the z3dpy folder missing?)")
+            else:
+                print(filename[:-4], "was not found, replacing...")
+                return LoadMesh("z3dpy/mesh/error.obj", position, rotation, scale, colour, id, material, cull, visible)
+
     match filename[-3:]:
         case "obj":
-            # Object Format
-            try:
-                file = open(filename)
-            except:
-                    if filename.count("/"):
-                        while filename.count("/") > 0:
-                            filename = filename[filename.index("/") + 1:]
-                    if filename == "error.obj":
-                        raise Exception("Can't load placeholder mesh. (Is the z3dpy folder missing?)")
-                    else:
-                        print(filename[:-4], "was not found, replacing...")
-                        return LoadMesh("z3dpy/mesh/error.obj", vPos, VScale)
-            verts = []
-            uvs = []
-            output = []
-            matoutputs = []
-            colours = [(255, 255, 255)]
-            gathered = []
-            triangles = []
-            mat = -1
-            storedUVs = []
-            currentMat = ""
+            with file:
+                # Object Format
+                verts = []
+                uvs = []
+                output = []
+                matoutputs = []
+                colours = [(255, 255, 255)]
+                gathered = []
+                triangles = []
+                mat = -1
+                storedUVs = []
+                currentMat = ""
 
-            while (currentLine := file.readline()):
-                if currentLine == "a\n": break
-                match currentLine[0]:
-                    case 'v':
-                        if currentLine[1] != 'n':
-                            if currentLine[1] == 't':
-                                currentLine = currentLine[3:].strip().split(' ')
-                                uvs.append([float(currentLine[0]), float(currentLine[1])])
-                            else:
-                                currentLine = currentLine[2:].strip().split(' ')
-                                verts.append([float(currentLine[0]) * VScale[0], float(currentLine[1]) * VScale[1], float(currentLine[2]) * VScale[2], [0, 0, 0], [0, 0], 0])
-                    case 'f':
-                        currentLine = currentLine[2:]
-                        bUV = '/' in currentLine
-                        if bUV:
-                            # Face includes UVs
-                            preUV = [int(l.split("/")[1]) for l in currentLine.strip().split(' ')]
-                            currentLine = [l.split("/")[0] for l in currentLine.strip().split(' ')]
-                        else:
-                            currentLine = currentLine.split(' ')
-
-                        p1 = int(currentLine[0]) - 1
-                        p2 = int(currentLine[1]) - 1
-                        p3 = int(currentLine[2]) - 1
-
-                        if len(currentLine) < 4:
-                            normal = TriGetNormal([verts[p1], verts[p2], verts[p3]])
-                            verts[p1][3] = VectorAdd(verts[p1][3], normal)
-                            verts[p2][3] = VectorAdd(verts[p2][3], normal)
-                            verts[p3][3] = VectorAdd(verts[p3][3], normal)
-
-                            verts[p1][5] += 1
-                            verts[p2][5] += 1
-                            verts[p3][5] += 1
-                            triangles.append([p1, p2, p3])
+                while (currentLine := file.readline()):
+                    if currentLine == "a\n": break
+                    match currentLine[0]:
+                        case 'v':
+                            if currentLine[1] != 'n':
+                                if currentLine[1] == 't':
+                                    currentLine = currentLine[3:].strip().split(' ')
+                                    uvs.append([float(currentLine[0]), float(currentLine[1])])
+                                else:
+                                    currentLine = currentLine[2:].strip().split(' ')
+                                    verts.append([float(currentLine[0]) * scale[0], float(currentLine[1]) * scale[1], float(currentLine[2]) * scale[2], [0, 0, 0], [0, 0], 0])
+                        case 'f':
+                            currentLine = currentLine[2:]
+                            bUV = '/' in currentLine
                             if bUV:
-                                storedUVs.append(preUV)
-                        else:
-                            points = [0, 1]
-                            for n in range(2, len(currentLine)):
-                                points.append(n)
-                                p1 = int(currentLine[points[0]]) - 1
-                                p2 = int(currentLine[points[1]]) - 1
-                                p3 = int(currentLine[points[2]]) - 1
+                                # Face includes UVs
+                                preUV = [int(l.split("/")[1]) for l in currentLine.strip().split(' ')]
+                                currentLine = [l.split("/")[0] for l in currentLine.strip().split(' ')]
+                            else:
+                                currentLine = currentLine.split(' ')
+
+                            p1 = int(currentLine[0]) - 1
+                            p2 = int(currentLine[1]) - 1
+                            p3 = int(currentLine[2]) - 1
+
+                            if len(currentLine) < 4:
                                 normal = TriGetNormal([verts[p1], verts[p2], verts[p3]])
                                 verts[p1][3] = VectorAdd(verts[p1][3], normal)
                                 verts[p2][3] = VectorAdd(verts[p2][3], normal)
                                 verts[p3][3] = VectorAdd(verts[p3][3], normal)
+
                                 verts[p1][5] += 1
                                 verts[p2][5] += 1
                                 verts[p3][5] += 1
                                 triangles.append([p1, p2, p3])
                                 if bUV:
-                                    storedUVs.append([preUV[points[0]], preUV[points[1]], preUV[points[2]]])
-                                points = [points[0], points[2]]
-                            
-
-                if currentLine[:6] == "usemtl":
-                    if currentLine[7:] != currentMat:
-                        currentMat = currentLine[7:]
-                        # Accounting for different materials
-                        if mat == 0:
-                            try:
-                                mtlname = filename[:-4] + ".mtl"
-                                mtlFile = open(mtlname)
-                            except:
-                                print("Couldn't open file: " + mtlname)
-
+                                    storedUVs.append(preUV)
                             else:
-                                while (mtlLine := mtlFile.readline()):
-                                    if mtlLine[:2] == "Kd":
-                                            colour = [float(c) for c in mtlLine[3:].split(" ")]
-                                            colours.append(VectorMulF(colour, 255))
-                        gathered.append(triangles)
-                        triangles = []
-                        mat += 1
+                                points = [0, 1]
+                                for n in range(2, len(currentLine)):
+                                    points.append(n)
+                                    p1 = int(currentLine[points[0]]) - 1
+                                    p2 = int(currentLine[points[1]]) - 1
+                                    p3 = int(currentLine[points[2]]) - 1
+                                    normal = TriGetNormal([verts[p1], verts[p2], verts[p3]])
+                                    verts[p1][3] = VectorAdd(verts[p1][3], normal)
+                                    verts[p2][3] = VectorAdd(verts[p2][3], normal)
+                                    verts[p3][3] = VectorAdd(verts[p3][3], normal)
+                                    verts[p1][5] += 1
+                                    verts[p2][5] += 1
+                                    verts[p3][5] += 1
+                                    triangles.append([p1, p2, p3])
+                                    if bUV:
+                                        storedUVs.append([preUV[points[0]], preUV[points[1]], preUV[points[2]]])
+                                    points = [points[0], points[2]]
+                                
 
-            # Averaging normals
-            for v in verts:
-                # ?
-                if v[5]:
-                    v[3] = VectorDivF(v[3], v[5])
-                v.pop()
+                    if currentLine[:6] == "usemtl":
+                        if currentLine[7:] != currentMat:
+                            currentMat = currentLine[7:]
+                            # Accounting for different materials
+                            if mat == 0:
+                                try:
+                                    mtlname = filename[:-4] + ".mtl"
+                                    mtlFile = open(mtlname)
+                                except:
+                                    print("Couldn't open file: " + mtlname)
 
-            file.close()
-            uvLen = len(storedUVs)
-            if mat == -1:
-                for tr in range(len(triangles)):
-                    nt = Tri(verts[triangles[tr][0]], verts[triangles[tr][1]], verts[triangles[tr][2]])
-                    if uvLen:
-                        nt[0][4] = uvs[storedUVs[tr][0] - 1]
-                        nt[1][4] = uvs[storedUVs[tr][1] - 1]
-                        nt[2][4] = uvs[storedUVs[tr][2] - 1]
-                    output.append(nt)
+                                else:
+                                    while (mtlLine := mtlFile.readline()):
+                                        if mtlLine[:2] == "Kd":
+                                                colour = [float(c) for c in mtlLine[3:].split(" ")]
+                                                colours.append(VectorMulF(colour, 255))
+                            gathered.append(triangles)
+                            triangles = []
+                            mat += 1
 
-                return Mesh(tuple(output), vPos)
-            else:
+                # Averaging normals
+                for v in verts:
+                    # ?
+                    if v[5]:
+                        v[3] = VectorDivF(v[3], v[5])
+                    v.pop()
 
-                gathered.append(triangles)
-                for trL in gathered:
-                    output.append([])
-                    for tr in range(len(trL)):
-                        nt = Tri(verts[trL[tr][0]], verts[trL[tr][1]], verts[trL[tr][2]])
-                        output[-1].append(nt)
+                uvLen = len(storedUVs)
+                if mat == -1:
+                    for tr in range(len(triangles)):
+                        nt = Tri(verts[triangles[tr][0]], verts[triangles[tr][1]], verts[triangles[tr][2]])
                         if uvLen:
                             nt[0][4] = uvs[storedUVs[tr][0] - 1]
                             nt[1][4] = uvs[storedUVs[tr][1] - 1]
                             nt[2][4] = uvs[storedUVs[tr][2] - 1]
+                        output.append(nt)
 
-                meshes = [Mesh(tuple(trS), vPos) for trS in matoutputs]
-                colours = colours[1:]
-                colours.reverse()
+                    return Mesh(tuple(output), position=position, rotation=rotation, scale=scale, colour=colour, id=id, cull=cull, material=material, visible=visible)
+                else:
 
-                map(MeshSetColour, meshes, colours)
-                return meshes
+                    gathered.append(triangles)
+                    for trL in gathered:
+                        output.append([])
+                        for tr in range(len(trL)):
+                            nt = Tri(verts[trL[tr][0]], verts[trL[tr][1]], verts[trL[tr][2]])
+                            output[-1].append(nt)
+                            if uvLen:
+                                nt[0][4] = uvs[storedUVs[tr][0] - 1]
+                                nt[1][4] = uvs[storedUVs[tr][1] - 1]
+                                nt[2][4] = uvs[storedUVs[tr][2] - 1]
+
+                    meshes = [Mesh(tuple(trS), position=position, rotation=rotation, scale=scale, colour=colour, id=id, cull=cull, material=material, visible=visible) for trS in matoutputs]
+                    colours = colours[1:]
+                    colours.reverse()
+
+                    map(MeshSetColour, meshes, colours)
+                    return meshes
 
         case "dae":
-            # Collada
-            file = open(filename)
-            xml = XMLScript(file.read())
-            daeVer = xml.GetAttr("COLLADA", "version")
+            with file:
+                # Collada
+                xml = XMLScript(file.read())
+                daeVer = xml.GetAttr("COLLADA", "version")
 
-            if daeVer != "1.4.1":
-                print("Collada version is not 1.4.1, hopefully this works...")
-            
-            geomId = xml.GetAttr("geometry", "id")
-
-            geom = xml.GetInnerXML("geometry")
-
-            verts = [float(v) for v in geom.GetInnerXMLById(geomId + "-positions").GetInnerXML("float_array").script.split(" ")]
-
-            # UVs
-            uvs = [float(v) for v in geom.GetInnerXMLById(geomId + "-map-0-array").script.strip().split(" ")]
-            uvs = [(uvs[v], uvs[v + 1]) for v in range(0, len(uvs), 2)]
-            normals = geom.GetInnerXMLById(geomId + "-normals-array").script.strip().split(" ")
-            normals = [[normals[n], normals[n + 1], normals[n + 2]] for n in range(0, len(normals), 3)]
-            verts = [[verts[v], verts[v + 1], verts[v + 2]] for v in range(0, len(verts), 3)]
-
-            try:
-                # Triangle
-                trixml = geom.GetInnerXML("triangles")
-            except:
-                # Ngon
-                trixml = geom.GetInnerXML("polylist")
-                # to be completed later...
-            finally:
-                faces = trixml.GetInnerXML("p").script.strip().split(" ")
-                triLength = trixml.CountTags("input")
-                tris = []
-                double = triLength * 2
-                indexes = [-1, -1, -1]
-                
-                for i in range(triLength):
-                    match trixml.GetAttr('input', 'semantic'):
-                        case "VERTEX":
-                            indexes[0] = i
-                        case "NORMAL":
-                            indexes[1] = i
-                        case "TEXCOORD":
-                            indexes[2] = i
-                    trixml.script = trixml.script[trixml.script.index("/>") + 2:]
-                
-                for f in range(0, len(faces), triLength * 3):
-                    v1 = verts[int(faces[f + indexes[0]])]
-                    v2 = verts[int(faces[f + triLength + indexes[0]])]
-                    v3 = verts[int(faces[f + double + indexes[0]])]
-                    n1 = [0, 0, 0]
-                    n2 = [0, 0, 0]
-                    n3 = [0, 0, 0]
-                    uv1 = [0, 0]
-                    uv2 = [0, 0]
-                    uv3 = [0, 0]
+                if daeVer != "1.4.1":
+                    print("Collada version is not 1.4.1, hopefully this works...")
                     
-                    if indexes[1] != -1:
-                        n1 = normals[int(faces[f + indexes[1]])]
-                        n2 = normals[int(faces[f + triLength + indexes[1]])]
-                        n3 = normals[int(faces[f + double + indexes[1]])]
-                    if indexes[2] != -1:
-                        uv1 = uvs[int(faces[f + indexes[2]])]
-                        uv2 = uvs[int(faces[f + triLength + indexes[2]])]
-                        uv3 = uvs[int(faces[f + double + indexes[2]])]
+                geomId = xml.GetAttr("geometry", "id")
+
+                geom = xml.GetInnerXML("geometry")
+
+                verts = [float(v) for v in geom.GetInnerXMLById(geomId + "-positions").GetInnerXML("float_array").script.split(" ")]
+
+                # UVs
+                uvs = [float(v) for v in geom.GetInnerXMLById(geomId + "-map-0-array").script.strip().split(" ")]
+                uvs = [(uvs[v], uvs[v + 1]) for v in range(0, len(uvs), 2)]
+                normals = geom.GetInnerXMLById(geomId + "-normals-array").script.strip().split(" ")
+                normals = [[normals[n], normals[n + 1], normals[n + 2]] for n in range(0, len(normals), 3)]
+                verts = [[verts[v], verts[v + 1], verts[v + 2]] for v in range(0, len(verts), 3)]
+
+                try:
+                    # Triangle
+                    trixml = geom.GetInnerXML("triangles")
+                except ValueError:
+                    # Ngon
+                    trixml = geom.GetInnerXML("polylist")
+                    triLength = trixml.CountTags("input")
+                    triCounts = trixml.GetInnerXML("vcount").script.strip().split(" ")
+                    faces = [int(f) for f in trixml.GetInnerXML("p").script.strip().split(" ")]
+                    indexes = [-1, -1, -1]
+
+                    ngon = []
+                    
+                    n = []
+                    u = []
+
+                    tris = []
+                    for i in range(triLength):
+                        match trixml.GetAttr('input', 'semantic'):
+                            case "VERTEX":
+                                indexes[0] = i
+                            case "NORMAL":
+                                indexes[1] = i
+                            case "TEXCOORD":
+                                indexes[2] = i
+                        trixml.script = trixml.script[trixml.script.index("/>") + 2:]
+                    
+                    f = 0
+                    g = 0
+                    length = len(faces)
+                    while f < length:
+                        for i in range(int(triCounts[g])):
+                            p1 = verts[faces[f + indexes[0]]]
+                            n1 = [0, 0, 0]
+                            u1 = [0, 0]
+                            if indexes[1] != -1:
+                                n1 = normals[faces[f + indexes[1]]]
+                            if indexes[2] != -1:
+                                u1 = uvs[faces[f + indexes[2]]]
+                            ngon.append(VectorUV(p1[0], p1[1], p1[2], n1, u1))
+                        tris += Triangulate(ngon)
+                        f += int(triCounts[g]) * triLength
+                        g += 1
+
+                else:
+                    faces = trixml.GetInnerXML("p").script.strip().split(" ")
+                    triLength = trixml.CountTags("input")
+                    tris = []
+                    double = triLength * 2
+                    indexes = [-1, -1, -1]
+                        
+                    for i in range(triLength):
+                        match trixml.GetAttr('input', 'semantic'):
+                            case "VERTEX":
+                                indexes[0] = i
+                            case "NORMAL":
+                                indexes[1] = i
+                            case "TEXCOORD":
+                                indexes[2] = i
+                        trixml.script = trixml.script[trixml.script.index("/>") + 2:]
+                        
+                    for f in range(0, len(faces), triLength * 3):
+                        v1 = verts[int(faces[f + indexes[0]])]
+                        v2 = verts[int(faces[f + triLength + indexes[0]])]
+                        v3 = verts[int(faces[f + double + indexes[0]])]
+                        n1 = [0, 0, 0]
+                        n2 = [0, 0, 0]
+                        n3 = [0, 0, 0]
+                        uv1 = [0, 0]
+                        uv2 = [0, 0]
+                        uv3 = [0, 0]
+                            
+                        if indexes[1] != -1:
+                            n1 = normals[int(faces[f + indexes[1]])]
+                            n2 = normals[int(faces[f + triLength + indexes[1]])]
+                            n3 = normals[int(faces[f + double + indexes[1]])]
+                        if indexes[2] != -1:
+                            uv1 = uvs[int(faces[f + indexes[2]])]
+                            uv2 = uvs[int(faces[f + triLength + indexes[2]])]
+                            uv3 = uvs[int(faces[f + double + indexes[2]])]
 
 
-                    tris.append(Tri(VectorUV(v1[0], v1[1], v1[2], n1, uv1), VectorUV(v2[0], v2[1], v2[2], n2, uv2), VectorUV(v3[0], v3[1], v3[2], n3, uv3)))
-            file.close()
-            return Mesh(tris, vPos)
-        
+                        tris.append(Tri(VectorUV(v1[0], v1[1], v1[2], n1, uv1), VectorUV(v2[0], v2[1], v2[2], n2, uv2), VectorUV(v3[0], v3[1], v3[2], n3, uv3)))
+
+            return Mesh(tris, position=position, rotation=rotation, scale=scale, colour=colour, id=id, cull=cull, material=material, visible=visible)
+            
         case "x3d":
             # Extensible 3D
-            file = open(filename)
-            xml = XMLScript(file.read())
-            scene = xml.GetInnerXML("Scene")
-            #print(scene.GetAttr("Coordinate", "point").strip())
-            verts = [float(v) for v in scene.GetAttr("Coordinate", "point").strip().split(" ")]
-            verts = [VectorUV(verts[v], verts[v + 1], verts[v + 2]) for v in range(0, len(verts), 3)]
-            faces = scene.GetAttr("IndexedFaceSet", "coordIndex").split(" ")
-            tris = []
-            tries = [[]]
-            for f in faces:
-                if f == "-1":
-                    if len(tries[-1]) > 3:
-                        ngon = [verts[t] for t in tries[-1]]
-                        tries.pop()
-                        tris += Triangulate(ngon)
-                    tries.append([])
-                else:
-                    tries[-1].append(int(f))
-            tries.pop()
-            tris += [Tri(verts[t[0]], verts[t[1]], verts[t[2]]) for t in tries]
-            file.close()
-            return Mesh(tris, vPos)
-        
+            with file:
+                    xml = XMLScript(file.read())
+                    scene = xml.GetInnerXML("Scene")
+                    #print(scene.GetAttr("Coordinate", "point").strip())
+                    verts = [float(v) for v in scene.GetAttr("Coordinate", "point").strip().split(" ")]
+                    verts = [VectorUV(verts[v], verts[v + 1], verts[v + 2]) for v in range(0, len(verts), 3)]
+                    faces = scene.GetAttr("IndexedFaceSet", "coordIndex").split(" ")
+                    tris = []
+                    tries = [[]]
+                    for f in faces:
+                        if f == "-1":
+                            if len(tries[-1]) > 3:
+                                ngon = [verts[t] for t in tries[-1]]
+                                tries.pop()
+                                tris += Triangulate(ngon)
+                            tries.append([])
+                        else:
+                            tries[-1].append(int(f))
+                    tries.pop()
+                    tris += [Tri(verts[t[0]], verts[t[1]], verts[t[2]]) for t in tries]
+            return Mesh(tris, position=position, rotation=rotation, scale=scale, colour=colour, id=id, cull=cull, material=material, visible=visible)
+            
         case "stl":
             # STL
-            file = open(filename)
+            with file:
+                points = []
+                tris = []
 
-            points = []
-            tris = []
-
-            if file.read(5) == "solid":
-                
-                # ASCII
-                file.readline()
-                while (line := file.readline()):
-                    line = line[:-1]
-
-                    while line[0] == '\t' or line[0] == ' ':
-                        line = line[1:]
-
-                    if line[:5] == "facet":
-                        normal = [float(l) for l in line.split(" ")[2:]]
+                if file.read(5) == "solid":
                     
-                    if line[:6] == "vertex":
-                        points.append([float(l) for l in line.split(" ")[1:]])
-                    
-                    if line == "endfacet":
-                        if len(points) > 3:
-                            ngon = [VectorUV(p[0], p[1], p[2], normal) for p in points]
-                            tris += Triangulate(ngon)
-                        else:
-                            tris.append(Tri(VectorUV(points[0][0], points[0][1], points[0][2], normal), VectorUV(points[1][0], points[1][1], points[1][2], normal), VectorUV(points[2][0], points[2][1], points[2][2], normal)))
-                        points = []
+                    # ASCII
+                    file.readline()
+                    while (line := file.readline()):
+                        line = line[:-1]
 
-            else:
-                # Binary
-                file.close()
-                file = open(filename, 'rb')
-                header = file.read1(80)
-                numTris = unpack("L", file.read1(4))[0]
-                print(numTris)
-                for t in range(numTris):
-                    normal = [unpack('f', file.read1(4))[0] for i in range(3)]
-                    p1 = [unpack('f', file.read1(4))[0] for i in range(3)]
-                    p2 = [unpack('f', file.read1(4))[0] for i in range(3)]
-                    p3 = [unpack('f', file.read1(4))[0] for i in range(3)]
-                    file.read1(2)
-                    tris.append(Tri(VectorUV(p1[0], p1[1], p1[2], normal), VectorUV(p2[0], p2[1], p2[2], normal), VectorUV(p3[0], p3[1], p3[2], normal)))
+                        while line[0] == '\t' or line[0] == ' ':
+                            line = line[1:]
 
-            return Mesh(tris, vPos)
-        
+                        if line[:5] == "facet":
+                            normal = [float(l) for l in line.split(" ")[2:]]
+                        
+                        if line[:6] == "vertex":
+                            points.append([float(l) for l in line.split(" ")[1:]])
+                        
+                        if line == "endfacet":
+                            # It's not within spec to put ngons in there but just in case.
+                            if len(points) > 3:
+                                ngon = [VectorUV(p[0], p[1], p[2], normal) for p in points]
+                                tris += Triangulate(ngon)
+                            else:
+                                tris.append(Tri(VectorUV(points[0][0], points[0][1], points[0][2], normal), VectorUV(points[1][0], points[1][1], points[1][2], normal), VectorUV(points[2][0], points[2][1], points[2][2], normal)))
+                            points = []
+
+                else:
+                    # Binary
+                    file.close()
+                    file = open(filename, 'rb')
+                    header = file.read1(80)
+                    numTris = unpack("L", file.read1(4))[0]
+                    print(numTris)
+                    for t in range(numTris):
+                        normal = [unpack('f', file.read1(4))[0] for i in range(3)]
+                        p1 = [unpack('f', file.read1(4))[0] for i in range(3)]
+                        p2 = [unpack('f', file.read1(4))[0] for i in range(3)]
+                        p3 = [unpack('f', file.read1(4))[0] for i in range(3)]
+                        file.read1(2)
+                        tris.append(Tri(VectorUV(p1[0], p1[1], p1[2], normal), VectorUV(p2[0], p2[1], p2[2], normal), VectorUV(p3[0], p3[1], p3[2], normal)))
+
+            return Mesh(tris, position=position, rotation=rotation, scale=scale, colour=colour, id=id, cull=cull, material=material, visible=visible)
+            
         case "ply":
             # Stanford PLY
-            file = open(filename)
-            
-            if file.readline() != "ply\n":
-                print("Does not have a ply header. Is this a ply file?")
+            with file:
+                if file.readline() != "ply\n":
+                    print("Does not have a ply header. Is this a ply file?")
 
-            vertCount = 0
-            faceCount = 0
+                vertCount = 0
+                faceCount = 0
 
-            properties = []
-            verts = []
-            faces = []
-            tris = []
+                properties = []
+                verts = []
+                faces = []
+                tris = []
 
-            format = file.readline()[:-1].split(" ")
-            file.readline()
-            while (line := file.readline()[:-1]) != "end_header":
-                if " " in line:
-                    split = line.split(" ")
-                    if len(split) == 3:
-                        match split[0]:
-                            case "element":
-                                if split[1] == "vertex":
-                                    vertCount = int(split[2])
-                                else:
-                                    faceCount = int(split[2])
+                format = file.readline()[:-1].split(" ")
+                file.readline()
+                while (line := file.readline()[:-1]) != "end_header":
+                    if " " in line:
+                        split = line.split(" ")
+                        if len(split) == 3:
+                            match split[0]:
+                                case "element":
+                                    if split[1] == "vertex":
+                                        vertCount = int(split[2])
+                                    else:
+                                        faceCount = int(split[2])
 
-                            case "property":
-                                properties.append(split[2])
+                                case "property":
+                                    properties.append(split[2])
 
-            if format[1] == "ascii":
-                # ASCII
-                for i in range(vertCount):
-                    newVert = VectorUV(0, 0, 0)
-                    split = file.readline()[:-1].split(" ")
-                    for s, p in zip(split, properties):
-                        match p:
-                            case "x":
-                                newVert[0] = float(s)
+                if format[1] == "ascii":
+                    # ASCII
+                    for i in range(vertCount):
+                        newVert = VectorUV(0, 0, 0)
+                        split = file.readline()[:-1].split(" ")
+                        for s, p in zip(split, properties):
+                            match p:
+                                case "x":
+                                    newVert[0] = float(s)
 
-                            case "y":
-                                newVert[1] = float(s)
-                        
-                            case "z":
-                                newVert[2] = float(s)
+                                case "y":
+                                    newVert[1] = float(s)
+                            
+                                case "z":
+                                    newVert[2] = float(s)
 
-                            case "nx":
-                                newVert[3][0] = float(s)
+                                case "nx":
+                                    newVert[3][0] = float(s)
 
-                            case "ny":
-                                newVert[3][1] = float(s)
-                                
-                            case "nz":
-                                newVert[3][2] = float(s)
+                                case "ny":
+                                    newVert[3][1] = float(s)
+                                    
+                                case "nz":
+                                    newVert[3][2] = float(s)
 
-                            case "s":
-                                newVert[4] = (float(s), newVert[4][1])
+                                case "s":
+                                    newVert[4] = (float(s), newVert[4][1])
 
-                            case "t":
-                                newVert[4] = (newVert[4][0], float(s))
-                    verts.append(newVert)
+                                case "t":
+                                    newVert[4] = (newVert[4][0], float(s))
+                        verts.append(newVert)
+                    
+                    for i in range(faceCount):
+                        split = file.readline()[:-1].split(" ")
+                        if split[0] != '3':
+                            # Triangulating N-gons
+                            ngon = [verts[int(v)] for v in split[1:]]
+                            tris += Triangulate(ngon)
+                        else:
+                            tris += [Tri(verts[int(split[1])], verts[int(split[2])], verts[int(split[3])])]
+
+                else:
+                    # Binary
+                    file.close()
+                    file = open(filename, 'rb')
+                    while (line := file.read1(4)) != b'der\n': pass
+                    for v in range(vertCount):
+                        newVert = VectorUV(0, 0, 0)
+                        for s, p in zip([unpack("f", file.read1(4))[0] for i in range(len(properties))], properties):
+                            match p:
+                                case "x":
+                                    newVert[0] = s
+
+                                case "y":
+                                    newVert[1] = s
+                            
+                                case "z":
+                                    newVert[2] = s
+
+                                case "nx":
+                                    newVert[3][0] = s
+
+                                case "ny":
+                                    newVert[3][1] = s
+                                    
+                                case "nz":
+                                    newVert[3][2] = s
+
+                                case "s":
+                                    newVert[4] = (s, newVert[4][1])
+
+                                case "t":
+                                    newVert[4] = (newVert[4][0], s)
+                        verts.append(newVert)
+
+                    for i in range(faceCount):
+                        size = unpack("B", file.read1(1))[0]
+                        if size != 3:
+                            ngon = [verts[unpack("I", file.read1(4))[0]] for i in range(size)]
+                            tris += Triangulate(ngon)
+                        else:
+                            tris.append(Tri(verts[unpack("I", file.read1(4))[0]], verts[unpack("I", file.read1(4))[0]], verts[unpack("I", file.read1(4))[0]]))
+            return Mesh(tris, position=position, rotation=rotation, scale=scale, colour=colour, id=id, cull=cull, material=material, visible=visible)
                 
-                for i in range(faceCount):
-                    split = file.readline()[:-1].split(" ")
-                    if split[0] != '3':
-                        # Triangulating N-gons
-                        ngon = [verts[int(v)] for v in split[1:]]
-                        tris += Triangulate(ngon)
-                    else:
-                        tris += [Tri(verts[int(split[1])], verts[int(split[2])], verts[int(split[3])])]
-
-            else:
-                # Binary
-                file.close()
-                file = open(filename, 'rb')
-                while (line := file.read1(4)) != b'der\n': pass
-                for v in range(vertCount):
-                    newVert = VectorUV(0, 0, 0)
-                    for s, p in zip([unpack("f", file.read1(4))[0] for i in range(len(properties))], properties):
-                        match p:
-                            case "x":
-                                newVert[0] = s
-
-                            case "y":
-                                newVert[1] = s
-                        
-                            case "z":
-                                newVert[2] = s
-
-                            case "nx":
-                                newVert[3][0] = s
-
-                            case "ny":
-                                newVert[3][1] = s
-                                
-                            case "nz":
-                                newVert[3][2] = s
-
-                            case "s":
-                                newVert[4] = (s, newVert[4][1])
-
-                            case "t":
-                                newVert[4] = (newVert[4][0], s)
-                    verts.append(newVert)
-
-                for i in range(faceCount):
-                    size = unpack("B", file.read1(1))[0]
-                    if size != 3:
-                        ngon = [verts[unpack("I", file.read1(4))[0]] for i in range(size)]
-                        tris += Triangulate(ngon)
-                    else:
-                        tris.append(Tri(verts[unpack("I", file.read1(4))[0]], verts[unpack("I", file.read1(4))[0]], verts[unpack("I", file.read1(4))[0]]))
-            file.close()
-            return Mesh(tris, vPos)
             
-        
         case "glb":
             # glTF 2.0
             # Still working out the bugs on it
-
-            file = open(filename, 'rb')
-            file.read1(0x14)
-            json = ""
-            while ((bits := file.read1(4)) != b'BIN\x00'):
-                json += str(bits)[2:-1]
-            
-            binaryOffset = file.tell()
-            
-            json = JSONScript(json)
-
-            triLength = int(json.GetItem("meshes").GetItem("indices"))
-
-            triOrder = [-1, -1, -1]
-
-            for val in json.GetItem("attributes").script[1:-1].strip().split(","):
-                split = val.split(":")
-                match split[0][1:-1]:
-                    case "POSITION":
-                        triOrder[0] = int(split[1].replace("}", ""))
-                    case "NORMAL":
-                        triOrder[1] = int(split[1].replace("}", ""))
-                    case "TEXCOORD_0":
-                        triOrder[2] = int(split[1].replace("}", ""))
-
-            flip = True
-            buffers = [-1, -1, -1, -1]
-
-            for buffer in json.GetItem("accessors").script[1:-2].strip().replace("{", "").split("},"):
-                    script = JSONScript(buffer)
-                    match script.GetItem("type"):
-                        case "VEC3":
-                            buffers[0 if flip else 1] = [int(script.GetItem("count")), int(script.GetItem("bufferView")), int(script.GetItem("componentType"))]
-                            flip = False
-                        case "VEC2":
-                            buffers[2] = [int(script.GetItem("count")), int(script.GetItem("bufferView")), int(script.GetItem("componentType"))]
-                        case "SCALAR":
-                            buffers[3] = [int(script.GetItem("count")), int(script.GetItem("bufferView")), int(script.GetItem("componentType"))]
-            
-            data = [[], [], [], []]
-            
-            for index, bufferView in enumerate(json.GetList("bufferViews")):
-                view = JSONScript(bufferView)
-                file.seek(int(view.GetItem("byteOffset")) + binaryOffset)
-                for i in range(4):
-                    if buffers[i] != -1:
-                        if index == buffers[i][1]:
-                            byteType = GlTFComponentTypeToUnpackParameters(buffers[i][2])
-                            data[index] += [unpack(byteType[0], file.read1(byteType[1]))[0] for i in range(buffers[i][0])]
-            
-            data[0] = [(data[0][v], data[0][v + 1], data[0][v + 2]) for v in range(0, len(data[0]), 3)]
-
-            data[1] = [(data[1][v], data[1][v + 1], data[1][v + 2]) for v in range(0, len(data[1]), 3)]
-
-            data[2] = [(data[2][v], data[2][v + 1]) for v in range(0, len(data[2]), 2)]
-
-            print(triOrder, len(data[0]), len(data[1]), len(data[2]), len(data[3]))
-            print(data[3])
-            input(">")
-            tries = data[3]
-            tris = []
-
-            double = triLength * 2
-    
-            # The numbers, what do they mean? Where are they broadcast from?
-            for t in range(0, len(tries), triLength * 3):
-                p1 = data[0][tries[t + triOrder[0]]]
-                p2 = data[0][tries[t + triLength + triOrder[0]]]
-                
-                p3 = data[0][tries[t + double + triOrder[0]]]
-                n1 = [0, 0, 0]
-                n2 = [0, 0, 0]
-                n3 = [0, 0, 0]
-                uv1 = [0, 0]
-                uv2 = [0, 0]
-                uv3 = [0, 0]
-                if data[1]:
-                    print(tries[t + triLength + triOrder[1]] - 1)
-                    n1 = data[1][tries[t + triOrder[1]] - 1]
-                    n2 = data[1][tries[t + triLength + triOrder[1]] - 1]
-                    n3 = data[1][tries[t + double + triOrder[1]] - 1]
-                if data[2]:
-                    uv1 = data[2][tries[t + triOrder[2]] - 1]
-                    uv2 = data[2][tries[t + triLength + triOrder[2]] - 1]
-                    uv3 = data[2][tries[t + double + triOrder[2]] - 1]
-                
-                tris = Tri(VectorUV(p1[0], p1[1], p1[2], n1, uv1), VectorUV(p2[0], p2[1], p2[2], n2, uv2), VectorUV(p3[0], p3[1], p3[2], n3, uv3))
             file.close()
-            return Mesh(tris, vPos)
+            with open(filename, 'rb') as file:
+                    file.read1(0x14)
+                    json = ""
+                    while ((bits := file.read1(4)) != b'BIN\x00'):
+                        json += str(bits)[2:-1]
+                    
+                    binaryOffset = file.tell()
+                    
+                    json = JSONScript(json)
+
+                    triLength = int(json.GetItem("meshes").GetItem("indices"))
+
+                    triOrder = [-1, -1, -1]
+
+                    for val in json.GetItem("attributes").script[1:-1].strip().split(","):
+                        split = val.split(":")
+                        match split[0][1:-1]:
+                            case "POSITION":
+                                triOrder[0] = int(split[1].replace("}", ""))
+                            case "NORMAL":
+                                triOrder[1] = int(split[1].replace("}", ""))
+                            case "TEXCOORD_0":
+                                triOrder[2] = int(split[1].replace("}", ""))
+
+                    flip = True
+                    buffers = [-1, -1, -1, -1]
+
+                    for buffer in json.GetItem("accessors").script[1:-2].strip().replace("{", "").split("},"):
+                            script = JSONScript(buffer)
+                            match script.GetItem("type"):
+                                case "VEC3":
+                                    buffers[0 if flip else 1] = [int(script.GetItem("count")), int(script.GetItem("bufferView")), int(script.GetItem("componentType"))]
+                                    flip = False
+                                case "VEC2":
+                                    buffers[2] = [int(script.GetItem("count")), int(script.GetItem("bufferView")), int(script.GetItem("componentType"))]
+                                case "SCALAR":
+                                    buffers[3] = [int(script.GetItem("count")), int(script.GetItem("bufferView")), int(script.GetItem("componentType"))]
+                    
+                    data = [[], [], [], []]
+                    
+                    for index, bufferView in enumerate(json.GetList("bufferViews")):
+                        view = JSONScript(bufferView)
+                        file.seek(int(view.GetItem("byteOffset")) + binaryOffset)
+                        for i in range(4):
+                            if buffers[i] != -1:
+                                if index == buffers[i][1]:
+                                    byteType = GlTFComponentTypeToUnpackParameters(buffers[i][2])
+                                    data[index] += [unpack(byteType[0], file.read1(byteType[1]))[0] for i in range(buffers[i][0])]
+                    
+                    data[0] = [(data[0][v], data[0][v + 1], data[0][v + 2]) for v in range(0, len(data[0]), 3)]
+
+                    data[1] = [(data[1][v], data[1][v + 1], data[1][v + 2]) for v in range(0, len(data[1]), 3)]
+
+                    data[2] = [(data[2][v], data[2][v + 1]) for v in range(0, len(data[2]), 2)]
+
+                    print(triOrder, len(data[0]), len(data[1]), len(data[2]), len(data[3]))
+                    print(data[3])
+                    input(">")
+                    tries = data[3]
+                    tris = []
+
+                    double = triLength * 2
+            
+                    # The numbers, what do they mean? Where are they broadcast from?
+                    for t in range(0, len(tries), triLength * 3):
+                        p1 = data[0][tries[t + triOrder[0]]]
+                        p2 = data[0][tries[t + triLength + triOrder[0]]]
+                        
+                        p3 = data[0][tries[t + double + triOrder[0]]]
+                        n1 = [0, 0, 0]
+                        n2 = [0, 0, 0]
+                        n3 = [0, 0, 0]
+                        uv1 = [0, 0]
+                        uv2 = [0, 0]
+                        uv3 = [0, 0]
+                        if data[1]:
+                            print(tries[t + triLength + triOrder[1]] - 1)
+                            n1 = data[1][tries[t + triOrder[1]] - 1]
+                            n2 = data[1][tries[t + triLength + triOrder[1]] - 1]
+                            n3 = data[1][tries[t + double + triOrder[1]] - 1]
+                        if data[2]:
+                            uv1 = data[2][tries[t + triOrder[2]] - 1]
+                            uv2 = data[2][tries[t + triLength + triOrder[2]] - 1]
+                            uv3 = data[2][tries[t + double + triOrder[2]] - 1]
+                        
+                        tris = Tri(VectorUV(p1[0], p1[1], p1[2], n1, uv1), VectorUV(p2[0], p2[1], p2[2], n2, uv2), VectorUV(p3[0], p3[1], p3[2], n3, uv3))
+
+                    return Mesh(tris, position=position, rotation=rotation, scale=scale, colour=colour, id=id, cull=cull, material=material, visible=visible)
             
 
 def MeshSetColour(mesh, colour):
     mesh.SetColour(colour)
 
-def LoadAniMesh(filename, vPos=[0.0, 0.0, 0.0], VScale=(1.0, 1.0, 1.0)):
+def LoadAniMesh(filename, position=[0.0, 0.0, 0.0], rotation=[0.0, 0.0, 0.0], scale=(1.0, 1.0, 1.0), colour=(255, 255, 255), material=MATERIAL_UNLIT, id=0, cull=True, visible=True):
     if filename[-4:] == 'aobj':
         # AOBJ Format
         file = open(filename)
-        newMsh = Mesh([], vPos)
-        newMsh.frame = 0
+        newMsh = Mesh([], position=position, rotation=rotation, scale=scale, colour=colour, id=id, cull=cull, material=material, visible=visible, frame=0)
         points = []
         tries = []
         obj = True
@@ -1867,7 +1964,6 @@ def LoadAniMesh(filename, vPos=[0.0, 0.0, 0.0], VScale=(1.0, 1.0, 1.0)):
                         newMsh.tris.append([Tri(points[tri[0]], points[tri[1]], points[tri[2]]) for tri in tries])
                         continue
 
-                    #print(vs)
                     newpoint = [float(vert) for vert in vs]
                     points[int(line[:line.index(' ')])] = VectorUV(newpoint[0], newpoint[1], newpoint[2])
 
@@ -1909,10 +2005,9 @@ def LoadAniMesh(filename, vPos=[0.0, 0.0, 0.0], VScale=(1.0, 1.0, 1.0)):
                 test.close()
                 a += 1
                 
-        newMsh = Mesh([], vPos)
-        newMsh.frame = 0
+        newMsh = Mesh([], position=position, rotation=rotation, scale=scale, colour=colour, id=id, cull=cull, material=material, visible=visible, frame=0)
         for f in range(st, nd):
-            newMsh.tris.append(LoadMesh(filename[:-4] + str(f) + ".obj", [0, 0, 0], VScale).tris)
+            newMsh.tris.append(LoadMesh(filename[:-4] + str(f) + ".obj", position, rotation, scale, colour, id, material, cull, visible).tris)
 
         return newMsh
 
@@ -2037,15 +2132,25 @@ def CreateAOBJ(filename):
 
 def MatrixMakeRotX(deg):
     rad = deg * 0.0174
-    return ((1, 0, 0, 0), (0, cos(rad), sin(rad), 0), (0, -sin(rad), cos(rad), 0), (0, 0, 0, 1))
+    
 
 def MatrixMakeRotY(deg):
     rad = deg * 0.0174
-    return ((cos(rad), 0, sin(rad), 0), (0, 1, 0, 0), (-sin(rad), 0, cos(rad), 0), (0, 0, 0, 1))
+    
 
 def MatrixMakeRotZ(deg):
     rad = deg * 0.0174
-    return ((cos(rad), sin(rad), 0, 0), (-sin(rad), cos(rad), 0, 0), (0, 0, 1, 0), (0, 0, 0, 1))
+    
+
+def RotationMatrix(axis, degrees):
+    rad = degrees * 0.0174
+    match axis.index(1):
+        case 0:
+            return ((1, 0, 0, 0), (0, cos(rad), sin(rad), 0), (0, -sin(rad), cos(rad), 0), (0, 0, 0, 1))
+        case 1:
+            return ((cos(rad), 0, sin(rad), 0), (0, 1, 0, 0), (-sin(rad), 0, cos(rad), 0), (0, 0, 0, 1))
+        case 2:
+            return ((cos(rad), sin(rad), 0, 0), (-sin(rad), cos(rad), 0, 0), (0, 0, 1, 0), (0, 0, 0, 1))
 
 def TriMatrixMul(t, m):
     return [Vec3MatrixMul(t[0], m) + [t[0][3], t[0][4]], Vec3MatrixMul(t[1], m) + [t[1][3], t[1][4]], Vec3MatrixMul(t[2], m) + [t[2][3], t[2][4]], t[3], t[4], t[5], t[6]]
@@ -2060,7 +2165,7 @@ def MatrixMatrixMul(m1, m2):
             output[r][c] = m1[r][0] * m2[0][c] + m1[r][1] * m2[1][c] + m1[r][2] * m2[2][c] + m1[r][3] * m2[3][c]
     return tuple(output)
 
-# Stuff for the PointAt and LookAt Matrix
+# Stuff for the PointAt and View Matrix
 def MatrixStuff(pos, target, up):
     newForward = VectorSub(target, pos)
     newForward = VectorNormalize(newForward)
@@ -2077,11 +2182,11 @@ def PointAtMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
     return ((temp[2][0], temp[2][1], temp[2][2], 0), (temp[1][0], temp[1][1], temp[1][2], 0), (temp[0][0], temp[0][1], temp[0][2], 0), (pos[0], pos[1], pos[2], 1))
 
-def LookAtMatrix(pos, target, up):
+def ViewMatrix(pos, target, up):
     temp = MatrixStuff(pos, target, up)
     return ((temp[2][0], temp[1][0], temp[0][0], 0.0), (temp[2][1], temp[1][1], temp[0][1], 0.0), (temp[2][2], temp[1][2], temp[0][2], 0.0), (-DotProduct(pos, temp[2]), -DotProduct(pos, temp[1]), -DotProduct(pos, temp[0]), 1.0))
 
-def MatrixMakeProjection(fov):
+def ProjectionMatrix(fov):
     a = screenSize[0] / screenSize[1]
     f = fov * 0.5
     f = tan(f)
@@ -2770,14 +2875,27 @@ def CheapLighting(tri, lights=lights):
                     intensity = -dot * l.strength
                     colour = VectorAdd(colour, VectorMulF(l.colour, intensity))
                     num += 1
+            
+            case 2:
+                # LIGHT_SPOT
+                dist = DistanceBetweenVectors(triPos, l.position)
+                if dist < l.radius:
+                    if ShortestPointToPlane(triPos, l.direction, l.position) > 0:
+                        if (dot := DotProduct(l.direction, VectorNormalize(VectorSub(l.position, triPos)))) < 0:
+                            d = dist / l.radius
+                            intensity = (1 - (d * d)) * l.strength
+                            colour = VectorAdd(colour, VectorMulF(l.colour, intensity * -dot))
+
 
     inverse = 1/max(num, 1)
     return VectorMax(VectorMinF(VectorMulF(colour, inverse), 1.0), worldColour)
 
 # ExpensiveLighting uses the direction towards the light source, and tests for ray collisions to create shadows.
-def ExpensiveLighting(tri, shadowcasters=GatherThings(), lights=lights):
-    if shadowcasters == []:
-        shadowcasters = GatherThings()
+def ExpensiveLighting(tri, shadow_casters=GatherThings(), lights=lights):
+    if shadow_casters == []:
+        shadow_casters = GatherThings()
+    num = 0
+    normal = TriGetNormal(tri)
     shading = 0.0
     colour = (0.0, 0.0, 0.0)
     intensity = 0.0
@@ -2791,12 +2909,12 @@ def ExpensiveLighting(tri, shadowcasters=GatherThings(), lights=lights):
                     dist = DistanceBetweenVectors(pos, l.position)
                     if dist <= l.radius:
                         lightDir = DirectionBetweenVectors(l.position, pos)
-                        shade = DotProduct(lightDir, TriGetNormal(tri))
+                        shade = DotProduct(lightDir, normal)
                         if shade < 0:
                             testRay = Ray(pos, l.position)
 
                             # Checking for shadows
-                            for th in shadowcasters:
+                            for th in shadow_casters:
                                 inters = RayIntersectThingComplex(testRay, th)
                                 if inters[0]:
                                     # Making sure it's not this triangle by comparing world position
@@ -2807,23 +2925,37 @@ def ExpensiveLighting(tri, shadowcasters=GatherThings(), lights=lights):
                                 d = (dist / l.radius)
                                 intensity += (1 - (d * d)) * l.strength
                                 colour = VectorAdd(colour, VectorMulF(l.colour, intensity))
+                                num += 1
                 # LIGHT_SUN
                 case 1:
-                    if (shade := DotProduct(l.rotation, TriGetNormal(tri))) > 0:
-                        testRay = Ray(pos, VectorAdd(pos, VectorMulF(VectorNegate(l.rotation), 25)))
+                    if (shade := DotProduct(l.direction, normal)) > 0:
+                        testRay = Ray(pos, VectorAdd(pos, VectorMulF(VectorNegate(l.direction), 25)))
                         rays.append(testRay)
-                        for th in shadowcasters:
+                        for th in shadow_casters:
                             intersection = RayIntersectThingComplex(testRay, th)
                             if intersection[0]:
                                 if not VectorEqual(intersection[4], pos):
                                     break
                         else:
                             shading += shade
+                            num += 1
+                
+                # LIGHT_SPOT
+                case 2:
+                    if ShortestPointToPlane(pos, l.direction, l.position) > 0:
+                        if (shade := DotProduct(l.rotation, normal)) > 0:
+                            for th in shadow_casters:
+                                intersection = RayIntersectThingComplex(testRay, th)
+                                if intersection[0]:
+                                    if not VectorEqual(intersection[4], pos):
+                                        break
+                            else:
+                                shading += shade
+                                intensity += (1 - (d * d)) * l.strength
+                                colour = VectorAdd(colour, VectorMulF(l.colour, intensity))
+                                num += 1
 
-                    
-
-
-    colour = VectorDivF(colour, len(lights))
+    colour = VectorDivF(colour, max(num, 1))
     return VectorMax(VectorMinF(VectorMulF(colour, shading), 1.0), worldColour)
 
 
@@ -2850,15 +2982,15 @@ for tri in RenderThings([myThing, myOtherThing]):
 
 # Baked Lighting:
 # Do the FlatLighting(), and bake it to the triangle's shade variable
-def BakeLighting(things, expensive=False, lights=lights, shadowcasters=-1):
+def BakeLighting(things, expensive=False, lights=lights, shadow_casters=-1):
     print("Baking Lighting...")
-    if shadowcasters == -1:
-        shadowcasters = things
+    if shadow_casters == -1:
+        shadow_casters = things
     for th in things:
         for m in th.meshes:
             for t in m.tris:
                 if expensive:
-                    calc = ExpensiveLighting(TranslateTri(TransformTri(t, VectorAdd(m.rotation, th.rotation)), VectorAdd(m.position, th.position)), shadowcasters, lights)
+                    calc = ExpensiveLighting(TranslateTri(TransformTri(t, VectorAdd(m.rotation, th.rotation)), VectorAdd(m.position, th.position)), shadow_casters, lights)
                 else:
                     calc = CheapLighting(TranslateTri(TransformTri(t, VectorAdd(m.rotation, th.rotation)), VectorAdd(m.position, th.position)), lights)
                 t[3] = tuple(calc)
@@ -3012,13 +3144,13 @@ def TriToTexels(tri, draw=TemplateTexelDraw):
     diffX = list[2][0] - list[0][0]
 
     if diffX:
-        slope = (list[2][1] + -list[0][1]) / diffX
+        slope = (list[2][1] - list[0][1]) / diffX
 
-        diff = list[1][0] + -list[0][0]
+        diff = list[1][0] - list[0][0]
 
         if diff:
 
-            diffY = list[1][1] + -list[0][1]
+            diffY = list[1][1] - list[0][1]
             diff3 = diffY / diff
 
             diffF = floor(diff) + 1
@@ -3070,9 +3202,8 @@ def TriToTexelsPt2(list, fSlope, diff, diffX, draw):
                         UVs = UVCalcPt1(list[0][4], list[1][4], list[2][4], x / diffF, (x + diff) / diffX, False)
 
                         for y in range(max(ranges[0], 0), min(ranges[1] + sgn, screenSize[1]), sgn):
-                            if y < screenSize[1]:
-                                fUVs = UVCalcPt2((y - ranges[0]) / rangd, UVs[0], UVs[1], UVs[2], UVs[3])  
-                                draw(fX, y, fUVs[0], fUVs[1])
+                            fUVs = UVCalcPt2((y - ranges[0]) / rangd, UVs[0], UVs[1], UVs[2], UVs[3])  
+                            draw(fX, y, fUVs[0], fUVs[1])
 
 # UVCalcPt1()
 # Fx is normalized X from either P1 - P2 or P2 - P3 depending on stage
@@ -3134,24 +3265,38 @@ def ProjectTri(t):
 # It's still gotta divide by Z to get perspective, without is orthographic.
 
 # The current settings are FOV of 90, and aspect ratio of 16:9.
-# To recalculate, use FindHowVars(fFov, *aspectRatio).
-# FindHowVars(90, 9/16)
+# To recalculate, use SetFOV(f_fov) or SetAspectRatio(f_aspect_ratio).
 
 
 howX = 0.56249968159
 howY = 1.0
 
-# Optional aspect ratio argument: put height over width as a fraction, so
-# 16:9 is 9/16, 4:3 is 3/4, and so on.
-# It also accepts raw resolution for unusual aspect ratios
-def FindHowVars(fFov, asp=9/16):
+fov = 90
+aspectRatio = 9/16
+
+
+def SetFOV(f_fov):
     global howX
     global howY
-    found = CalculateCam(fFov, 500, asp)
+    global fov
+    found = CalculateCam(f_fov, 500, aspectRatio)
     howX = found[0]
     howY = found[1]
+    fov = f_fov
 
-def SetHowVars(x, y):
+# Aspect Ratio: put height over width as a fraction, so
+# 16:9 is 9/16, 4:3 is 3/4, and so on.
+# It also accepts raw resolution for unusual aspect ratios
+def SetAspectRatio(f_aspect_ratio):
+    global howX
+    global howY
+    global aspectRatio
+    found = CalculateCam(fov, 500, f_aspect_ratio)
+    howX = found[0]
+    howY = found[1]
+    aspectRatio = f_aspect_ratio
+
+def SetCameraConstants(x, y):
     global howX
     global howY
     howX = x
@@ -3187,8 +3332,6 @@ calc = True
 # It's a bit like gradient descent but I was hoping the randomness would help it
 # avoid false peaks.
 #
-#
-# I've had success replacing the projection
 
 def CalculateCam(foV, farClip, aspectRatio):
     print("Calculating Camera Constants")
@@ -3230,7 +3373,7 @@ def CalculateCam(foV, farClip, aspectRatio):
                 finished.append(bestM)
             guessM = bestM + ((rand() - 0.5) * srchRad)
     print("Done!")
-    print("z3dpy.SetHowVars(" + str(finished[0]) + ", " + str(finished[1]) + ")")
+    print("z3dpy.SetCameraConstants(" + str(finished[0]) + ", " + str(finished[1]) + ")")
     return finished
 
 
@@ -3278,7 +3421,7 @@ while True:
 
     z3dpy.HandleEmitters([myEmitter])
 
-    # Emitters is an argument in RasterThings()
+    # Emitters is an argument in RenderThings()
     for tri in z3dpy.RenderThings([myThing, thatTree], [myEmitter])
 
 '''
@@ -3311,15 +3454,14 @@ def HandleEmitters(emitters=emitters):
 # WhatIs() will take a list and figure out what object it is
 
 def WhatIs(list_object):
-
     if type(list_object) is not list:
-        return list_object
+        return type(list_object).__name__
 
     match len(list_object):
         case 2:
             return "Vector2"
         case 3:
-            if type(list_object[0]) is list:
+            if type(list_object[1]) is list:
                 return "Particle"
             return "Vector"
         case 4:
@@ -3328,7 +3470,7 @@ def WhatIs(list_object):
             return "Vector4"
         case 5:
             return "VectorUV"
-        case 9:
+        case 7:
             return "Triangle"
                     
 def RGBToHex(vColour):
@@ -3396,35 +3538,40 @@ else:
         PointAtMatrix = z3dpyfast.MatrixMakePointAt
         #TriToLines = z3dpyfast.TriToLines
         
-        # The screen-related functions are grouped under a screen object.
-        
-        
         print("z3dpyfast loaded.")
-    # Shh
+    # Not yet
     '''
     class Z3dPyScreen():
         def __init__(self):
-            return
+            # [&hWnd, &Factory, &wcex, &RenderTarget]
+            self.data = [0, 0, 0, 0]
 
-        def Init(self, width, height): z3dpyfast.InitScreen(width, height)
+        def Init(self, width, height):
+            self.data = z3dpyfast.NewWindow(width, height, self.data)
                     
-        def SetBackgroundColour(self, vColour): z3dpyfast.SetBackgroundColour(vColour)
+        #def SetBackgroundColour(self, vColour): z3dpyfast.SetBackgroundColour(vColour)
 
-        def Clear(): z3dpyfast.ClearScreen()
+        def Clear(self): z3dpyfast.ClearScreen(self.data)
                     
-        def Draw(tri): z3dpyfast.DrawTri(tri)
+        #def Draw(self, tri): z3dpyfast.DrawTri(tri)
                     
-        def Update(): z3dpyfast.UpdateScreen()
+        #def Update(self): z3dpyfast.UpdateScreen()
                     
-        def Release(): z3dpyfast.Quit()
+        def Release(self): z3dpyfast.DestroyWindow(self.data)
     
     screen = Z3dPyScreen()
     '''
-
 def fast():
     Fast()
 
 ## Deprecated
+    
+def SetHowVars(x, y):
+    SetCameraConstants(x, y)
+
+def FindHowVars(f_fov, f_aspect_ratio):
+    fov = f_fov
+    SetAspectRatio(f_aspect_ratio)
 
 def RotTo(vRot, VTarget):
     return VectorRotate(VTarget, vRot)
